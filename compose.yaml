@@ -1,0 +1,38 @@
+name: wonglao-bill
+services:
+  database:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: wonglao_bill
+      MYSQL_USER: bill
+      MYSQL_PASSWORD: ${BILL_DB_PASSWORD:?Set BILL_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${BILL_DB_ROOT_PASSWORD:?Set BILL_DB_ROOT_PASSWORD}
+    ports:
+      - "127.0.0.1:3307:3306"
+    volumes:
+      - bill_database:/var/lib/mysql
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "MYSQL_PWD=$$MYSQL_PASSWORD mysql --protocol=TCP -h 127.0.0.1 -u bill wonglao_bill -e 'SELECT 1' >/dev/null 2>&1",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+  app:
+    profiles: [production]
+    image: ${BILL_IMAGE:-sandboxcomet/wonglao-bill}:latest
+    env_file: .env
+    environment:
+      DATABASE_URL: mysql://bill:${BILL_DB_PASSWORD:?Set BILL_DB_PASSWORD}@database:3306/wonglao_bill
+      PORT: 3000
+    ports:
+      - "127.0.0.1:3002:3000"
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: unless-stopped
+volumes:
+  bill_database:

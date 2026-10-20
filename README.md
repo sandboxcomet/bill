@@ -1,0 +1,73 @@
+# WongLao Bill
+
+เว็บแบ่งบิลสำหรับ `bill.wonglao.com` เป็น Git repository และฐานข้อมูลแยกจาก WongLao เดิม ไม่มีการอ้างอิงไฟล์ workspace เดิม ไม่มีเกม ทริป หรือ LINE bot และไม่ได้ย้ายบัญชีหรือบิลเก่ามาอัตโนมัติ
+
+## ใช้งานในเครื่อง
+
+ใช้ Node.js 24 (`.nvmrc`) และ Docker Desktop:
+
+```sh
+npm ci
+# สำหรับ checkout ใหม่เท่านั้น: เตรียม .env จาก .env.example และกำหนด secret/password ใหม่
+# .env ในเครื่องที่สร้างงานนี้มีค่า local พร้อมแล้ว ไม่ต้องเขียนทับ
+npm run db:generate
+docker compose up -d --wait database
+npm run db:deploy
+npm run dev
+```
+
+เปิด <http://localhost:3002> หรือลองคำนวณที่ <http://localhost:3002/demo> หน้า demo เป็นข้อมูลตัวอย่างและไม่บันทึกลงฐานข้อมูล
+
+ฐานข้อมูล local: MySQL `wonglao_bill` พอร์ต `127.0.0.1:3307`, container `wonglao-bill-database-1`, volume `wonglao-bill_bill_database` รหัสผ่านอยู่ใน `.env` ที่ไม่เข้า Git และใช้แยกจากระบบเดิม
+
+การสร้างบิลก่อนล็อกอินจะเก็บร่างใน localStorage ของเบราว์เซอร์เครื่องนั้น เข้าสู่ระบบเมื่อต้องการบันทึกขึ้นเซิร์ฟเวอร์หรือแชร์ ผู้ร่วมบิลเปิดลิงก์และส่งสลิปได้โดยไม่ต้องสร้างบัญชี
+
+## ฟีเจอร์
+
+- เพิ่มผู้ร่วมบิล เลือกหารทุกคน เลือกรายคน หรือแบ่งตามสัดส่วน
+- ส่วนลดรายรายการ, Service charge, VAT แบบเปอร์เซ็นต์หรือจำนวนเงิน และเลือกคิด VAT รวม Service charge
+- สรุปยอดรายคนขณะกรอก ใช้ Decimal และคำนวณซ้ำที่เซิร์ฟเวอร์
+- ร่างที่บันทึกแล้ว, ลิงก์แชร์แบบสาธารณะหรือ PIN 4–6 หลัก, QR PromptPay รายคน
+- แนบสลิป, ตรวจผู้รับ/ยอด/วัน/สลิปซ้ำ, รอเจ้าของตรวจเมื่อยืนยันอัตโนมัติไม่ได้
+- เจ้าของยืนยันหรือย้อนยอดได้พร้อมเหตุผล โดยคงหลักฐานและ audit ไว้
+- ป้องกันการบันทึกทับข้ามหน้าต่างด้วย version และล็อกการแก้รายการเมื่อมีหลักฐานชำระ
+- UI ไทยสำหรับมือถือและ desktop พร้อมการพิมพ์บิล
+
+## เข้าสู่ระบบ
+
+กำหนด Google หรือ LINE OAuth ใน `.env` อย่างน้อยหนึ่ง provider ปุ่ม provider จะปรากฏเมื่อมีทั้ง ID และ secret ไม่มีช่องทาง guest login สำหรับสร้างบัญชีถาวร
+
+| Environment | Google callback | LINE callback |
+| --- | --- | --- |
+| Local | `http://localhost:3002/api/auth/callback/google` | `http://localhost:3002/api/auth/callback/line` |
+| Production | `https://bill.wonglao.com/api/auth/callback/google` | `https://bill.wonglao.com/api/auth/callback/line` |
+
+ตั้ง `AUTH_URL=https://bill.wonglao.com` ใน production พร้อม `AUTH_SECRET` และ `PAYMENT_LINK_SECRET` ที่สุ่มใหม่ แอปใช้ session cookie ชื่อเฉพาะและ host-only จึงไม่ใช้ session ของ WongLao เดิม
+
+การตรวจสลิปต้องตั้ง `EASY_SLIP_KEY` และ R2 ตาม `.env.example` ใช้ bucket แบบ private แยกจากระบบเดิม รูปอ่านผ่าน API ที่ตรวจสิทธิ์เท่านั้น ก่อนตั้งค่าบริการเหล่านี้ QR/การแบ่งบิลยังใช้งานได้ แต่แนบสลิปจะรายงานว่าบริการยังไม่พร้อม
+
+## ตรวจโค้ด
+
+```sh
+npm run typecheck
+npm run lint
+npm run build
+```
+
+อ่านผลตรวจและข้อจำกัดใน [docs/validation.md](docs/validation.md) ไม่มีไฟล์ทดสอบถาวรใน repo นี้ตามนโยบาย cleanup ของผู้ใช้
+
+## Deploy ไป bill.wonglao.com
+
+ยังไม่ได้ deploy หรือสร้าง remote repository: ต้องกำหนดโฮสต์ปลายทาง, DNS, OAuth credentials และสิทธิ์ registry/GitHub ก่อน
+
+1. สร้าง remote repository แยกแล้ว push source นี้ เลือกโฮสต์และชี้ DNS `bill.wonglao.com` ไปที่โฮสต์นั้น
+2. เตรียม `.env` production แบบ untracked ใน checkout ใหม่ ใช้ฐาน `wonglao_bill` ของโปรเจกต์นี้เท่านั้น ตั้ง `AUTH_URL` และ callback ตามด้านบน รหัส DB ต้องเป็นตัวอักษร/ตัวเลขหรือ hex เพื่อประกอบเป็น URL ได้ตรงกัน
+3. Publish image ด้วย `bash tool/publish-image.sh <image-repository>` สคริปต์จะสำรอง image เดิมด้วย tag ไม่ซ้ำและ push backup ก่อนอัปเดต `:latest` หากมี deployment เดิมต่างจาก registry ให้กำหนด `PREVIOUS_IMAGE` เป็น digest ที่รันจริง
+4. การ publish ครั้งแรกต้องตรวจยืนยันว่าไม่มี image/deployment เก่า ก่อนกำหนด `CONFIRMED_NO_PREVIOUS_IMAGE=1` ไม่ใช้ flag นี้ข้ามข้อผิดพลาดเรื่องสิทธิ์หรือ network
+5. ตั้ง `BILL_IMAGE` ใน `.env` ให้ตรง repository แล้วรัน `bash tool/deploy.sh` สำหรับ initial deployment สคริปต์ refresh `latest`, รัน migration, เปิดบริการที่พอร์ต local `3002` และเทียบ image ID ของ container จริง
+6. ติดตั้ง reverse proxy/HTTPS ผ่านกระบวนการปกติของเซิร์ฟเวอร์ ตัวอย่างใน [docs/nginx.conf](docs/nginx.conf) รองรับไฟล์สลิป 4 MB
+7. ตรวจ `https://bill.wonglao.com/api/health`, OAuth login, บันทึก/แชร์บิล, ส่งและตรวจสลิปด้วยบัญชีทดสอบของสภาพแวดล้อมนั้น
+
+หากอัปเดต checkout บน VM ให้ตรวจ branch/upstream และ local changes, fetch และตรวจ incoming changes ก่อน `git pull --ff-only` ห้ามแก้ไฟล์ Git-tracked บน VM โดยตรง ไฟล์ที่จะถูกลบ, การแทนที่ container เดิม, การล้าง volume/image หรือ backup ต้องขออนุมัติตามนโยบายผู้ใช้ก่อน สคริปต์ deploy จะหยุดถ้ามี app container เดิมโดยไม่มีการอนุมัติระบุ ID ให้ตรงกัน
+
+สคริปต์ migration เก็บ container ที่จบแล้วไว้เพื่อรักษานโยบายไม่ลบอัตโนมัติ ไม่มีคำสั่ง prune/clean/remove ในขั้นตอนนี้ เก็บ image และ volume สำหรับ rollback จนกว่าจะได้รับอนุมัติให้ลบ

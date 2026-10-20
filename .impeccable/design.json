@@ -1,0 +1,347 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-20T14:50:03.434671+00:00",
+  "title": "Design System: WongLao Bill",
+  "extensions": {
+    "colorMeta": {
+      "canvas": {
+        "role": "neutral",
+        "displayName": "Table Canvas",
+        "tonalRamp": [
+          "oklch(15% 0.0025 165.08)",
+          "oklch(26% 0.0025 165.08)",
+          "oklch(38% 0.0025 165.08)",
+          "oklch(49% 0.0025 165.08)",
+          "oklch(61% 0.0025 165.08)",
+          "oklch(72% 0.0025 165.08)",
+          "oklch(84% 0.0025 165.08)",
+          "oklch(95% 0.0025 165.08)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Receipt Paper",
+        "tonalRamp": [
+          "oklch(15% 0.0000 89.88)",
+          "oklch(26% 0.0000 89.88)",
+          "oklch(38% 0.0000 89.88)",
+          "oklch(49% 0.0000 89.88)",
+          "oklch(61% 0.0000 89.88)",
+          "oklch(72% 0.0000 89.88)",
+          "oklch(84% 0.0000 89.88)",
+          "oklch(95% 0.0000 89.88)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ledger Ink",
+        "tonalRamp": [
+          "oklch(15% 0.0277 176.57)",
+          "oklch(26% 0.0277 176.57)",
+          "oklch(38% 0.0277 176.57)",
+          "oklch(49% 0.0277 176.57)",
+          "oklch(61% 0.0277 176.57)",
+          "oklch(72% 0.0277 176.57)",
+          "oklch(84% 0.0277 176.57)",
+          "oklch(95% 0.0277 176.57)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Supporting Sage",
+        "tonalRamp": [
+          "oklch(15% 0.0220 167.31)",
+          "oklch(26% 0.0220 167.31)",
+          "oklch(38% 0.0220 167.31)",
+          "oklch(49% 0.0220 167.31)",
+          "oklch(61% 0.0220 167.31)",
+          "oklch(72% 0.0220 167.31)",
+          "oklch(84% 0.0220 167.31)",
+          "oklch(95% 0.0220 167.31)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Ledger Rule",
+        "tonalRamp": [
+          "oklch(15% 0.0100 155.08)",
+          "oklch(26% 0.0100 155.08)",
+          "oklch(38% 0.0100 155.08)",
+          "oklch(49% 0.0100 155.08)",
+          "oklch(61% 0.0100 155.08)",
+          "oklch(72% 0.0100 155.08)",
+          "oklch(84% 0.0100 155.08)",
+          "oklch(95% 0.0100 155.08)"
+        ]
+      },
+      "green": {
+        "role": "primary",
+        "displayName": "Meal Green",
+        "tonalRamp": [
+          "oklch(15% 0.0855 163.39)",
+          "oklch(26% 0.0855 163.39)",
+          "oklch(38% 0.0855 163.39)",
+          "oklch(49% 0.0855 163.39)",
+          "oklch(61% 0.0855 163.39)",
+          "oklch(72% 0.0855 163.39)",
+          "oklch(84% 0.0855 163.39)",
+          "oklch(95% 0.0855 163.39)"
+        ]
+      },
+      "green-dark": {
+        "role": "primary",
+        "displayName": "Deep Meal Green",
+        "tonalRamp": [
+          "oklch(15% 0.0706 163.55)",
+          "oklch(26% 0.0706 163.55)",
+          "oklch(38% 0.0706 163.55)",
+          "oklch(49% 0.0706 163.55)",
+          "oklch(61% 0.0706 163.55)",
+          "oklch(72% 0.0706 163.55)",
+          "oklch(84% 0.0706 163.55)",
+          "oklch(95% 0.0706 163.55)"
+        ]
+      },
+      "green-soft": {
+        "role": "primary",
+        "displayName": "Selected Leaf",
+        "tonalRamp": [
+          "oklch(15% 0.0124 157.00)",
+          "oklch(26% 0.0124 157.00)",
+          "oklch(38% 0.0124 157.00)",
+          "oklch(49% 0.0124 157.00)",
+          "oklch(61% 0.0124 157.00)",
+          "oklch(72% 0.0124 157.00)",
+          "oklch(84% 0.0124 157.00)",
+          "oklch(95% 0.0124 157.00)"
+        ]
+      },
+      "danger": {
+        "role": "semantic",
+        "displayName": "Danger",
+        "tonalRamp": [
+          "oklch(15% 0.1547 21.52)",
+          "oklch(26% 0.1547 21.52)",
+          "oklch(38% 0.1547 21.52)",
+          "oklch(49% 0.1547 21.52)",
+          "oklch(61% 0.1547 21.52)",
+          "oklch(72% 0.1547 21.52)",
+          "oklch(84% 0.1547 21.52)",
+          "oklch(95% 0.1547 21.52)"
+        ]
+      },
+      "warning": {
+        "role": "semantic",
+        "displayName": "Warning",
+        "tonalRamp": [
+          "oklch(15% 0.0995 68.83)",
+          "oklch(26% 0.0995 68.83)",
+          "oklch(38% 0.0995 68.83)",
+          "oklch(49% 0.0995 68.83)",
+          "oklch(61% 0.0995 68.83)",
+          "oklch(72% 0.0995 68.83)",
+          "oklch(84% 0.0995 68.83)",
+          "oklch(95% 0.0995 68.83)"
+        ]
+      },
+      "focus": {
+        "role": "semantic",
+        "displayName": "Focus Green",
+        "tonalRamp": [
+          "oklch(15% 0.1067 161.95)",
+          "oklch(26% 0.1067 161.95)",
+          "oklch(38% 0.1067 161.95)",
+          "oklch(49% 0.1067 161.95)",
+          "oklch(61% 0.1067 161.95)",
+          "oklch(72% 0.1067 161.95)",
+          "oklch(84% 0.1067 161.95)",
+          "oklch(95% 0.1067 161.95)"
+        ]
+      },
+      "field-border": {
+        "role": "neutral",
+        "displayName": "Field Rule",
+        "tonalRamp": [
+          "oklch(15% 0.0153 158.20)",
+          "oklch(26% 0.0153 158.20)",
+          "oklch(38% 0.0153 158.20)",
+          "oklch(49% 0.0153 158.20)",
+          "oklch(61% 0.0153 158.20)",
+          "oklch(72% 0.0153 158.20)",
+          "oklch(84% 0.0153 158.20)",
+          "oklch(95% 0.0153 158.20)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Dashboard statement."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Page headings."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Section hierarchy."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Interface reading and controls."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Field labels and supporting text."
+      },
+      "amount": {
+        "displayName": "Amount",
+        "purpose": "Running receipt total."
+      }
+    },
+    "shadows": [
+      {
+        "name": "illustrative-paper",
+        "value": "0 12px 28px #163a2220",
+        "purpose": "Dashboard example receipt only."
+      }
+    ],
+    "motion": [
+      {
+        "name": "control-transition",
+        "value": "0.15s",
+        "purpose": "Background, color and press feedback."
+      },
+      {
+        "name": "receipt-settle",
+        "value": "0.65s cubic-bezier(0.16, 1, 0.3, 1)",
+        "purpose": "Single illustrative receipt entrance; disabled with reduced motion."
+      },
+      {
+        "name": "loading-spin",
+        "value": "0.8s linear infinite",
+        "purpose": "Loading outline only; disabled with reduced motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "wide-intro",
+        "value": "1400px"
+      },
+      {
+        "name": "compact-desktop",
+        "value": "1000px"
+      },
+      {
+        "name": "stacked-editor",
+        "value": "760px"
+      },
+      {
+        "name": "phone",
+        "value": "520px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Commit the principal action.",
+      "html": "<button class=\"ds-primary\">สร้างบิลใหม่</button>",
+      "css": ".ds-primary{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:11px 20px;border:1px solid transparent;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,color .15s,transform .15s;background:var(--green,#176246);color:var(--paper,#fff)}.ds-primary:hover{background:var(--green-dark,#104b35)}.ds-primary:active{transform:translateY(1px)}.ds-primary:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "An outlined alternative action.",
+      "html": "<button class=\"ds-secondary\">บันทึกฉบับร่าง</button>",
+      "css": ".ds-secondary{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:11px 20px;border:1px solid transparent;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,color .15s,transform .15s;background:var(--paper,#fff);color:var(--ink,#192d28);border-color:#cdd8d0}.ds-secondary:hover{background:#f0f5f1;border-color:#9eb6a7}.ds-secondary:active{transform:translateY(1px)}.ds-secondary:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A labeled Thai-first entry field.",
+      "html": "<label class=\"ds-field\"><span>ชื่อมื้อ</span><input placeholder=\"มื้อเย็นกับเพื่อน\"></label>",
+      "css": ".ds-field{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--muted,#62726b)}.ds-field input{font-family:Manrope,\"Noto Sans Thai\",sans-serif;min-height:44px;padding:10px 12px;border:1px solid var(--field-border,#cad5ce);border-radius:8px;color:var(--ink,#192d28);background:var(--paper,#fff);transition:border-color .15s}.ds-field input::placeholder{color:var(--muted,#62726b)}.ds-field input:focus{outline:2px solid var(--focus,#429d75);outline-offset:1px}"
+    },
+    {
+      "name": "Header Navigation",
+      "kind": "nav",
+      "description": "Muted links with a green active underline.",
+      "html": "<nav class=\"ds-nav\" aria-label=\"เมนูหลัก\"><a href=\"#\" aria-current=\"page\">บิลของฉัน</a><a href=\"#\">บัญชีรับเงิน</a></nav>",
+      "css": ".ds-nav{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:flex;gap:28px;min-height:60px;background:var(--paper,#fff)}.ds-nav a{display:flex;align-items:center;font-size:13px;font-weight:600;color:var(--muted,#62726b);text-decoration:none;border-bottom:2px solid transparent}.ds-nav a[aria-current]{color:var(--green,#176246);border-bottom-color:var(--green,#176246)}.ds-nav a:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
+    },
+    {
+      "name": "Participant Chip",
+      "kind": "chip",
+      "refersTo": "person-chip",
+      "description": "A named participant with an initial avatar and removal action.",
+      "html": "<span class=\"ds-person\"><span class=\"ds-avatar\">เ</span>เมย์<button aria-label=\"นำเมย์ออก\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"><path d=\"m6 6 12 12M6 18 18 6\"/></svg></button></span>",
+      "css": ".ds-person{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line,#dee5e0);border-radius:30px;padding:5px 8px 5px 5px;font-size:12px;color:var(--ink,#192d28)}.ds-avatar{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#e3ecdf;color:#3a5a2d;font-size:11px;font-weight:600}.ds-person button{display:inline-grid;place-items:center;border:0;background:none;min-width:28px;min-height:28px;color:var(--muted,#62726b);cursor:pointer}.ds-person button:hover{color:var(--danger,#a52e36)}.ds-person button:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
+    },
+    {
+      "name": "Ledger Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat white working container with a fine boundary.",
+      "html": "<section class=\"ds-panel\"><h2>ใครอยู่ในโต๊ะบ้าง</h2><p>เพิ่มทุกคนที่ร่วมมื้อนี้</p></section>",
+      "css": ".ds-panel{font-family:Manrope,\"Noto Sans Thai\",sans-serif;background:var(--paper,#fff);color:var(--ink,#192d28);border:1px solid var(--line,#dee5e0);border-radius:14px;padding:25px}.ds-panel h2{margin:0 0 12px;font-size:16px;font-weight:700;line-height:1.45;letter-spacing:-.025em}.ds-panel p{margin:0;color:var(--muted,#62726b);font-size:12px;line-height:1.65}"
+    },
+    {
+      "name": "Running Receipt Total",
+      "kind": "custom",
+      "description": "The pale-green total band anchors the running summary.",
+      "html": "<section class=\"ds-total\"><span>ยอดรวมทั้งบิล</span><strong>฿ 720.00</strong><p>2 รายการ · 3 คน</p></section>",
+      "css": ".ds-total{font-family:Manrope,\"Noto Sans Thai\",sans-serif;background:#eaf2ec;padding:22px 23px;color:#466650}.ds-total span{font-size:12px}.ds-total strong{display:block;font-size:36px;font-weight:700;line-height:1.5;letter-spacing:-.04em;color:var(--green-dark,#104b35);font-variant-numeric:tabular-nums}.ds-total p{font-size:11px;margin:0}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Shared-Meal Ledger",
+    "overview": "Light paper surfaces, deep green actions and a continuous receipt make item assignment and payment amounts easy to scan at a shared table. The visual identity is practical and calm: participants stay next to the items they consume, while totals receive stronger size and contrast than supporting explanations.\n\nThis records the implemented recommendation in the standalone bill project. The direction is open to further user feedback; no user-provided visual reference or approved generated comp establishes formal visual approval. The durable language is Thai-first, with Latin and numeric text handled by Manrope. Page strategy and the first-viewport contract remain in `docs/surface-brief.md`.",
+    "keyCharacteristics": [
+      "White ledger panels on a light gray-green canvas.",
+      "Deep green actions, selected states and prominent totals.",
+      "Compact item rows, attached participant controls and right-aligned amounts.",
+      "Restrained participant colors and consistent stroke SVG icons.",
+      "Flat working surfaces with dashed receipt separators."
+    ],
+    "rules": [
+      {
+        "name": "The Action Green Rule",
+        "body": "Use the green family for actionable or financial emphasis; keep ordinary reading surfaces neutral.",
+        "section": "colors"
+      },
+      {
+        "name": "The Decimal Alignment Rule",
+        "body": "Use tabular numerals for financial values and right-align values in comparison rows. Keep currency and amount together where space permits.",
+        "section": "typography"
+      },
+      {
+        "name": "The Attached Assignment Rule",
+        "body": "Preserve each item's fields and consumer selection as one visual group when stacking or wrapping the layout.",
+        "section": "layout"
+      },
+      {
+        "name": "The Flat Ledger Rule",
+        "body": "Use borders and tonal surfaces for working containers. Reserve lifted paper depth for the illustrative receipt.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "**Do** keep amounts tabular and right-aligned in ledger rows.",
+      "**Do** keep participant selection visually attached to its item when layouts stack.",
+      "**Do** use Thai-first labels and the established mixed-script font stack.",
+      "**Do** preserve visible keyboard focus and reduced-motion behavior.",
+      "**Do** label illustrative receipt data as example data."
+    ],
+    "donts": [
+      "**Don't** spread the illustrative receipt's rotation and shadow onto working panels.",
+      "**Don't** use color alone to communicate payment or validation state.",
+      "**Don't** replace authored stroke SVG icons with text glyphs.",
+      "**Don't** add game, XP or celebratory visual treatments to this bill-only interface."
+    ]
+  }
+}
