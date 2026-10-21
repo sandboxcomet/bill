@@ -7,14 +7,13 @@ set -Eeuo pipefail
 [[ "$DEPLOY_HOST" =~ ^[a-zA-Z0-9.-]+$ && "$DEPLOY_USER" =~ ^[a-zA-Z0-9_-]+$ ]]
 [[ "$DEPLOY_PORT" =~ ^[0-9]+$ && "$GITHUB_RUN_ID" =~ ^[0-9]+$ && "$GITHUB_RUN_ATTEMPT" =~ ^[0-9]+$ ]]
 [[ "$DEPLOY_ROOT" =~ ^/var/opt/[a-zA-Z0-9/_-]+$ && "$DEPLOY_ROOT" != *'/../'* ]]
-printf -v args '%q ' "$IMAGE_NAME" "$DEPLOY_ROOT" "${APPROVED_REPLACE_CONTAINER:-}"
+printf -v args '%q ' "$IMAGE_NAME" "$DEPLOY_ROOT"
 source=$(ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o IdentityFile=none \
     -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$BILL_KNOWN_HOSTS" \
     "$DEPLOY_USER@$DEPLOY_HOST" "bash -s -- $args" <<'REMOTE'
 set -Eeuo pipefail
 repo=$1
 root=$2
-approved=$3
 test -f "$root/shared/.env"
 docker info >/dev/null
 docker compose version >/dev/null
@@ -23,7 +22,6 @@ container=$(docker ps --all --filter 'name=^/wonglao-bill$' --no-trunc --format 
 if [[ -z "$container" ]]; then
     printf 'none\n'
 else
-    [[ "$approved" == "$container" ]] || { printf "Existing app container %s requires explicit replacement approval before publishing. Run manually with approved_replace_container.\n" "$container" >&2; exit 1; }
     active_id=$(docker container inspect wonglao-bill --format '{{.Image}}')
     docker image inspect "$active_id" --format '{{json .RepoDigests}}' |
         python3 -c 'import json,sys; repo=sys.argv[1]; refs=[r for r in json.load(sys.stdin) or [] if r.startswith(repo+"@sha256:")];

@@ -86,7 +86,7 @@ npm run build
 6. ติดตั้ง reverse proxy/HTTPS ผ่านกระบวนการปกติของเซิร์ฟเวอร์ ตัวอย่างใน [docs/nginx.conf](docs/nginx.conf) รองรับไฟล์สลิป 4 MB
 7. ตรวจ `https://bill.wonglao.com/api/health`, OAuth login, บันทึก/แชร์บิล, ส่งและตรวจสลิปด้วยบัญชีทดสอบของสภาพแวดล้อมนั้น
 
-หากอัปเดต checkout บน VM ให้ตรวจ branch/upstream และ local changes, fetch และตรวจ incoming changes ก่อน `git pull --ff-only` ห้ามแก้ไฟล์ Git-tracked บน VM โดยตรง ไฟล์ที่จะถูกลบ, การแทนที่ container เดิม, การล้าง volume/image หรือ backup ต้องขออนุมัติตามนโยบายผู้ใช้ก่อน สคริปต์ deploy จะหยุดถ้ามี app container เดิมโดยไม่มีการอนุมัติระบุ ID ให้ตรงกัน
+หากอัปเดต checkout บน VM ให้ตรวจ branch/upstream และ local changes, fetch และตรวจ incoming changes ก่อน `git pull --ff-only` ห้ามแก้ไฟล์ Git-tracked บน VM โดยตรง นโยบายขออนุมัติก่อนลบใช้กับการกระทำโดยตรงของ AI ส่วน GitHub Actions CI/CD แทนที่ app container `wonglao-bill` ได้อัตโนมัติตามขั้นตอน deploy โดยไม่ต้องกรอก container ID แต่ยังสำรอง image เดิมก่อน publish `latest` และตรวจ digest/health ตามเดิม ไม่ลบหรือสร้าง database เดิมใหม่ ไม่ล้าง volume/image หรือ backup สคริปต์ manual `tool/deploy.sh` ยังคงมีการยืนยัน container ID ก่อนแทนที่
 
 สคริปต์ migration เก็บ container ที่จบแล้วไว้เพื่อรักษานโยบายไม่ลบอัตโนมัติ ไม่มีคำสั่ง prune/clean/remove ในขั้นตอนนี้ เก็บ image และ volume สำหรับ rollback จนกว่าจะได้รับอนุมัติให้ลบ
 

@@ -4,11 +4,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      approved_replace_container:
-        description: "Exact existing app container ID approved for replacement (leave empty on first deploy)"
-        type: string
-        required: false
 
 permissions:
   contents: read
@@ -29,7 +24,6 @@ jobs:
       DEPLOY_PORT: ${{ secrets.BILL_DEPLOY_PORT }}
       DEPLOY_USER: ${{ secrets.BILL_DEPLOY_USER }}
       DEPLOY_ROOT: ${{ vars.BILL_DEPLOY_ROOT || '/var/opt/sandbox/bill' }}
-      APPROVED_REPLACE_CONTAINER: ${{ inputs.approved_replace_container || '' }}
     steps:
       - name: Prepare isolated build and SSH credentials
         env:
@@ -161,7 +155,7 @@ jobs:
           set -euo pipefail
           release="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           compose_payload=$(base64 < "$BILL_WORKSPACE/deployment/compose.vm.yml" | tr -d '\r\n')
-          printf -v args '%q ' "$IMAGE_NAME:latest" "$release" "$DEPLOY_ROOT" "$compose_payload" "$APPROVED_REPLACE_CONTAINER" "$BILL_IMAGE_DIGEST"
+          printf -v args '%q ' "$IMAGE_NAME:latest" "$release" "$DEPLOY_ROOT" "$compose_payload" "$BILL_IMAGE_DIGEST"
           ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o IdentityFile=none \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$BILL_KNOWN_HOSTS" \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \

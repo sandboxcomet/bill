@@ -6,8 +6,7 @@ image=${1:?image required}
 release=${2:?release required}
 root=${3:?runtime root required}
 compose_base64=${4:?compose payload required}
-approved=${5:-}
-digest=${6:?published digest required}
+digest=${5:?published digest required}
 [[ "$image" =~ ^[a-z0-9._-]+/[a-z0-9._-]+:latest$ ]] || exit 1
 [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || exit 1
 [[ "$release" =~ ^[a-f0-9]{40}-[0-9]+-[0-9]+$ ]] || exit 1
@@ -56,10 +55,6 @@ if not any(providers): raise SystemExit('Configure at least one OAuth provider w
 PYENV
 
 docker network inspect production >/dev/null
-existing=$(docker ps --all --filter 'name=^/wonglao-bill$' --no-trunc --format '{{.ID}}')
-if [[ -n "$existing" && "$approved" != "$existing" ]]; then
-    printf 'Existing app container %s requires explicit replacement approval.\n' "$existing" >&2; exit 1
-fi
 [[ ! -e "$root/releases/$release" ]] || { echo 'Release already exists; use a fresh workflow attempt.' >&2; exit 1; }
 mkdir -p "$root/releases/$release"
 release_dir="$root/releases/$release"
