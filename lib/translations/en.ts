@@ -3,6 +3,7 @@ import type { TranslationKey } from "./th";
 export const english = {
   "meta.title": "Clear Toh — Split bills fairly",
   "meta.titleTemplate": "%s | Clear Toh",
+  "auth.signedInWith": "Signed in with {0}",
   "meta.description": "Split shared expenses, calculate individual shares, and share PromptPay payment links for trips, accommodation and shopping.",
   "auth.chooseAnAccountToContinue": "Choose an account to continue",
   "auth.continueWithGoogle": "Continue with Google",

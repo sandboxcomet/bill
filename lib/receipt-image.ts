@@ -20,8 +20,20 @@ export async function receiptImage(data: ReceiptImageData, t: Translate): Promis
   if (!ctx) throw new Error("Canvas unavailable");
   const font = getComputedStyle(document.body).fontFamily;
   const text = (value: string, x: number, y: number, size = 26, bold = false, color = "#1c302b", align: CanvasTextAlign = "left", maxWidth?: number) => {
-    ctx.font = `${bold ? 600 : 400} ${size}px ${font}`; ctx.fillStyle = color; ctx.textAlign = align;
-    ctx.fillText(value, x, y, maxWidth);
+    ctx.font = `${bold ? 600 : 400} ${size}px ${font}`;
+    let width = ctx.measureText(value).width;
+    if (maxWidth && width > maxWidth) {
+      size *= maxWidth / width;
+      ctx.font = `${bold ? 600 : 400} ${size}px ${font}`;
+      width = ctx.measureText(value).width;
+    }
+    ctx.fillStyle = color;
+    ctx.textAlign = "left";
+    ctx.direction = "ltr";
+    const left = align === "right" ? x - width : align === "center" ? x - width / 2 : x;
+    // Explicit coordinates and the three-argument overload avoid Safari's
+    // inconsistent alignment when an undefined maxWidth is passed to fillText.
+    ctx.fillText(value, left, y);
   };
   const line = (y: number) => { ctx.strokeStyle = "#cddbd5"; ctx.setLineDash([5, 6]); ctx.beginPath(); ctx.moveTo(48, y); ctx.lineTo(792, y); ctx.stroke(); ctx.setLineDash([]); };
   ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, canvas.width, canvas.height);

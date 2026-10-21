@@ -1,6 +1,7 @@
 export const thai = {
   "meta.title": "เคลียร์โต๊ะ Clear Toh — แบ่งบิลให้ลงตัว",
   "meta.titleTemplate": "%s | เคลียร์โต๊ะ Clear Toh",
+  "auth.signedInWith": "เข้าสู่ระบบด้วย {0}",
   "meta.description": "แบ่งค่าใช้จ่ายร่วมกัน ทั้งค่าทริป ค่าที่พัก และซื้อของ คำนวณยอดรายคน พร้อมแชร์ลิงก์โอนผ่าน PromptPay",
   "auth.chooseAnAccountToContinue": "เลือกบัญชีที่คุณต้องการใช้",
   "auth.continueWithGoogle": "เข้าสู่ระบบด้วย Google",

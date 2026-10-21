@@ -6,7 +6,9 @@ import Link from "@/components/LocalizedLink";
 import { signOut } from "next-auth/react";
 import { Icon } from "./Icons";
 
-export default function UserMenu({ name }: { name: string }) {
+export default function UserMenu({ name, email, username, provider }: {
+  name: string; email?: string | null; username?: string | null; provider?: "google" | "line" | null;
+}) {
   const { t, href } = useI18n();
   const menuRef = useRef<HTMLDetailsElement>(null);
   useEffect(() => {
@@ -38,7 +40,12 @@ export default function UserMenu({ name }: { name: string }) {
       <svg className="user-menu-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
     </summary>
     <div className="user-menu-panel" role="group" aria-label={t("nav.account")}>
-      <p className="user-menu-heading">{name}</p>
+      <div className="user-menu-heading">
+        <strong>{name}</strong>
+        {username && <span>@{username}</span>}
+        {email && <span>{email}</span>}
+        {provider && <span className="user-menu-provider">{t("auth.signedInWith", [provider === "google" ? "Google" : "LINE"])}</span>}
+      </div>
       <Link href="/bills" onClick={close}><Icon name="receipt" size={17} />{t("nav.myBills")}</Link>
       <Link href="/friends" onClick={close}><Icon name="users" size={17} />{t("social.pageTitle")}</Link>
       <Link href="/settings" onClick={close}><Icon name="settings" size={17} />{t("nav.accountSettings")}</Link>

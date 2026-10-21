@@ -6,6 +6,7 @@ declare module "next-auth" {
       id: string;
       nickname: string | null;
       username: string | null;
+      loginProvider: "google" | "line" | null;
     };
   }
 }
@@ -14,5 +15,6 @@ declare module "@auth/core/jwt" {
   interface JWT {
     nickname?: string | null;
     username?: string | null;
+    loginProvider?: "google" | "line" | null;
   }
 }

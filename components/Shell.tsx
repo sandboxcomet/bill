@@ -31,7 +31,8 @@ export default function Shell({ children }: { children: React.ReactNode }) {
           <div className="header-account">
             <LanguageMenu />
             {session?.user ? (
-              <UserMenu name={session.user.nickname || session.user.name || t("nav.myAccount")} />
+              <UserMenu name={session.user.nickname || session.user.name || t("nav.myAccount")}
+                email={session.user.email} username={session.user.username} provider={session.user.loginProvider} />
             ) : (
               <>
                 <Link className="button button-small secondary header-login" href="/login" aria-label={t("auth.logIn")}>

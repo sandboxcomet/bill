@@ -280,12 +280,17 @@ small {
   border-radius: 12px;
 }
 .user-menu-heading {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   padding: 8px 10px 12px;
   margin-bottom: 4px;
   border-bottom: 1px solid var(--line);
   font-size: var(--text-meta);
   overflow-wrap: anywhere;
 }
+.user-menu-heading > span { color: var(--muted); }
+.user-menu-heading .user-menu-provider { color: var(--green-dark); font-weight: 600; margin-top: 4px; }
 .user-menu-panel > a,
 .user-menu-panel > button {
   display: flex;
@@ -3141,10 +3146,23 @@ small {
     font-size: 1.625rem;
   }
   .share-actions {
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    margin: 0;
+    gap: 8px;
   }
+  .share-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .share-toolbar > .text-link { align-self: flex-start; min-height: 44px; }
   .share-actions .button {
-    flex: 1;
+    min-width: 0;
+    width: 100%;
+    min-height: 44px;
+    white-space: nowrap;
   }
   .summary-panel {
     padding: 21px;
@@ -3285,7 +3303,7 @@ small {
 .receipt-image-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
 .receipt-image-heading h2 { font-size: var(--text-support); }
 .receipt-image-heading button { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
-.receipt-image-preview { display: block; width: 100%; height: auto; border: 1px solid var(--line); }
+.receipt-image-preview { display: block; width: 100%; max-width: 100%; min-width: 0; height: auto; object-fit: contain; border: 1px solid var(--line); }
 .receipt-image-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 16px; }
 @media (prefers-reduced-motion: reduce) { .cleared-stamp { animation: none; } }
 

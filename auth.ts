@@ -45,17 +45,25 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login", error: "/login" },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) token.id = String(user.id);
+      if (account?.provider === "google" || account?.provider === "line")
+        token.loginProvider = account.provider;
       const userId = Number(token.id);
       if (Number.isSafeInteger(userId) && userId > 0) {
         // Read the stored nickname; never accept a client-supplied display name.
         const profile = await prisma.user.findUnique({
           where: { id: userId },
-          select: { nickname: true, username: true },
+          select: { nickname: true, username: true, accounts: { select: { provider: true } } },
         });
         token.nickname = profile?.nickname ?? null;
         token.username = profile?.username ?? null;
+        // Older sessions did not store the provider. Only infer it when the
+        // account has one linked identity; never guess between providers.
+        if (!token.loginProvider && profile?.accounts.length === 1) {
+          const provider = profile.accounts[0].provider;
+          if (provider === "google" || provider === "line") token.loginProvider = provider;
+        }
       }
       return token;
     },
@@ -63,6 +71,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user && token.id) {
         session.user.id = String(token.id);
         session.user.username = typeof token.username === "string" ? token.username : null;
+        session.user.loginProvider = token.loginProvider === "google" || token.loginProvider === "line" ? token.loginProvider : null;
         session.user.nickname =
           typeof token.nickname === "string" ? token.nickname : null;
       }
