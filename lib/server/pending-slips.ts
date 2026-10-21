@@ -3,7 +3,7 @@ import { Prisma, type PaymentEvidence } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { inspectSlip, PaymentError } from "@/lib/payment-contract";
 import { storeSlip } from "./payment-storage";
-import { serializable, lockTarget, applyVerifiedAmount, type PaymentTarget } from "./payment-ledger";
+import { serializable, lockTarget, applyVerifiedAmount, slipCreditAmount, type PaymentTarget } from "./payment-ledger";
 
 const retries = [30, 60, 120, 240];
 
@@ -122,7 +122,7 @@ async function finishPending(job: PaymentEvidence, result: unknown, receiver: st
       } });
     }
     const reviewReason = !verified.transactedAt || verified.transactedAt < payable.createdAt ? "DATE_REQUIRES_REVIEW"
-        : verified.amount.gt(payable.remaining.toString()) ? "EXCEEDS_REMAINING" : null;
+        : slipCreditAmount(new Prisma.Decimal(verified.amount.toFixed(2)), payable.remaining).gt(payable.remaining) ? "EXCEEDS_REMAINING" : null;
     const status = reviewReason ? "NEEDS_REVIEW" : "VERIFIED";
     const updated = await tx.paymentEvidence.update({ where: { id: current.id }, data: {
       reference: verified.reference, amount: verified.amount.toFixed(2), transactedAt: verified.transactedAt,

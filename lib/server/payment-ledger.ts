@@ -8,6 +8,14 @@ export type PaymentTarget = {
   version?: number;
 };
 
+// Development QR transfers are always 2 THB. Keep that real amount on the
+// evidence, while completing the selected target's simulated balance only.
+export function slipCreditAmount(amount: Prisma.Decimal, remaining: Prisma.Decimal) {
+  return process.env.NODE_ENV === "development" && amount.eq(2)
+    ? Prisma.Decimal.max(remaining, 0)
+    : amount;
+}
+
 export async function serializable<T>(
   run: (tx: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
@@ -60,14 +68,16 @@ export async function applyVerifiedAmount(
 ) {
   if (target.type === "settlement") {
     const settlement = await tx.billSettlement.findUniqueOrThrow({ where: { id: target.id } });
-    const paidAmount = settlement.paidAmount.plus(amount);
+    const credited = slipCreditAmount(amount, settlement.amount.minus(settlement.paidAmount));
+    const paidAmount = settlement.paidAmount.plus(credited);
     await tx.billSettlement.update({ where: { id: target.id }, data: { paidAmount, isPaid: paidAmount.gte(settlement.amount) } });
     await updateDebtor(tx, settlement.fromParticipantId);
   } else {
     const participant = await tx.participant.findUniqueOrThrow({
       where: { id: target.id },
     });
-    const paidAmount = participant.paidAmount.plus(amount);
+    const credited = slipCreditAmount(amount, participant.totalPayable.minus(participant.paidAmount));
+    const paidAmount = participant.paidAmount.plus(credited);
     await tx.participant.update({
       where: { id: target.id },
       data: { paidAmount, isPaid: paidAmount.gte(participant.totalPayable) },

@@ -5,7 +5,7 @@ import { PaymentError, PendingSlip, verifySlipUpload } from "./slip-verification
 import { storeSlip } from "./payment-storage";
 
 export type { PaymentTarget } from "./payment-ledger";
-import { type PaymentTarget, serializable, lockTarget, updateDebtor, applyVerifiedAmount } from "./payment-ledger";
+import { type PaymentTarget, serializable, lockTarget, updateDebtor, applyVerifiedAmount, slipCreditAmount } from "./payment-ledger";
 import { recordPendingSlip } from "./pending-slips";
 
 export async function submitPaymentEvidence(
@@ -60,8 +60,8 @@ export async function submitPaymentEvidence(
   }
   if (evidence.status === "REVERSED")
     throw new PaymentError("สลิปนี้ถูกย้อนรายการแล้ว กรุณาติดต่อเจ้าของ", 409);
-    const recipientReview = evidence.status === "NEEDS_REVIEW" && evidence.reviewReason === "RECIPIENT_UNVERIFIED";
-    if (evidence.status !== "UPLOADING" && !recipientReview) return evidence;
+  const recipientReview = evidence.status === "NEEDS_REVIEW" && evidence.reviewReason === "RECIPIENT_UNVERIFIED";
+  if (evidence.status !== "UPLOADING" && !recipientReview) return evidence;
   const objectKey = await storeSlip(verified.image, evidence.id);
   const evidenceId = evidence.id;
   return serializable(async (tx) => {
@@ -76,7 +76,7 @@ export async function submitPaymentEvidence(
     if (current.status !== "UPLOADING" && !(current.status === "NEEDS_REVIEW" && current.reviewReason === "RECIPIENT_UNVERIFIED")) return current;
     const reviewReason = !current.transactedAt || current.transactedAt < payable.createdAt
         ? "DATE_REQUIRES_REVIEW"
-        : current.amount.gt(payable.remaining)
+        : slipCreditAmount(current.amount, payable.remaining).gt(payable.remaining)
           ? "EXCEEDS_REMAINING"
           : null;
     const status = reviewReason ? "NEEDS_REVIEW" : "VERIFIED";

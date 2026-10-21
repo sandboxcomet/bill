@@ -345,7 +345,7 @@ export const english = {
   "payment.slipPendingNotice": "Slip received. Awaiting the bill creator's review.",
   "payment.slipVerifiedNotice": "Slip verified. Payment totals updated.",
   "payment.testPaymentTo": "Test payment to",
-  "payment.testQR2BahtActualRemaining": "Test QR: 2 baht · Actual remaining ฿",
+  "payment.testQR2BahtActualRemaining": "Test mode: pay 2 baht to settle this balance · Simulated balance ฿",
   "payment.thankYouForPayingYourShare": "Thank you for paying your share.",
   "payment.title": "Your payment",
   "payment.toPay": "To pay",

@@ -343,7 +343,7 @@ export const thai = {
   "payment.slipPendingNotice": "รับสลิปแล้ว รอผู้สร้างบิลตรวจสอบ",
   "payment.slipVerifiedNotice": "ตรวจสอบสลิปแล้ว อัปเดตยอดชำระเรียบร้อย",
   "payment.testPaymentTo": "ยอดทดสอบโอนให้",
-  "payment.testQR2BahtActualRemaining": "QR ทดสอบ 2 บาท · ยอดคงเหลือจริง ฿",
+  "payment.testQR2BahtActualRemaining": "โหมดทดสอบ: จ่าย 2 บาทเพื่อปิดยอดนี้ · ยอดจำลอง ฿",
   "payment.thankYouForPayingYourShare": "ขอบคุณที่ร่วมจ่ายบิลนี้",
   "payment.title": "ยอดชำระของคุณ",
   "payment.toPay": "ต้องโอน",
