@@ -92,7 +92,7 @@ export const english = {
   "common.noExpensesForThisPerson": "No expenses for this person",
   "errors.slipQrMissing": "No QR code found in the slip. Please use a clearer image.",
   "expenses.pairwiseOffsetHint": "Only reciprocal payments between the same two people are offset.",
-  "errors.slipCurrencyUnsupported": "Only Thai baht payment slips from Thailand are supported.",
+  "errors.slipCurrencyUnsupported": "This slip has no verifiable Thai baht amount.",
   "common.openingBill": "Opening bill…",
   "common.optional": "Optional",
   "common.optionalNote": " (optional)",

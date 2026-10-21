@@ -90,7 +90,7 @@ export const thai = {
   "common.noExpensesForThisPerson": "ไม่มีรายการค่าใช้จ่ายของคนนี้",
   "errors.slipQrMissing": "ไม่พบ QR ในรูปสลิป กรุณาใช้รูปที่ชัดเจน",
   "expenses.pairwiseOffsetHint": "หักลบเฉพาะยอดโอนสวนกันในคู่เดียวกัน",
-  "errors.slipCurrencyUnsupported": "รองรับสลิปเงินบาทในประเทศไทยเท่านั้น",
+  "errors.slipCurrencyUnsupported": "สลิปนี้ไม่มียอดเงินบาทที่ตรวจสอบได้",
   "common.openingBill": "กำลังเปิดบิล...",
   "common.optional": "ถ้ามี",
   "common.optionalNote": " (ไม่บังคับ)",
