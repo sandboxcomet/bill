@@ -2063,9 +2063,15 @@ small {
 .participant-paid-label {
   display: inline-flex;
   align-items: center;
-  gap: 3px;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 6px;
+  background: var(--green);
+  color: #fff;
   font-size: var(--text-meta);
-  color: var(--green-dark);
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
 }
 .participant-info .participant-slip-status {
   margin: 6px 0 0;

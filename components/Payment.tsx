@@ -12,6 +12,7 @@ import type { ExpenseItem } from "@/lib/expense-details";
 import ExpenseBreakdown, { type ExpenseDetails } from "./ExpenseBreakdown";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import LiveStatus from "./LiveStatus";
+import { useBillTitle } from "@/lib/use-bill-title";
 type Payable = {
   name: string;
   totalPayable: string;
@@ -37,6 +38,7 @@ type Data = {
 export default function Payment({ id, pid }: { id: string; pid: string }) {
   const { t, feedback } = useI18n();
   const [data, setData] = useState<Data | null>(null);
+  useBillTitle(data?.bill.name);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState("");

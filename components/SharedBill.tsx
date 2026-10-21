@@ -16,6 +16,7 @@ import LiveStatus from "./LiveStatus";
 import ShareReceiptImage from "./ShareReceiptImage";
 import AmountExplanation from "./AmountExplanation";
 import { personBalance } from "@/lib/bill-view";
+import { useBillTitle } from "@/lib/use-bill-title";
 type Bill = {
   id: string;
   name: string;
@@ -59,6 +60,7 @@ type Bill = {
 export default function SharedBill({ id }: { id: string }) {
   const { t, formatLocale, feedback } = useI18n();
   const [bill, setBill] = useState<Bill | null>(null);
+  useBillTitle(bill?.name);
   const [loading, setLoading] = useState(true);
   const [pinRequired, setPinRequired] = useState(false);
   const [pin, setPin] = useState("");
