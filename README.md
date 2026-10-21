@@ -74,7 +74,7 @@ npm run build
 
 ## Deploy ไป bill.wonglao.com
 
-ใช้ GitHub Actions รูปแบบเดียวกับ ESS: runner `mac-mini-m2` build และ push `sandboxcomet/wonglao-bill:latest` พร้อม backup image ก่อน deploy ผ่าน SSH และ Traefik ไป `bill.wonglao.com` ดูขั้นตอนและ Secrets ใน [deployment/README.md](deployment/README.md) Repository: `sandboxcomet/bill` ปลายทางเครื่อง ESS ที่ `/var/opt/sandbox/bill` (สถานะ deploy จริงดู GitHub Actions และ `/api/health`)
+ใช้ GitHub Actions รูปแบบเดียวกับ ESS: runner `ubuntu-latest` build และ push `sandboxcomet/wonglao-bill:latest` พร้อม backup image ก่อน deploy ผ่าน SSH และ Traefik ไป `bill.wonglao.com` ดูขั้นตอนและ Secrets ใน [deployment/README.md](deployment/README.md) Repository: `sandboxcomet/bill` ปลายทางเครื่อง ESS ที่ `/var/opt/sandbox/bill` (สถานะ deploy จริงดู GitHub Actions และ `/api/health`)
 
 ขั้นตอน manual ด้านล่างเป็นทางเลือกสำหรับโฮสต์ที่ใช้ Nginx:
 

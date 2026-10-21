@@ -1,12 +1,12 @@
 # GitHub Actions deployment — bill.wonglao.com
 
-Uses the ESS pattern: `[self-hosted, mac-mini-m2]` runner, exact GitHub revision streamed into an isolated Docker context, Docker Hub publication, then SSH deployment. Runs on pushes to `main` and manual dispatch from `main`; production runs are serialized.
+Uses the ESS pattern: GitHub-hosted `ubuntu-latest` runner, exact GitHub revision streamed into an isolated Docker context, Docker Hub publication, then SSH deployment. Runs on pushes to `main` and manual dispatch from `main`; production runs are serialized.
 
 Application image: `sandboxcomet/wonglao-bill:latest`. The previous deployed digest (or registry latest if no service exists) is backed up under a unique digest/run/attempt tag before publishing. Initial publication is allowed only when the VM has no app and the registry explicitly reports no previous image. Registry/network/auth errors stop publication. Build runs production compilation, ESLint and TypeScript checks. No runtime secrets enter the build context.
 
 ## Repository setup
 
-The dedicated repository is `https://github.com/sandboxcomet/bill.git`. Enable the existing runner for it and set these secrets. Values may use the same deployment host as ESS, but keep the secret names below separate.
+The dedicated repository is `https://github.com/sandboxcomet/bill.git`. The standard GitHub runner is used; set these secrets. Values may use the same deployment host as ESS, but keep the secret names below separate.
 
 | Secret | Purpose |
 | --- | --- |
@@ -18,7 +18,7 @@ The dedicated repository is `https://github.com/sandboxcomet/bill.git`. Enable t
 | `DOCKERHUB_USERNAME` | Docker Hub publisher, normally `sandboxcomet` |
 | `DOCKERHUB_TOKEN` | Token authorized to push the application repository |
 
-Optional variable `BILL_DEPLOY_ROOT` defaults to `/var/opt/sandbox/bill`. Do not configure production secrets in the repository source. The workflow uses a one-hour SSH agent and an environment-backed Docker credential helper; no private key or registry password is written to disk. Isolated build directories and completed migration containers are retained; cleanup needs separate approval.
+Optional variable `BILL_DEPLOY_ROOT` defaults to `/var/opt/sandbox/bill`. Do not configure production secrets in the repository source. The workflow uses a one-hour SSH agent and an environment-backed Docker credential helper; no private key or registry password is written to disk. Completed migration containers and VM releases are retained; cleanup needs separate approval. Build workspaces live on the ephemeral GitHub-hosted runner.
 
 ## One-time VM preparation
 

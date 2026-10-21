@@ -20,7 +20,7 @@ concurrency:
 jobs:
   deploy:
     if: github.ref == 'refs/heads/main'
-    runs-on: [self-hosted, mac-mini-m2]
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
       IMAGE_NAME: sandboxcomet/wonglao-bill
@@ -57,7 +57,7 @@ jobs:
           config.mkdir(mode=0o700)
           (config / 'config.json').write_text(json.dumps({
               'credsStore': 'bill-env',
-              'cliPluginsExtraDirs': ['/Applications/Docker.app/Contents/Resources/cli-plugins'],
+              'cliPluginsExtraDirs': ['/usr/libexec/docker/cli-plugins', '/usr/lib/docker/cli-plugins', '/usr/local/lib/docker/cli-plugins'],
           }))
           helper = config / 'docker-credential-bill-env'
           helper.write_text("#!/usr/bin/env python3\nimport json, os, sys\n"
