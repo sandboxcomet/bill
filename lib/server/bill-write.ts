@@ -73,6 +73,7 @@ export async function saveBill(id: string, userId: number, body: any) {
     if (editing) {
       const evidenceCount = await tx.paymentEvidence.count({
         where: {
+          status: { notIn: ["REJECTED", "SUPERSEDED"] },
           OR: [
             { targetType: "participant", targetId: { in: bill.participants.map((p) => p.id) } },
             { targetType: "settlement", targetId: { in: bill.settlements.map((s) => s.id) } },

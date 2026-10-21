@@ -35,7 +35,7 @@ npm run dev
 - ส่วนลดรายรายการ, Service charge, VAT แบบเปอร์เซ็นต์หรือจำนวนเงิน และเลือกคิด VAT รวม Service charge
 - สรุปยอดรายคนขณะกรอก ใช้ Decimal และคำนวณซ้ำที่เซิร์ฟเวอร์
 - ร่างที่บันทึกแล้ว, ลิงก์แชร์แบบสาธารณะหรือ PIN 4 หลักแบบแสดงตัวเลข 4 ช่อง, QR PromptPay รายคน
-- แนบสลิป, ตรวจผู้รับ/ยอด/วัน/สลิปซ้ำ, รอเจ้าของตรวจเมื่อยืนยันอัตโนมัติไม่ได้
+- แนบสลิป, ตรวจยอด/วัน/สลิปซ้ำ, รอเจ้าของตรวจเมื่อยืนยันอัตโนมัติไม่ได้
 - เจ้าของยืนยันหรือย้อนยอดได้พร้อมเหตุผล โดยคงหลักฐานและ audit ไว้
 - ป้องกันการบันทึกทับข้ามหน้าต่างด้วย version และล็อกการแก้รายการเมื่อมีหลักฐานชำระ
 - UI ไทยสำหรับมือถือและ desktop พร้อมการพิมพ์บิล
@@ -109,3 +109,20 @@ Use `feedback(message)` only at the boundary for human-readable API errors or pr
 Migration `20261021140000_social_accounts` adds nullable unique usernames for existing users, friendship states, owned groups, group memberships and optional participant/account links. Existing users choose a username on their next protected account visit; guest bill/payment links are unaffected. Username setup uses PATCH `/api/profile`. Exact account search uses POST `/api/people/search` with `{ query }`; only signed-in onboarded users can search, and results omit email/PromptPay numbers. GET/POST/PATCH `/api/friends` list, request and answer connections. GET/POST `/api/friend-groups` list/create owned groups; `/new?group=…&round=…` creates a separate empty editor round.
 
 Saving linked accounts in a bill/group auto-accepts the creator/member friendship (including a pending request). Manual requests remain pending until answered by their recipient. All account PromptPay values used in a bill are read server-side at save time; posted overrides are ignored. The saved receiver snapshot remains on existing linked bills until a permitted bill save. A profile number is self-configured and is not proof of account ownership.
+
+## สลิปกรุงเทพที่ยังรอธนาคารยืนยัน
+
+ระบบยังตรวจสลิปด้วย sync endpoint เดิมก่อน เปลี่ยนไปตรวจเบื้องหลังเฉพาะเมื่อ EasySlip ตอบ `SLIP_PENDING` เท่านั้น ข้อผิดพลาดอื่นไม่เข้าคิว สลิปที่ผ่านทันทีใช้ขั้นตอนเดิม
+
+สลิปที่รอจะถูกเก็บใน private storage และสร้างหลักฐานสถานะ `PENDING` โดยยังไม่เพิ่มยอดจ่าย พร้อมข้อความรับสลิปแล้ว ไม่ต้องแนบหรือโอนซ้ำ ระหว่างรอจะซ่อน QR และช่องแนบสลิปของผู้รับคนนั้น ผลตรวจผ่านยังต้องผ่านการตรวจวันเวลา ยอดคงเหลือ และเลขอ้างอิงซ้ำก่อนเพิ่มยอด ไม่บังคับให้เลขผู้รับตรงกับ PromptPay เพราะบิลอาจใช้หลายบัญชีรับเงิน ยอดเกินหรือวันเวลาที่ตรวจไม่ได้ยังรอเจ้าของตรวจ สลิปเดิมที่รอเฉพาะการยืนยันผู้รับสามารถแนบซ้ำเพื่อประเมินตามเงื่อนไขใหม่นี้ได้ โดยไม่เพิ่มยอดซ้ำ
+
+- รัน `npm run db:deploy` และ `npm run db:generate` แล้ว restart แอป เพื่อใช้ migration `20261021170000_pending_slips` (เพิ่มคอลัมน์และ index เท่านั้น) งานนี้ apply เฉพาะฐาน local แล้ว
+- บน Node/Docker ที่เปิดต่อเนื่อง `instrumentation.ts` เริ่ม worker ทุก 15 วินาที มี lease ในฐานข้อมูลป้องกันหลาย instance ทำซ้ำ และทำงานต่อได้หลังปิดหน้าเว็บหรือ restart
+- Production ใช้ `POST /v2/verify/bank/async` แล้วดึง `GET /v2/verify/bank/jobs/:jobId` มาตรวจผลจริง `callbackUrl` เริ่มต้นคือ `${AUTH_URL}/api/webhooks/easyslip`; ใช้ `EASY_SLIP_CALLBACK_URL` หากต้องการ public HTTPS URL อื่น
+- ตั้ง `EASYSLIP_WEBHOOK_SECRET` ให้ตรงกับ secret ใน EasySlip branch เพื่อรับ signed webhook ได้ endpoint จะปฏิเสธลายเซ็นขาด/ไม่ถูกต้อง และเพียงปลุก worker ให้ดึงผลด้วย API key อีกครั้ง ไม่ใช้ข้อมูล callback เพิ่มยอดโดยตรง หาก callback ส่งไม่ถึงหรือยังไม่ได้ตั้ง secret การ polling ของ worker ยังตรวจต่อให้
+- Local HTTP ซึ่งไม่มี public callback จะใช้ sync retries ใน worker หลัง 30/60/120/240 วินาทีแทน ไม่ต้องสร้าง tunnel สลิปที่ตรวจไม่สำเร็จหลังหมดรอบให้แนบเดิมใหม่ได้โดยไม่โอนซ้ำ
+- QR payload และบัญชีผู้รับสำหรับงานค้างถูกเข้ารหัสด้วยคีย์ที่ derive จาก `PAYMENT_LINK_SECRET` หรือ `AUTH_SECRET` ต้องรักษา secret นี้ระหว่างมีงานค้าง ไม่มีการส่ง encrypted payload/provider job ID ให้ client
+- งานค้างเกิน 24 ชั่วโมงจะหยุดและให้ลองแนบเดิมใหม่ กรณี upload ค้างเกิน 5 นาทีจะเปิดให้ลองใหม่ เก็บหลักฐานและไฟล์เดิมไว้ ไม่มีการลบประวัติ
+- `SLIP_WORKER_DISABLED=1` ใช้หยุด worker สำหรับ build/probe เท่านั้น; Dockerfile ตั้งค่านี้เฉพาะคำสั่ง build ไม่ได้ปิด worker ใน runtime ไม่รองรับการพึ่ง interval บน serverless ที่หยุด process เมื่อจบ request
+
+เอกสารอ้างอิง: [EasySlip Async Verify](https://document.easyslip.com/en/v2/async/bank/), [Webhook](https://document.easyslip.com/en/v2/async/webhook), [Job polling](https://document.easyslip.com/en/v2/async/bank/jobs)

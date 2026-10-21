@@ -46,6 +46,7 @@ export async function GET(
 
   const evidenceCount = await prisma.paymentEvidence.count({
     where: {
+      status: { notIn: ["REJECTED", "SUPERSEDED"] },
       OR: [
         { targetType: "participant", targetId: { in: bill.participants.map((p) => p.id) } },
         { targetType: "settlement", targetId: { in: bill.settlements.map((s) => s.id) } },

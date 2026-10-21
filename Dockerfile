@@ -5,7 +5,7 @@ FROM base AS build
 COPY package.json package-lock.json ./
 RUN npm ci --ignore-scripts --no-audit --no-fund
 COPY . .
-RUN npm run build && npm run lint && npm run typecheck
+RUN SLIP_WORKER_DISABLED=1 npm run build && npm run lint && npm run typecheck
 FROM base AS runner
 ENV NODE_ENV=production HOSTNAME=0.0.0.0 PORT=3000
 COPY --from=build --chown=node:node /app/.next/standalone ./

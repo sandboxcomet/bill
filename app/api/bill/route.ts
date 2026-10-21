@@ -7,6 +7,7 @@ import {
   accessErrorResponse,
 } from "@/lib/server/authorization";
 import { prisma } from "@/lib/prisma";
+import { isPendingEvidence } from "@/lib/payment-status";
 import {
   createParticipantToken,
   billAccessRevision,
@@ -74,6 +75,33 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Only expose a status summary after bill access is authorized. Slip images,
+    // references and provider details remain behind the payment access checks.
+    const targets = bill.itemPayersEnabled
+      ? bill.settlements.map((s) => ({ type: "settlement", id: s.id, participantId: s.fromParticipantId }))
+      : bill.participants.map((p) => ({ type: "participant", id: p.id, participantId: p.id }));
+    const evidence = targets.length ? await prisma.paymentEvidence.findMany({
+      where: {
+        OR: targets.map((target) => ({ targetType: target.type, targetId: target.id })),
+        status: { not: "SUPERSEDED" },
+      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      select: { targetType: true, targetId: true, status: true },
+    }) : [];
+    const latestByTarget = new Map<string, string>();
+    for (const row of evidence) {
+      const key = `${row.targetType}:${row.targetId}`;
+      if (!latestByTarget.has(key)) latestByTarget.set(key, row.status);
+    }
+    const slipStatuses = new Map<string, { needsReview: boolean; bankPending: boolean }>();
+    for (const target of targets) {
+      const status = latestByTarget.get(`${target.type}:${target.id}`);
+      const summary = slipStatuses.get(target.participantId) ?? { needsReview: false, bankPending: false };
+      summary.needsReview ||= status === "NEEDS_REVIEW";
+      summary.bankPending ||= isPendingEvidence(status);
+      slipStatuses.set(target.participantId, summary);
+    }
+
     const { passcode: _passcode, ...safeBill } = bill;
     return NextResponse.json(
       {
@@ -92,6 +120,7 @@ export async function GET(req: NextRequest) {
             paidAmount: p.paidAmount,
             isPaid: p.isPaid,
             isPayer: p.isPayer,
+            slipStatus: slipStatuses.get(p.id) ?? { needsReview: false, bankPending: false },
             paymentUrl: `/bill/${bill.id}/${p.id}`,
             paymentToken: createParticipantToken(
               bill.id,

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Decimal from "decimal.js";
+import { isPendingEvidence } from "@/lib/payment-status";
 import { buildExpenseDetails, expenseItems } from "@/lib/expense-details";
 import { calculateSettlements } from "@/lib/settlements";
 import { prisma } from "@/lib/prisma";
@@ -98,7 +99,7 @@ export async function GET(request: NextRequest, { params }: Context) {
         offsetAmount: beforeOffset ? Decimal.max(beforeOffset.minus(s.amount.toString()), 0) : null,
         id: s.id, recipientId: s.toParticipantId, name: s.toParticipant.name, promptPayId: s.toParticipant.promptPayId,
         totalPayable: s.amount, paidAmount: s.paidAmount, isPaid: s.isPaid,
-        payslipUrl: proof ? evidenceUrl(proof.id, request) : null,
+        payslipUrl: proof?.objectKey ? evidenceUrl(proof.id, request) : null,
         evidenceStatus: proof?.status ?? null,
       };
     }));
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest, { params }: Context) {
         },
         participant: {
           ...participant,
-          payslipUrl: evidence ? evidenceUrl(evidence.id, request) : null,
+          payslipUrl: evidence?.objectKey ? evidenceUrl(evidence.id, request) : null,
           evidenceStatus: evidence?.status ?? null,
         },
         settlements,
@@ -150,15 +151,16 @@ export async function POST(request: NextRequest, { params }: Context) {
     const updated = await prisma.participant.findUniqueOrThrow({
       where: { id: pid },
     });
+    const pending = isPendingEvidence(evidence.status);
     return NextResponse.json({
       success: true,
-      url: evidenceUrl(evidence.id, request),
+      url: evidence.objectKey ? evidenceUrl(evidence.id, request) : null,
       isPaid: updated.isPaid,
       newPaidAmount: updated.paidAmount,
-      verifiedAmount: evidence.amount,
+      verifiedAmount: pending ? null : evidence.amount,
       evidenceStatus: evidence.status,
-      status: evidence.status === "NEEDS_REVIEW" ? "needs_review" : "verified",
-    });
+      status: pending ? "pending" : evidence.status === "NEEDS_REVIEW" ? "needs_review" : "verified",
+    }, { status: pending ? 202 : 200 });
   } catch (error) {
     return failure(error);
   }

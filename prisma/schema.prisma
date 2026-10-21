@@ -177,6 +177,13 @@ model BillSettlement {
 }
 
 model PaymentEvidence {
+  payloadHash String? @unique @map("payload_hash") @db.Char(64)
+  encryptedSlip String? @map("encrypted_slip") @db.Text
+  providerJobId String? @unique @map("provider_job_id") @db.VarChar(64)
+  queuedAt DateTime? @map("queued_at")
+  nextCheckAt DateTime? @map("next_check_at")
+  leaseUntil DateTime? @map("lease_until")
+  retryCount Int @default(0) @map("retry_count")
   transactedAt DateTime? @map("transacted_at")
   reviewReason String? @map("review_reason")
   targetVersion Int @default(0) @map("target_version")
@@ -195,6 +202,7 @@ model PaymentEvidence {
   updatedAt DateTime @updatedAt @map("updated_at")
   @@unique([provider, reference])
   @@index([targetType, targetId])
+  @@index([status, nextCheckAt])
   @@map("payment_evidence")
 }
 

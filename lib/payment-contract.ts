@@ -32,7 +32,11 @@ export function inspectSlip(result: unknown, expectedReceiver: string | null) {
     throw new PaymentError("สลิปไม่มีเลขอ้างอิงที่ตรวจสอบได้");
   }
   const currency = raw.amount?.local?.currency;
-  if (currency !== "THB" || raw.countryCode !== "TH")
+  // Some verified domestic slips (including SCB) have no local-currency
+  // conversion: local is { amount: 0, currency: "" }, with the baht amount
+  // in amount.amount. Only accept that exact shape and reconcile it below.
+  const domesticWithoutConversion = currency === "" && raw.amount?.local?.amount === 0;
+  if (raw.countryCode !== "TH" || (currency !== "THB" && !domesticWithoutConversion))
     throw new PaymentError("รองรับสลิปเงินบาทในประเทศไทยเท่านั้น");
   let amount: Decimal;
   try {
@@ -48,6 +52,16 @@ export function inspectSlip(result: unknown, expectedReceiver: string | null) {
   ) {
     throw new PaymentError("ยอดเงินในสลิปไม่ถูกต้อง");
   }
+  if (domesticWithoutConversion) {
+    let domesticAmount: Decimal;
+    try {
+      domesticAmount = new Decimal(raw.amount?.amount);
+    } catch {
+      throw new PaymentError("ยอดเงินในสลิปไม่ถูกต้อง");
+    }
+    if (!domesticAmount.equals(amount))
+      throw new PaymentError("ยอดเงินในสลิปไม่ถูกต้อง");
+  }
   const parsedDate = typeof raw.date === "string" ? new Date(raw.date) : null;
   const transactedAt =
     parsedDate && Number.isFinite(parsedDate.getTime()) ? parsedDate : null;
@@ -60,9 +74,8 @@ export function inspectSlip(result: unknown, expectedReceiver: string | null) {
       ? promptPayNumber(proxy.account)
       : null;
   const expected = expectedReceiver ? promptPayNumber(expectedReceiver) : null;
-  if (actual && expected && actual !== expected)
-    throw new PaymentError("ผู้รับเงินในสลิปไม่ตรงกับรายการนี้");
-  // Masked account numbers are not proof of ownership. They require an owner review.
+  // Recipient matching is informational: a bill may use different receiving
+  // accounts. Provider verification and ledger checks decide acceptance.
   return {
     reference: raw.transRef.trim(),
     amount,

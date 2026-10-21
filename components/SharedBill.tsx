@@ -37,6 +37,7 @@ type Bill = {
     paidAmount: string;
     isPaid: boolean;
     isPayer: boolean;
+    slipStatus?: { needsReview: boolean; bankPending: boolean };
     paymentUrl: string;
     paymentToken: string;
   }[];
@@ -336,6 +337,8 @@ export default function SharedBill({ id }: { id: string }) {
                 <div><dt>{t("bill.costs")}</dt><dd>{baht(p.shareAmount)}</dd></div>
                 {new Decimal(p.paidUpfront).gt(0) && <div><dt>{t("bill.paidUpfront")}</dt><dd>{baht(p.paidUpfront)}</dd></div>}
               </dl> : <p>{p.isPaid ? t("payment.confirmed") : t("payment.awaitingPayment")}</p>}
+              {p.slipStatus?.needsReview && <p className="participant-slip-status">{t("payment.uploadedAwaitingReview")}</p>}
+              {p.slipStatus?.bankPending && <p className="participant-slip-status">{t("payment.uploadedAwaitingBank")}</p>}
             </div>
             <div className="participant-payment">
             <div className="participant-amount">

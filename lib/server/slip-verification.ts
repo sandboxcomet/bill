@@ -3,6 +3,12 @@ import { PaymentError, inspectSlip } from "@/lib/payment-contract";
 export { PaymentError, inspectSlip } from "@/lib/payment-contract";
 import { decodeQrFromImage } from "@/lib/decodeQr";
 
+export class PendingSlip extends PaymentError {
+  constructor(public readonly payload: string, public readonly image: Buffer) {
+    super("errors.slipPending", 422);
+  }
+}
+
 export async function verifySlipUpload(
   file: FormDataEntryValue | null,
   expectedReceiver: string | null,
@@ -62,10 +68,14 @@ export async function verifySlipUpload(
     body: JSON.stringify({ payload, checkDuplicate: false }),
     signal: AbortSignal.timeout(20_000),
   });
-  if (!response.ok)
+  const result: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    if ((result as { error?: { code?: unknown } } | null)?.error?.code === "SLIP_PENDING")
+      throw new PendingSlip(payload, image);
     throw new PaymentError(
       "ผู้ให้บริการตรวจสอบสลิปยังไม่ยืนยันรายการ กรุณาลองใหม่",
       422,
     );
-  return { ...inspectSlip(await response.json(), expectedReceiver), image };
+  }
+  return { ...inspectSlip(result, expectedReceiver), image };
 }

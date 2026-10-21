@@ -31,7 +31,8 @@ export const proxy = auth((request) => {
     pathname === "/login" ||
     pathname === "/api/auth" ||
     pathname.startsWith("/api/auth/") ||
-    pathname === "/api/health"
+    pathname === "/api/health" ||
+    (request.method === "POST" && pathname === "/api/webhooks/easyslip")
   ) {
     return next();
   }

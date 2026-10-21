@@ -5,6 +5,7 @@ import Link from "@/components/LocalizedLink";
 import BrandedQr from "./BrandedQr";
 import generatePayload from "promptpay-qr";
 import Decimal from "decimal.js";
+import { isPendingEvidence } from "@/lib/payment-status";
 import { baht, request, jsonBody } from "@/lib/client";
 import { Icon } from "./Icons";
 import type { ExpenseItem } from "@/lib/expense-details";
@@ -134,7 +135,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
       });
       await load();
       setMessage(
-        result.status === "needs_review"
+        result.status === "pending" ? "" : result.status === "needs_review"
           ? t("payment.slipPendingNotice")
           : t("payment.slipVerifiedNotice"),
       );
@@ -218,6 +219,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
     </div>
   );
   const p = selected ?? data.participant;
+  const bankPending = isPendingEvidence(p.evidenceStatus);
   const receiverName = selected?.name ?? data.bill.owner.name ?? t("bill.creator");
   const remaining = Decimal.max(
     new Decimal(p.totalPayable).minus(p.paidAmount),
@@ -253,14 +255,14 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
               aria-pressed={s.id === selected?.id} disabled={working || loading}
               onClick={() => { setSelectedId(s.id); setReason(""); setError(""); setMessage(""); }}>
               <span>{s.name}</span><b>฿ {baht(s.totalPayable)}</b>
-              <small>{s.isPaid ? t("common.fullyPaid") : t("payment.remainingAmount", [baht(Decimal.max(new Decimal(s.totalPayable).minus(s.paidAmount), 0))])}</small>
+              <small>{s.isPaid ? t("common.fullyPaid") : isPendingEvidence(s.evidenceStatus) ? t("payment.bankPendingShort") : t("payment.remainingAmount", [baht(Decimal.max(new Decimal(s.totalPayable).minus(s.paidAmount), 0))])}</small>
             </button>)}
           </div>
         </div>
       )}
       {selected && <ExpenseBreakdown details={data.expenseDetails} />}
       <ExpenseBreakdown details={data.expenseDetails} recipient={selected} />
-      <section className="qr-panel">
+      {!bankPending && <section className="qr-panel">
         {p.isPaid ? (
           <>
             <span className="status status-published">
@@ -298,7 +300,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
             )}
           </>
         )}
-      </section>
+      </section>}
       <section className="payment-proof">
         <div className="panel-heading">
           <h2>{t("payment.paymentEvidence")}</h2>
@@ -307,10 +309,13 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
         {p.evidenceStatus && (
           <p
             className={p.evidenceStatus === "VERIFIED" ? "success" : "warning"}
+            role="status"
           >
             {p.evidenceStatus === "VERIFIED"
               ? t("payment.paymentSlipVerified")
-              : t("payment.pendingReviewHint")}
+              : bankPending ? t("payment.bankPendingNotice")
+                : p.evidenceStatus === "REJECTED" ? t("payment.bankVerificationFailed")
+                  : t("payment.pendingReviewHint")}
           </p>
         )}
         {preview && (
@@ -320,7 +325,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
             alt={t("payment.paymentSlipForThisTransfer")}
           />
         )}
-        {!p.isPaid && (
+        {!p.isPaid && !bankPending && (
           <label className={`file-label receipt-upload${working || loading ? " is-disabled" : ""}`}>
             <Icon name="upload" size={26} />
             <span>
@@ -358,7 +363,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
           onClick={load}
         > {t("payment.refreshPaymentStatus")} </button>
       </section>
-      {data.canManage && p.evidenceStatus && (
+      {data.canManage && p.evidenceStatus && p.evidenceStatus !== "REJECTED" && (
         <section className="review-panel payment-review">
           <h2>{t("payment.forTheBillCreator")}</h2>
           <p className="field-hint"> {t("payment.reviewHint")} </p>

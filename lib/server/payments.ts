@@ -1,81 +1,12 @@
 import { requireQuota } from "./quota";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { PaymentError, verifySlipUpload } from "./slip-verification";
+import { PaymentError, PendingSlip, verifySlipUpload } from "./slip-verification";
 import { storeSlip } from "./payment-storage";
 
-export type PaymentTarget = {
-  type: "participant" | "settlement";
-  id: string;
-  version?: number;
-};
-
-async function serializable<T>(
-  run: (tx: Prisma.TransactionClient) => Promise<T>,
-): Promise<T> {
-  for (let attempt = 0; ; attempt++) {
-    try {
-      return await prisma.$transaction(run, {
-        isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
-      });
-    } catch (error) {
-      if (
-        attempt >= 2 ||
-        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-        error.code !== "P2034"
-      )
-        throw error;
-    }
-  }
-}
-
-async function lockTarget(tx: Prisma.TransactionClient, target: PaymentTarget) {
-  const reference = target.type === "settlement"
-    ? await tx.billSettlement.findUniqueOrThrow({ where: { id: target.id }, select: { billId: true } })
-    : await tx.participant.findUniqueOrThrow({ where: { id: target.id }, select: { billId: true } });
-  await tx.$queryRaw`SELECT id FROM bills WHERE id = ${reference.billId} FOR UPDATE`;
-  const bill = await tx.bill.findUniqueOrThrow({ where: { id: reference.billId } });
-  const payable = target.type === "settlement"
-    ? await tx.billSettlement.findUniqueOrThrow({ where: { id: target.id } })
-    : await tx.participant.findUniqueOrThrow({ where: { id: target.id } });
-  if (bill.status !== "PUBLISHED" || payable.archived ||
-    bill.itemPayersEnabled !== (target.type === "settlement") ||
-    (target.version !== undefined && bill.version !== target.version))
-    throw new PaymentError("Bill is no longer payable", 409);
-  const amount = "amount" in payable ? payable.amount : payable.totalPayable;
-  if (amount.lte(0)) throw new PaymentError("ไม่มียอดที่ต้องโอน", 409);
-  return { createdAt: bill.createdAt, remaining: amount.minus(payable.paidAmount) };
-}
-
-async function updateDebtor(tx: Prisma.TransactionClient, participantId: string) {
-  const outgoing = await tx.billSettlement.findMany({ where: { fromParticipantId: participantId, archived: false } });
-  const paidAmount = outgoing.reduce((sum, s) => sum.plus(s.paidAmount), new Prisma.Decimal(0));
-  await tx.participant.update({ where: { id: participantId }, data: {
-    paidAmount, isPaid: outgoing.length > 0 && outgoing.every((s) => s.isPaid),
-  } });
-}
-
-async function applyVerifiedAmount(
-  tx: Prisma.TransactionClient,
-  target: PaymentTarget,
-  amount: Prisma.Decimal,
-) {
-  if (target.type === "settlement") {
-    const settlement = await tx.billSettlement.findUniqueOrThrow({ where: { id: target.id } });
-    const paidAmount = settlement.paidAmount.plus(amount);
-    await tx.billSettlement.update({ where: { id: target.id }, data: { paidAmount, isPaid: paidAmount.gte(settlement.amount) } });
-    await updateDebtor(tx, settlement.fromParticipantId);
-  } else {
-    const participant = await tx.participant.findUniqueOrThrow({
-      where: { id: target.id },
-    });
-    const paidAmount = participant.paidAmount.plus(amount);
-    await tx.participant.update({
-      where: { id: target.id },
-      data: { paidAmount, isPaid: paidAmount.gte(participant.totalPayable) },
-    });
-  }
-}
+export type { PaymentTarget } from "./payment-ledger";
+import { type PaymentTarget, serializable, lockTarget, updateDebtor, applyVerifiedAmount } from "./payment-ledger";
+import { recordPendingSlip } from "./pending-slips";
 
 export async function submitPaymentEvidence(
   target: PaymentTarget,
@@ -84,7 +15,13 @@ export async function submitPaymentEvidence(
   actorId: number | null,
 ) {
   await requireQuota(`slip:${target.type}:${target.id}`, 12);
-  const verified = await verifySlipUpload(file, receiver);
+  let verified;
+  try {
+    verified = await verifySlipUpload(file, receiver);
+  } catch (error) {
+    if (error instanceof PendingSlip) return recordPendingSlip(target, error, receiver, actorId);
+    throw error;
+  }
   const referenceKey = { provider: "easyslip", reference: verified.reference };
   let evidence = await prisma.paymentEvidence.findUnique({
     where: { provider_reference: referenceKey },
@@ -123,7 +60,8 @@ export async function submitPaymentEvidence(
   }
   if (evidence.status === "REVERSED")
     throw new PaymentError("สลิปนี้ถูกย้อนรายการแล้ว กรุณาติดต่อเจ้าของ", 409);
-  if (evidence.status !== "UPLOADING") return evidence;
+    const recipientReview = evidence.status === "NEEDS_REVIEW" && evidence.reviewReason === "RECIPIENT_UNVERIFIED";
+    if (evidence.status !== "UPLOADING" && !recipientReview) return evidence;
   const objectKey = await storeSlip(verified.image, evidence.id);
   const evidenceId = evidence.id;
   return serializable(async (tx) => {
@@ -135,10 +73,8 @@ export async function submitPaymentEvidence(
       ...target,
       version: current.targetVersion,
     });
-    if (current.status !== "UPLOADING") return current;
-    const reviewReason = !current.receiverMatch
-      ? "RECIPIENT_UNVERIFIED"
-      : !current.transactedAt || current.transactedAt < payable.createdAt
+    if (current.status !== "UPLOADING" && !(current.status === "NEEDS_REVIEW" && current.reviewReason === "RECIPIENT_UNVERIFIED")) return current;
+    const reviewReason = !current.transactedAt || current.transactedAt < payable.createdAt
         ? "DATE_REQUIRES_REVIEW"
         : current.amount.gt(payable.remaining)
           ? "EXCEEDS_REMAINING"
@@ -192,7 +128,7 @@ export async function reviewPayment(
         where: {
           targetType: target.type,
           targetId: target.id,
-          status: { in: ["VERIFIED", "NEEDS_REVIEW", "UPLOADING"] },
+          status: { in: ["VERIFIED", "NEEDS_REVIEW", "UPLOADING", "PENDING", "PENDING_UPLOAD"] },
         },
         data: { status: "REVERSED", confirmedBy: actorId },
       });
@@ -223,10 +159,10 @@ export async function latestEvidence(target: PaymentTarget) {
     where: {
       targetType: target.type,
       targetId: target.id,
-      status: { in: ["VERIFIED", "NEEDS_REVIEW"] },
+      status: { in: ["VERIFIED", "NEEDS_REVIEW", "PENDING", "PENDING_UPLOAD", "REJECTED"] },
     },
     orderBy: { createdAt: "desc" },
-    select: { id: true, status: true, amount: true },
+    select: { id: true, status: true, amount: true, objectKey: true },
   });
 }
 
