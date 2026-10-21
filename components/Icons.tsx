@@ -1,5 +1,12 @@
 import type { CSSProperties } from "react";
 const paths = {
+  globe: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <ellipse cx="12" cy="12" rx="4" ry="9" />
+      <path d="M3 12h18" />
+    </>
+  ),
   receipt: (
     <>
       <path d="M5 3v18l3-2 4 2 4-2 3 2V3l-3 2-4-2-4 2-3-2Z" />
@@ -10,6 +17,12 @@ const paths = {
   arrow: <path d="m9 5 7 7-7 7M4 12h12" />,
   back: <path d="m14 5-7 7 7 7M7 12h13" />,
   check: <path d="m5 12 4 4L19 6" />,
+  help: (
+    <>
+      <circle cx="12" cy="12" r="9" />
+      <path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4M12 17h.01" />
+    </>
+  ),
   users: (
     <>
       <circle cx="9" cy="8" r="3" />
@@ -49,6 +62,7 @@ const paths = {
       <path d="M9 4H4v16h5M9 12h12m-4-4 4 4-4 4" />
     </>
   ),
+  login: <path d="M15 4h5v16h-5M3 12h12m-4-4 4 4-4 4" />,
   shield: (
     <>
       <path d="m12 3 8 3v6c0 5-8 9-8 9S4 17 4 12V6l8-3Z" />

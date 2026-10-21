@@ -19,6 +19,7 @@ export async function GET(
   const bill = await prisma.bill.findUnique({
     where: { id },
     include: {
+      settlements: { select: { id: true } },
       items: {
         include: { consumers: { select: { id: true, name: true } } },
         orderBy: { id: "asc" },
@@ -29,6 +30,9 @@ export async function GET(
           id: true,
           name: true,
           isPayer: true,
+          accountUserId: true,
+          accountUser: { select: { username: true, promptPayId: true } },
+          promptPayId: true,
           paidAmount: true,
           isPaid: true,
         },
@@ -42,12 +46,15 @@ export async function GET(
 
   const evidenceCount = await prisma.paymentEvidence.count({
     where: {
-      targetType: "participant",
-      targetId: { in: bill.participants.map((p) => p.id) },
+      OR: [
+        { targetType: "participant", targetId: { in: bill.participants.map((p) => p.id) } },
+        { targetType: "settlement", targetId: { in: bill.settlements.map((s) => s.id) } },
+      ],
     },
   });
   return NextResponse.json(
-    { bill: { ...bill, hasPaymentEvidence: evidenceCount > 0 } },
+    { bill: { ...bill, participants: bill.participants.map(({ accountUser, ...p }) => ({ ...p,
+      username: accountUser?.username ?? undefined, hasPromptPay: Boolean(accountUser?.promptPayId) })), hasPaymentEvidence: evidenceCount > 0 } },
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }

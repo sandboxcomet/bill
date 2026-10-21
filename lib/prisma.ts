@@ -1,4 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 const globalDb = globalThis as unknown as { billPrisma?: PrismaClient };
-export const prisma = globalDb.billPrisma ?? new PrismaClient();
+// A dev hot reload after adding models must not reuse the previous schema client.
+export const prisma = globalDb.billPrisma && "friendship" in globalDb.billPrisma
+  ? globalDb.billPrisma : new PrismaClient();
 if (process.env.NODE_ENV !== "production") globalDb.billPrisma = prisma;

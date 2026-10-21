@@ -5,7 +5,7 @@ import { PaymentError, verifySlipUpload } from "./slip-verification";
 import { storeSlip } from "./payment-storage";
 
 export type PaymentTarget = {
-  type: "participant";
+  type: "participant" | "settlement";
   id: string;
   version?: number;
 };
@@ -30,26 +30,29 @@ async function serializable<T>(
 }
 
 async function lockTarget(tx: Prisma.TransactionClient, target: PaymentTarget) {
-  if (target.type === "participant") {
-    const participant = await tx.participant.findUniqueOrThrow({
-      where: { id: target.id },
-    });
-    await tx.$queryRaw`SELECT id FROM bills WHERE id = ${participant.billId} FOR UPDATE`;
-    const bill = await tx.bill.findUniqueOrThrow({
-      where: { id: participant.billId },
-    });
-    if (
-      bill.status !== "PUBLISHED" ||
-      participant.archived ||
-      (target.version !== undefined && bill.version !== target.version)
-    )
-      throw new PaymentError("Bill is no longer payable", 409);
-    return {
-      createdAt: bill.createdAt,
-      remaining: participant.totalPayable.minus(participant.paidAmount),
-    };
-  }
-  throw new PaymentError("Invalid payment target", 400);
+  const reference = target.type === "settlement"
+    ? await tx.billSettlement.findUniqueOrThrow({ where: { id: target.id }, select: { billId: true } })
+    : await tx.participant.findUniqueOrThrow({ where: { id: target.id }, select: { billId: true } });
+  await tx.$queryRaw`SELECT id FROM bills WHERE id = ${reference.billId} FOR UPDATE`;
+  const bill = await tx.bill.findUniqueOrThrow({ where: { id: reference.billId } });
+  const payable = target.type === "settlement"
+    ? await tx.billSettlement.findUniqueOrThrow({ where: { id: target.id } })
+    : await tx.participant.findUniqueOrThrow({ where: { id: target.id } });
+  if (bill.status !== "PUBLISHED" || payable.archived ||
+    bill.itemPayersEnabled !== (target.type === "settlement") ||
+    (target.version !== undefined && bill.version !== target.version))
+    throw new PaymentError("Bill is no longer payable", 409);
+  const amount = "amount" in payable ? payable.amount : payable.totalPayable;
+  if (amount.lte(0)) throw new PaymentError("ไม่มียอดที่ต้องโอน", 409);
+  return { createdAt: bill.createdAt, remaining: amount.minus(payable.paidAmount) };
+}
+
+async function updateDebtor(tx: Prisma.TransactionClient, participantId: string) {
+  const outgoing = await tx.billSettlement.findMany({ where: { fromParticipantId: participantId, archived: false } });
+  const paidAmount = outgoing.reduce((sum, s) => sum.plus(s.paidAmount), new Prisma.Decimal(0));
+  await tx.participant.update({ where: { id: participantId }, data: {
+    paidAmount, isPaid: outgoing.length > 0 && outgoing.every((s) => s.isPaid),
+  } });
 }
 
 async function applyVerifiedAmount(
@@ -57,7 +60,12 @@ async function applyVerifiedAmount(
   target: PaymentTarget,
   amount: Prisma.Decimal,
 ) {
-  if (target.type === "participant") {
+  if (target.type === "settlement") {
+    const settlement = await tx.billSettlement.findUniqueOrThrow({ where: { id: target.id } });
+    const paidAmount = settlement.paidAmount.plus(amount);
+    await tx.billSettlement.update({ where: { id: target.id }, data: { paidAmount, isPaid: paidAmount.gte(settlement.amount) } });
+    await updateDebtor(tx, settlement.fromParticipantId);
+  } else {
     const participant = await tx.participant.findUniqueOrThrow({
       where: { id: target.id },
     });
@@ -188,7 +196,10 @@ export async function reviewPayment(
         },
         data: { status: "REVERSED", confirmedBy: actorId },
       });
-      if (target.type === "participant") {
+      if (target.type === "settlement") {
+        const settlement = await tx.billSettlement.update({ where: { id: target.id }, data: { paidAmount: 0, isPaid: false } });
+        await updateDebtor(tx, settlement.fromParticipantId);
+      } else {
         await tx.participant.update({
           where: { id: target.id },
           data: { paidAmount: 0, isPaid: false },

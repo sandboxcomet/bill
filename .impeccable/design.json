@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-10-20T14:50:03.434671+00:00",
-  "title": "Design System: WongLao Bill",
+  "generatedAt": "2026-10-21T03:40:05.203Z",
+  "title": "Design System: Clear Toh",
   "extensions": {
     "colorMeta": {
       "canvas": {
@@ -76,7 +76,7 @@
       },
       "green": {
         "role": "primary",
-        "displayName": "Meal Green",
+        "displayName": "Ledger Green",
         "tonalRamp": [
           "oklch(15% 0.0855 163.39)",
           "oklch(26% 0.0855 163.39)",
@@ -90,7 +90,7 @@
       },
       "green-dark": {
         "role": "primary",
-        "displayName": "Deep Meal Green",
+        "displayName": "Deep Ledger Green",
         "tonalRamp": [
           "oklch(15% 0.0706 163.55)",
           "oklch(26% 0.0706 163.55)",
@@ -202,7 +202,7 @@
     "shadows": [
       {
         "name": "illustrative-paper",
-        "value": "0 12px 28px #163a2220",
+        "value": "0 20px 40px #163a2229",
         "purpose": "Dashboard example receipt only."
       }
     ],
@@ -240,7 +240,22 @@
         "name": "phone",
         "value": "520px"
       }
-    ]
+    ],
+    "localization": {
+      "defaultLocale": "th",
+      "locales": [
+        "th",
+        "en"
+      ],
+      "urlPrefixes": false,
+      "preferenceCookie": "clear-toh-locale",
+      "brandWordmark": "preserved",
+      "currency": "THB",
+      "userContent": "never translated",
+      "selectionLocation": "navbar for all visitors",
+      "switching": "immediate client state plus server refresh",
+      "legacyPrefixes": "redirect to clean URL"
+    }
   },
   "components": [
     {
@@ -249,7 +264,7 @@
       "refersTo": "button-primary",
       "description": "Commit the principal action.",
       "html": "<button class=\"ds-primary\">สร้างบิลใหม่</button>",
-      "css": ".ds-primary{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:11px 20px;border:1px solid transparent;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,color .15s,transform .15s;background:var(--green,#176246);color:var(--paper,#fff)}.ds-primary:hover{background:var(--green-dark,#104b35)}.ds-primary:active{transform:translateY(1px)}.ds-primary:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
+      "css": ".ds-primary{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:11px 20px;border:1px solid transparent;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:background .15s,color .15s,transform .15s;background:var(--green,#176246);color:var(--paper,#fff)}.ds-primary:hover{background:var(--green-dark,#104b35)}.ds-primary:active{transform:translateY(1px)}.ds-primary:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
     },
     {
       "name": "Secondary Button",
@@ -257,22 +272,22 @@
       "refersTo": "button-secondary",
       "description": "An outlined alternative action.",
       "html": "<button class=\"ds-secondary\">บันทึกฉบับร่าง</button>",
-      "css": ".ds-secondary{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:11px 20px;border:1px solid transparent;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;transition:background .15s,color .15s,transform .15s;background:var(--paper,#fff);color:var(--ink,#192d28);border-color:#cdd8d0}.ds-secondary:hover{background:#f0f5f1;border-color:#9eb6a7}.ds-secondary:active{transform:translateY(1px)}.ds-secondary:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
+      "css": ".ds-secondary{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:inline-flex;align-items:center;justify-content:center;gap:9px;min-height:46px;padding:11px 20px;border:1px solid transparent;border-radius:8px;font-size:1rem;font-weight:600;cursor:pointer;transition:background .15s,color .15s,transform .15s;background:var(--paper,#fff);color:var(--ink,#192d28);border-color:#cdd8d0}.ds-secondary:hover{background:#f0f5f1;border-color:#9eb6a7}.ds-secondary:active{transform:translateY(1px)}.ds-secondary:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
     },
     {
       "name": "Text Field",
       "kind": "input",
       "refersTo": "input",
       "description": "A labeled Thai-first entry field.",
-      "html": "<label class=\"ds-field\"><span>ชื่อมื้อ</span><input placeholder=\"มื้อเย็นกับเพื่อน\"></label>",
-      "css": ".ds-field{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:flex;flex-direction:column;gap:7px;font-size:12px;color:var(--muted,#62726b)}.ds-field input{font-family:Manrope,\"Noto Sans Thai\",sans-serif;min-height:44px;padding:10px 12px;border:1px solid var(--field-border,#cad5ce);border-radius:8px;color:var(--ink,#192d28);background:var(--paper,#fff);transition:border-color .15s}.ds-field input::placeholder{color:var(--muted,#62726b)}.ds-field input:focus{outline:2px solid var(--focus,#429d75);outline-offset:1px}"
+      "html": "<label class=\"ds-field\"><span>ชื่อบิล</span><input placeholder=\"ทริปวันหยุด\"></label>",
+      "css": ".ds-field{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:flex;flex-direction:column;gap:7px;font-size:1rem;color:var(--muted,#62726b)}.ds-field input{font-size:1rem;font-family:Manrope,\"Noto Sans Thai\",sans-serif;min-height:44px;padding:10px 12px;border:1px solid var(--field-border,#cad5ce);border-radius:8px;color:var(--ink,#192d28);background:var(--paper,#fff);transition:border-color .15s}.ds-field input::placeholder{color:var(--muted,#62726b)}.ds-field input:focus{outline:2px solid var(--focus,#429d75);outline-offset:1px}"
     },
     {
       "name": "Header Navigation",
       "kind": "nav",
       "description": "Muted links with a green active underline.",
-      "html": "<nav class=\"ds-nav\" aria-label=\"เมนูหลัก\"><a href=\"#\" aria-current=\"page\">บิลของฉัน</a><a href=\"#\">บัญชีรับเงิน</a></nav>",
-      "css": ".ds-nav{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:flex;gap:28px;min-height:60px;background:var(--paper,#fff)}.ds-nav a{display:flex;align-items:center;font-size:13px;font-weight:600;color:var(--muted,#62726b);text-decoration:none;border-bottom:2px solid transparent}.ds-nav a[aria-current]{color:var(--green,#176246);border-bottom-color:var(--green,#176246)}.ds-nav a:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
+      "html": "<nav class=\"ds-nav\" aria-label=\"เมนูหลัก\"><a href=\"#\" aria-current=\"page\">หน้าหลัก</a><a href=\"#\">บิลของฉัน</a><a href=\"#\">ตั้งค่าบัญชี</a></nav>",
+      "css": ".ds-nav{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:flex;gap:28px;min-height:60px;background:var(--paper,#fff)}.ds-nav a{display:flex;align-items:center;font-size:1rem;font-weight:600;color:var(--muted,#62726b);text-decoration:none;border-bottom:2px solid transparent}.ds-nav a[aria-current]{color:var(--green,#176246);border-bottom-color:var(--green,#176246)}.ds-nav a:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
     },
     {
       "name": "Participant Chip",
@@ -280,27 +295,102 @@
       "refersTo": "person-chip",
       "description": "A named participant with an initial avatar and removal action.",
       "html": "<span class=\"ds-person\"><span class=\"ds-avatar\">เ</span>เมย์<button aria-label=\"นำเมย์ออก\"><svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\"><path d=\"m6 6 12 12M6 18 18 6\"/></svg></button></span>",
-      "css": ".ds-person{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line,#dee5e0);border-radius:30px;padding:5px 8px 5px 5px;font-size:12px;color:var(--ink,#192d28)}.ds-avatar{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#e3ecdf;color:#3a5a2d;font-size:11px;font-weight:600}.ds-person button{display:inline-grid;place-items:center;border:0;background:none;min-width:28px;min-height:28px;color:var(--muted,#62726b);cursor:pointer}.ds-person button:hover{color:var(--danger,#a52e36)}.ds-person button:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
+      "css": ".ds-person{font-family:Manrope,\"Noto Sans Thai\",sans-serif;display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line,#dee5e0);border-radius:30px;padding:5px 8px 5px 5px;font-size:1rem;color:var(--ink,#192d28)}.ds-avatar{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:50%;background:#e3ecdf;color:#3a5a2d;font-size:0.875rem;font-weight:600}.ds-person button{display:inline-grid;place-items:center;border:0;background:none;min-width:28px;min-height:28px;color:var(--muted,#62726b);cursor:pointer}.ds-person button:hover{color:var(--danger,#a52e36)}.ds-person button:focus-visible{outline:3px solid var(--focus,#429d75);outline-offset:4px}"
     },
     {
       "name": "Ledger Panel",
       "kind": "card",
       "refersTo": "panel",
       "description": "Flat white working container with a fine boundary.",
-      "html": "<section class=\"ds-panel\"><h2>ใครอยู่ในโต๊ะบ้าง</h2><p>เพิ่มทุกคนที่ร่วมมื้อนี้</p></section>",
-      "css": ".ds-panel{font-family:Manrope,\"Noto Sans Thai\",sans-serif;background:var(--paper,#fff);color:var(--ink,#192d28);border:1px solid var(--line,#dee5e0);border-radius:14px;padding:25px}.ds-panel h2{margin:0 0 12px;font-size:16px;font-weight:700;line-height:1.45;letter-spacing:-.025em}.ds-panel p{margin:0;color:var(--muted,#62726b);font-size:12px;line-height:1.65}"
+      "html": "<section class=\"ds-panel\"><h2>มีใครร่วมบิลบ้าง</h2><p>เพิ่มทุกคนที่ร่วมบิลนี้</p></section>",
+      "css": ".ds-panel{font-family:Manrope,\"Noto Sans Thai\",sans-serif;background:var(--paper,#fff);color:var(--ink,#192d28);border:1px solid var(--line,#dee5e0);border-radius:14px;padding:25px}.ds-panel h2{margin:0 0 12px;font-size:1.25rem;font-weight:700;line-height:1.45;letter-spacing:-.025em}.ds-panel p{margin:0;color:var(--muted,#62726b);font-size:1rem;line-height:1.65}"
     },
     {
       "name": "Running Receipt Total",
       "kind": "custom",
       "description": "The pale-green total band anchors the running summary.",
       "html": "<section class=\"ds-total\"><span>ยอดรวมทั้งบิล</span><strong>฿ 720.00</strong><p>2 รายการ · 3 คน</p></section>",
-      "css": ".ds-total{font-family:Manrope,\"Noto Sans Thai\",sans-serif;background:#eaf2ec;padding:22px 23px;color:#466650}.ds-total span{font-size:12px}.ds-total strong{display:block;font-size:36px;font-weight:700;line-height:1.5;letter-spacing:-.04em;color:var(--green-dark,#104b35);font-variant-numeric:tabular-nums}.ds-total p{font-size:11px;margin:0}"
+      "css": ".ds-total{font-family:Manrope,\"Noto Sans Thai\",sans-serif;background:#eaf2ec;padding:22px 23px;color:#466650}.ds-total span{font-size:1rem}.ds-total strong{display:block;font-size:2.25rem;font-weight:700;line-height:1.5;letter-spacing:-.04em;color:var(--green-dark,#104b35);font-variant-numeric:tabular-nums}.ds-total p{font-size:0.875rem;margin:0}"
+    },
+    {
+      "name": "Allocation Button",
+      "kind": "button",
+      "description": "Compact participant name buttons without checkboxes. Selected names have pale green fill and dark green text; the all-participants action is a quiet separate text button. 36px mouse controls, 44px touch targets.",
+      "html": "<div role=\"group\" aria-label=\"ผู้ร่วมจ่ายรายการ 1\"><button type=\"button\" class=\"allocation-all\" aria-pressed=\"false\">หารทุกคน</button><div class=\"allocation-chips\"><button type=\"button\" class=\"allocation-chip\" aria-pressed=\"true\">เมย์</button><button type=\"button\" class=\"allocation-chip\" aria-pressed=\"false\">บอส</button></div></div>",
+      "css": ".allocation-chips {\n  display: flex;\n  gap: 6px;\n  flex-wrap: wrap;\n  min-width: 0;\n  max-width: 100%;\n  padding-inline-start: 10px;\n  border-inline-start: 1px solid var(--line);\n}\n.allocation-chip {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n  min-height: 36px;\n  max-width: 100%;\n  padding: 5px 12px;\n  background: var(--paper);\n  color: var(--muted);\n  font-size: var(--text-support);\n  font-weight: 600;\n  line-height: 1.45;\n  overflow-wrap: anywhere;\n  cursor: pointer;\n  transition: background-color 0.15s, border-color 0.15s, color 0.15s;\n}\n.allocation-chip:hover:not(:disabled) {\n  border-color: var(--green);\n  background: var(--canvas);\n  color: var(--green);\n}\n.allocation-chip[aria-pressed=\"true\"] {\n  border-color: var(--green);\n  background: var(--green-soft);\n  color: var(--green-dark);\n}\n.allocation-chip[aria-pressed=\"true\"]:hover:not(:disabled) {\n  border-color: var(--green-dark);\n  background: var(--green-soft);\n  color: var(--green-dark);\n}\n.allocation-all {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  min-height: 36px;\n  max-width: 100%;\n  padding: 5px 4px;\n  border: 0;\n  border-radius: 5px;\n  background: transparent;\n  color: var(--muted);\n  font-size: var(--text-support);\n  font-weight: 600;\n  line-height: 1.45;\n}\n.allocation-all:hover:not(:disabled),\n.allocation-all[aria-pressed=\"true\"] {\n  color: var(--green-dark);\n  text-decoration: underline;\n  text-underline-offset: 5px;\n  text-decoration-thickness: 2px;\n}\n.allocation-chip,\n  .allocation-all {\n    min-height: 44px;\n  }"
+    },
+    {
+      "name": "Proportional Parts Input",
+      "kind": "input",
+      "description": "Whole-number allocation parts with a visible ส่วน suffix, blank defaults, 44px input height, numeric keyboard, and no spinners. A responsive grid preserves compact width and allows long participant names.",
+      "html": "<label class=\"field\"><span>เมย์</span><span class=\"number-field\"><input type=\"text\" inputmode=\"numeric\" pattern=\"[0-9]*\" maxlength=\"3\" aria-label=\"จำนวนส่วนของ เมย์\"><span class=\"number-unit\" aria-hidden=\"true\">ส่วน</span></span></label>",
+      "css": ".custom-quantities {\n  margin-top: 16px;\n  padding-top: 16px;\n  border-top: 1px solid var(--line);\n}\n.parts-heading {\n  display: block;\n  color: var(--ink);\n  font-size: var(--text-support);\n  font-weight: 600;\n}\n.custom-quantities .field-hint {\n  margin-top: 4px;\n}\n.parts-fields {\n  display: grid;\n  grid-template-columns: repeat(auto-fill, minmax(min(100%, 104px), 1fr));\n  align-items: end;\n  gap: 12px;\n  margin-top: 12px;\n  min-width: 0;\n}\n.parts-fields > .field {\n  min-width: 0;\n  overflow-wrap: anywhere;\n}\n.parts-fields .number-field {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  min-height: 44px;\n  padding: 0 10px;\n  border: 1px solid #cad5ce;\n  border-radius: 8px;\n  background: var(--paper);\n}\n.number-field:focus-within {\n  outline: 2px solid #429d75;\n  outline-offset: 1px;\n}\n.number-field > input {\n  flex: 1;\n  min-width: 0;\n  border: 0;\n  border-radius: 0;\n  background: transparent;\n  padding: 8px 0;\n  font-size: var(--text-body);\n  font-variant-numeric: tabular-nums;\n}\n.number-field > input:focus {\n  outline: none;\n}\n.number-field > .number-unit {\n  flex-shrink: 0;\n  color: var(--muted);\n  font-size: var(--text-meta);\n}"
+    },
+    {
+      "name": "Discount Input and Tax Controls",
+      "kind": "input",
+      "description": "Two labeled groups for discount and tax controls, aligned in a grid and stacked below 520px. Blank discount field has no placeholder and retains a % suffix. Tax controls are independent 44px rectangular pressed-state buttons without checkboxes.",
+      "html": "<div class=\"details-fields\"><label class=\"field discount-field\"><span>ส่วนลด</span><span class=\"number-field\"><input type=\"text\" inputmode=\"decimal\" maxlength=\"6\" aria-label=\"ส่วนลดรายการ 1 เปอร์เซ็นต์\"><span class=\"number-unit\" aria-hidden=\"true\">%</span></span></label><div class=\"field item-tax-controls\"><span>ค่าบริการและภาษี</span><div class=\"item-tax-toggles\" role=\"group\" aria-label=\"ค่าบริการและภาษีรายการ 1\"><button type=\"button\" class=\"allocation-chip\" aria-pressed=\"true\">Service charge</button><button type=\"button\" class=\"allocation-chip\" aria-pressed=\"true\">VAT</button></div></div></div>",
+      "css": ".details-fields {\n  display: grid;\n  grid-template-columns: minmax(0, 124px) minmax(0, 1fr);\n  align-items: start;\n  gap: 16px;\n  padding-top: 16px;\n}\n.details-fields > .discount-field {\n  max-width: 100%;\n}\n.item-tax-toggles {\n  display: flex;\n  align-items: center;\n  flex-wrap: wrap;\n  gap: 8px;\n  min-height: 44px;\n  max-width: 100%;\n}\n.item-tax-toggles > .allocation-chip {\n  min-height: 44px;\n  padding: 8px 12px;\n}\n.details-fields {\n    grid-template-columns: 1fr;\n  }\n.details-fields > .discount-field {\n    width: 124px;\n  }\n.number-field {\n  display: flex;\n  align-items: center;\n  gap: 8px;\n  min-height: 44px;\n  padding: 0 10px;\n  border: 1px solid #cad5ce;\n  border-radius: 8px;\n  background: var(--paper);\n}\n.number-field:focus-within {\n  outline: 2px solid #429d75;\n  outline-offset: 1px;\n}\n.number-field > input {\n  flex: 1;\n  min-width: 0;\n  border: 0;\n  border-radius: 0;\n  background: transparent;\n  padding: 8px 0;\n  font-size: var(--text-body);\n  font-variant-numeric: tabular-nums;\n}\n.number-field > input:focus {\n  outline: none;\n}\n.number-field > .number-unit {\n  flex-shrink: 0;\n  color: var(--muted);\n  font-size: var(--text-meta);\n}"
+    },
+    {
+      "name": "Charge Unit Switch",
+      "kind": "input",
+      "description": "Service charge and VAT amounts use blank decimal inputs with an integrated % / ฿ switch. Selected units have white fill, a border and dark green text. Native pressed-state buttons preserve values when switched; amounts are normalized for saving. Coarse pointers receive 44px unit buttons and fields stack below 520px.",
+      "html": "<div class=\"field\"><span>Service charge</span><div class=\"unit-field\"><input type=\"text\" inputmode=\"decimal\" maxlength=\"15\" placeholder=\"ไม่คิดเพิ่ม\" aria-label=\"Service charge\"><div class=\"unit-switch\" role=\"group\" aria-label=\"หน่วย Service charge\"><button type=\"button\" aria-label=\"เปอร์เซ็นต์\" aria-pressed=\"true\">%</button><button type=\"button\" aria-label=\"บาท\" aria-pressed=\"false\">฿</button></div></div></div>",
+      "css": ".extras-grid {\n  display: grid;\n  grid-template-columns: repeat(2, minmax(0, 1fr));\n  gap: 16px;\n  margin-bottom: 16px;\n}\n.unit-field {\n  display: flex;\n  align-items: center;\n  gap: 4px;\n  min-width: 0;\n  min-height: 44px;\n  padding: 3px;\n  border: 1px solid #cad5ce;\n  border-radius: 8px;\n  background: var(--paper);\n}\n.unit-field:focus-within {\n  outline: 2px solid #429d75;\n  outline-offset: 1px;\n}\n.unit-field input {\n  flex: 1;\n  min-width: 0;\n  min-height: 36px;\n  padding: 5px 8px;\n  border: 0;\n  background: transparent;\n  font-variant-numeric: tabular-nums;\n}\n.unit-field input:focus {\n  outline: none;\n}\n.unit-switch {\n  display: flex;\n  flex-shrink: 0;\n  gap: 2px;\n  padding: 2px;\n  border-radius: 5px;\n  background: var(--canvas);\n}\n.unit-switch > button {\n  display: grid;\n  place-items: center;\n  min-width: 36px;\n  min-height: 32px;\n  padding: 3px 8px;\n  border: 1px solid transparent;\n  border-radius: 5px;\n  background: transparent;\n  color: var(--muted);\n  font-size: var(--text-support);\n  font-weight: 600;\n  line-height: 1.45;\n  transition: color 0.15s, background-color 0.15s, border-color 0.15s;\n}\n.unit-switch > button:hover:not(:disabled) {\n  background: var(--green-soft);\n  color: var(--green-dark);\n}\n.unit-switch > button[aria-pressed=\"true\"] {\n  border-color: var(--line);\n  background: var(--paper);\n  color: var(--green-dark);\n}\n@media (pointer: coarse) {\n  .unit-switch > button {\n    min-width: 44px;\n    min-height: 44px;\n  }\n}\n@media (max-width: 520px) {\n  .extras-grid {\n    grid-template-columns: 1fr;\n  }\n}"
+    },
+    {
+      "name": "Proportional Parts Tooltip",
+      "kind": "custom",
+      "description": "A help icon beside the parts heading reveals the supplied 300-baht beer example. Opens on hover/focus/tap; closes on Escape, outside tap, blur or second tap. Width stays within its section and placement flips above when necessary. Coarse-pointer help target is 44px.",
+      "html": "<div class=\"parts-heading-row\"><span class=\"parts-heading\">แบ่งตามจำนวนส่วน</span><button type=\"button\" class=\"parts-help-trigger\" aria-label=\"วิธีแบ่งตามจำนวนส่วน\" aria-describedby=\"parts-tooltip-example\" aria-expanded=\"true\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.7\" stroke-linecap=\"round\" stroke-linejoin=\"round\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4M12 17h.01\"/></svg></button><div id=\"parts-tooltip-example\" class=\"parts-tooltip\" role=\"tooltip\"><strong>ใช้เมื่อแต่ละคนจ่ายไม่เท่ากัน</strong><p>เช่น เบียร์รวม 300 บาท</p><ul><li>คุณดื่ม 2 แก้ว ใส่ <b>2 ส่วน</b> จ่าย <b>200 บาท</b></li><li>เพื่อนดื่ม 1 แก้ว ใส่ <b>1 ส่วน</b> จ่าย <b>100 บาท</b></li></ul><p>ถ้าจ่ายเท่ากัน เลือกชื่อผู้ร่วมจ่ายตามปกติ ไม่ต้องกรอกจำนวนส่วน</p></div></div>",
+      "css": ".parts-heading {\n  display: block;\n  color: var(--ink);\n  font-size: var(--text-support);\n  font-weight: 600;\n}\n.parts-heading-row {\n  position: relative;\n  display: flex;\n  align-items: center;\n  gap: 4px;\n  min-width: 0;\n}\n.parts-help-trigger {\n  display: inline-grid;\n  place-items: center;\n  flex-shrink: 0;\n  min-width: 36px;\n  min-height: 36px;\n  padding: 8px;\n  border: 0;\n  border-radius: 8px;\n  background: transparent;\n  color: var(--muted);\n}\n.parts-help-trigger:hover,\n.parts-help-trigger[aria-expanded=\"true\"] {\n  background: var(--green-soft);\n  color: var(--green-dark);\n}\n.parts-tooltip {\n  position: absolute;\n  z-index: 20;\n  top: 100%;\n  inset-inline-start: 0;\n  width: min(340px, 100%);\n  max-height: calc(100dvh - 32px);\n  overflow: auto;\n  padding: 16px;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n  background: var(--paper);\n  color: var(--ink);\n  box-shadow: 0 8px 24px #192d281a;\n  font-size: var(--text-support);\n  line-height: 1.7;\n}\n.parts-tooltip[data-placement=\"top\"] {\n  top: auto;\n  bottom: 100%;\n}\n.parts-tooltip p,\n.parts-tooltip ul {\n  margin-top: 8px;\n  color: var(--ink);\n}\n.parts-tooltip ul {\n  margin-bottom: 0;\n  padding-inline-start: 20px;\n}\n.parts-tooltip li + li {\n  margin-top: 4px;\n}\n@media (pointer: coarse) {\n  .parts-help-trigger {\n    min-width: 44px;\n    min-height: 44px;\n  }\n}"
+    },
+    {
+      "name": "Four-Digit PIN Input",
+      "kind": "input",
+      "description": "Exactly four visible digits in equal boxes for bill creation and shared access. Supports numeric keyboards, focus advancement, full-code paste, correction without digit shifting and leading zeros. Row fits 240px or its container; boxes are at least 52px high.",
+      "html": "<div class=\"pin-field\" role=\"group\" aria-labelledby=\"pin-example-label\"><span id=\"pin-example-label\">PIN 4 หลัก</span><div class=\"pin-boxes\"><input type=\"text\" inputmode=\"numeric\" maxlength=\"1\" pattern=\"[0-9]\" autocomplete=\"off\" aria-label=\"PIN หลักที่ 1 จาก 4\" value=\"0\"><input type=\"text\" inputmode=\"numeric\" maxlength=\"1\" pattern=\"[0-9]\" autocomplete=\"off\" aria-label=\"PIN หลักที่ 2 จาก 4\" value=\"1\"><input type=\"text\" inputmode=\"numeric\" maxlength=\"1\" pattern=\"[0-9]\" autocomplete=\"off\" aria-label=\"PIN หลักที่ 3 จาก 4\" value=\"2\"><input type=\"text\" inputmode=\"numeric\" maxlength=\"1\" pattern=\"[0-9]\" autocomplete=\"off\" aria-label=\"PIN หลักที่ 4 จาก 4\" value=\"3\"></div></div>",
+      "css": ".pin-field {\n  display: flex;\n  flex-direction: column;\n  align-items: flex-start;\n  gap: 8px;\n  min-width: 0;\n}\n.pin-field > span:first-child {\n  color: var(--muted);\n  font-size: var(--text-body);\n  font-weight: 500;\n}\n.pin-boxes {\n  display: grid;\n  grid-template-columns: repeat(4, minmax(0, 1fr));\n  gap: 8px;\n  width: min(100%, 240px);\n}\n.pin-boxes > input {\n  min-width: 0;\n  min-height: 52px;\n  padding: 8px 0;\n  text-align: center;\n  font-size: var(--text-title);\n  font-weight: 600;\n  font-variant-numeric: tabular-nums;\n  line-height: 1.4;\n  letter-spacing: normal;\n  caret-color: var(--green);\n}\n.pin-boxes > input[aria-invalid=\"true\"] {\n  border-color: var(--danger);\n}"
+    },
+    {
+      "name": "Item Payer and Recipient Selection",
+      "kind": "input",
+      "description": "Compact single-payer name selection attached to each item. An Add/Edit PromptPay button opens a native dialog with a labeled numeric field, validation, Save/Cancel, Escape and backdrop dismissal. Saving shares the participant number across items; cancel discards edits. Net transfers and payment recipient selection retain their existing behavior.",
+      "html": "<div class=\"payer-choice\" role=\"group\" aria-label=\"คนออกเงินรายการ 1\"><span class=\"payer-label\">คนออกเงิน</span><div class=\"allocation-chips\"><button type=\"button\" class=\"allocation-chip\" aria-pressed=\"true\">เมย์</button><button type=\"button\" class=\"allocation-chip\" aria-pressed=\"false\">บอส</button></div></div><button type=\"button\" class=\"payer-promptpay-button\" aria-haspopup=\"dialog\">เพิ่ม PromptPay</button>",
+      "css": ".item-payer {\n  display: flex;\n  align-items: center;\n  flex-wrap: wrap;\n  gap: 10px 16px;\n  margin-top: 14px;\n  padding-top: 12px;\n  border-top: 1px dashed var(--line);\n}\n.payer-choice {\n  display: flex;\n  align-items: center;\n  flex-wrap: wrap;\n  gap: 10px;\n  flex: 1 1 260px;\n  min-width: 0;\n}\n.payer-choice .allocation-chips {\n  padding-inline-start: 0;\n  border-inline-start: 0;\n}\n.payer-label {\n  color: var(--muted);\n  font-size: var(--text-support);\n  font-weight: 600;\n}\n.payer-promptpay-button {\n  display: inline-flex;\n  align-items: center;\n  justify-content: center;\n  gap: 7px;\n  min-height: 44px;\n  margin-left: auto;\n  padding: 8px 10px;\n  border: 1px solid var(--line);\n  border-radius: 8px;\n  background: var(--paper);\n  color: var(--green);\n  font-size: var(--text-meta);\n  font-weight: 600;\n}\n.payer-promptpay-button:hover:not(:disabled) {\n  border-color: var(--green);\n  background: var(--green-soft);\n}\n.item-payer > .field-hint {\n  flex-basis: 100%;\n  margin: 0;\n}\n.promptpay-dialog {\n  width: min(440px, calc(100% - 32px));\n  max-height: calc(100dvh - 32px);\n  margin: auto;\n  padding: 0;\n  border: 0;\n  border-radius: 14px;\n  background: var(--paper);\n  color: var(--ink);\n  box-shadow: 0 20px 60px rgb(25 45 40 / 22%);\n  overflow: auto;\n}\n.promptpay-dialog::backdrop {\n  background: rgb(25 45 40 / 38%);\n}\n.promptpay-dialog-content {\n  padding: 24px;\n}\n.promptpay-dialog-heading {\n  display: flex;\n  align-items: flex-start;\n  justify-content: space-between;\n  gap: 12px;\n}\n.promptpay-dialog-heading h2 {\n  padding-top: 6px;\n  font-size: var(--text-title);\n  line-height: 1.5;\n  overflow-wrap: anywhere;\n}\n.promptpay-dialog-heading .icon-button {\n  min-width: 44px;\n  min-height: 44px;\n  flex-shrink: 0;\n}\n.promptpay-dialog-content > .field-hint {\n  margin: 4px 0 20px;\n  overflow-wrap: anywhere;\n}\n.promptpay-dialog input {\n  font-variant-numeric: tabular-nums;\n}\n.promptpay-dialog input[aria-invalid=\"true\"] {\n  border-color: var(--danger);\n}\n.promptpay-dialog-actions {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);\n  gap: 10px;\n  margin-top: 24px;\n}\n.promptpay-dialog-actions .button {\n  padding-inline: 8px;\n}\n"
+    },
+    {
+      "name": "Net Settlement Ledger",
+      "kind": "list",
+      "description": "Compact 320px-max per-person ledger with distinct names, separate outgoing/incoming amounts when both exist, and one-line share/advance details. Refunds follow item payers; only reciprocal payments of the same pair are offset. Third-party recipients never change.",
+      "html": "<section class=\"net-summary\"><h3>ยอดแต่ละคน</h3><ul class=\"net-people\"><li class=\"net-person\"><div class=\"net-person-heading\"><span class=\"avatar small\">ป</span><strong class=\"net-person-name\">ปอน</strong><div class=\"net-person-result\"><div><span>ต้องโอน</span><b>฿ 250.00</b></div><div class=\"net-person-credit\"><span>รับคืน</span><b>฿ 1,000.00</b></div></div></div><dl class=\"net-person-details\"><div><dt>ส่วนแบ่ง</dt><dd>1,250.00</dd></div><div><dt>ออกเงิน</dt><dd>2,000.00</dd></div></dl></li></ul></section>",
+      "css": ".net-summary {\n  max-width: 320px;\n  margin-top: 16px;\n  padding-top: 16px;\n  border-top: 1px dashed var(--line);\n}\n.net-summary h3 {\n  font-size: var(--text-body);\n  font-weight: 700;\n  margin: 0 0 8px;\n}\n.net-people,\n.net-transfers {\n  list-style: none;\n  padding: 0;\n  margin: 0;\n}\n.net-person {\n  padding: 9px 0;\n}\n.net-person + .net-person {\n  border-top: 1px solid var(--line);\n}\n.net-person-heading {\n  display: grid;\n  grid-template-columns: 28px minmax(0, 1fr) minmax(0, auto);\n  align-items: center;\n  gap: 9px;\n}\n.net-person-name {\n  min-width: 0;\n  font-size: var(--text-body);\n  font-weight: 600;\n  overflow-wrap: anywhere;\n}\n.net-person-result {\n  display: grid;\n  justify-items: end;\n  gap: 2px;\n  min-width: 0;\n  text-align: right;\n}\n.net-person-result > div {\n  display: flex;\n  justify-content: flex-end;\n  align-items: baseline;\n  flex-wrap: wrap;\n  gap: 0 6px;\n}\n.net-person-result span {\n  display: block;\n  color: var(--muted);\n  font-size: var(--text-meta);\n  line-height: 1.5;\n}\n.net-person-result b {\n  display: block;\n  margin-top: 0;\n  font-size: var(--text-body);\n  font-weight: 700;\n  font-variant-numeric: tabular-nums;\n  overflow-wrap: anywhere;\n}\n.net-person-credit > span,\n.net-person-credit > b {\n  color: var(--green);\n}\n.net-person-details {\n  display: grid;\n  grid-template-columns: auto auto;\n  justify-content: space-between;\n  gap: 8px;\n  margin: 5px 0 0;\n  font-size: var(--text-meta);\n}\n.net-person-details > div {\n  display: flex;\n  align-items: baseline;\n  gap: 5px;\n  min-width: 0;\n  white-space: nowrap;\n}\n.net-person-details > div:last-child {\n  text-align: right;\n}\n.net-person-details dt {\n  color: var(--muted);\n  white-space: nowrap;\n}\n.net-person-details dd {\n  margin: 0;\n  color: var(--ink);\n  font-variant-numeric: tabular-nums;\n  overflow-wrap: anywhere;\n}\n.net-transfer-section {\n  margin-top: 8px;\n  padding-top: 14px;\n  border-top: 1px solid var(--line);\n}\n.net-transfers > li {\n  display: grid;\n  grid-template-columns: minmax(0, 1fr) minmax(0, auto);\n  align-items: center;\n  gap: 12px;\n  padding: 8px 0;\n  font-size: var(--text-support);\n}\n.net-transfers > li + li {\n  border-top: 1px solid var(--line);\n}\n.net-transfer-route {\n  display: flex;\n  align-items: center;\n  flex-wrap: wrap;\n  gap: 6px;\n  min-width: 0;\n}\n.net-transfer-route > span {\n  min-width: 0;\n  max-width: 100%;\n  overflow-wrap: anywhere;\n}\n.net-transfer-arrow {\n  display: inline-flex;\n  color: var(--muted);\n}\n.net-transfers b {\n  text-align: right;\n  font-size: var(--text-support);\n  font-variant-numeric: tabular-nums;\n  overflow-wrap: anywhere;\n}\n.net-transfer-section > .field-hint {\n  margin-top: 12px;\n  font-size: var(--text-meta);\n}\n"
+    },
+    {
+      "name": "bill Brand",
+      "kind": "nav",
+      "description": "User-preferred original white receipt on deep-green rounded square, with bill-only dark-ink wordmark. Header image 40px/36px, minimum link target 44px, matching original favicons. No Thai name or slash.",
+      "html": "<a class=\"brand\" href=\"#\" aria-label=\"เคลียร์โต๊ะ Clear Toh หน้าหลัก\"><img class=\"brand-logo\" src=\"/brand-mark.svg?v=clear-toh-friends-1\" width=\"40\" height=\"40\" alt=\"\"/><span class=\"brand-wordmark\"><span class=\"brand-product\">เคลียร์โต๊ะ</span><span class=\"brand-english\" lang=\"en\">Clear Toh</span></span></a>",
+      "css": ".brand {\n  display: inline-flex;\n  align-items: center;\n  gap: 10px;\n  min-height: 44px;\n  white-space: nowrap;\n}\n.brand-logo {\n  display: block;\n  width: 40px;\n  height: 40px;\n  flex-shrink: 0;\n}\n.brand-wordmark {\n  display: flex;\n  flex-direction: column;\n  gap: 1px;\n}\n.brand-product {\n  color: var(--ink);\n  line-height: 1.35;\n  font-size: 1.375rem;\n  font-weight: 600;\n  letter-spacing: -0.02em;\n}\n.brand-english {\n  color: var(--green);\n  font-size: 0.6875rem;\n  line-height: 1.3;\n  font-weight: 600;\n  letter-spacing: 0.04em;\n}\n"
+    },
+    {
+      "name": "Language selection",
+      "kind": "navigation",
+      "refersTo": [
+        "components/LanguageMenu.tsx",
+        "components/Shell.tsx",
+        "components/LanguageProvider.tsx"
+      ],
+      "description": "Dedicated TH/EN navbar dropdown, visible to both signed-in users and guests. Native buttons update translations immediately, persist a cookie and refresh server copy without changing the current URL. Account menu contains settings/sign-out only.",
+      "html": "<details class=\"user-menu language-menu\"><summary class=\"user-menu-trigger\" aria-label=\"Choose language\">EN</summary><div class=\"user-menu-panel\"><div class=\"language-options\" role=\"group\" aria-label=\"Language\"><p>Language</p><button type=\"button\" lang=\"th\" aria-pressed=\"false\">ไทย</button><button type=\"button\" lang=\"en\" aria-pressed=\"true\">English <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.8\" aria-hidden=\"true\"><path d=\"m5 12 4 4L19 6\"/></svg></button></div></div></details>",
+      "css": ".language-options {\n  padding: 4px 0;\n}\n.user-menu-panel > .language-options {\n  border-top: 1px solid var(--line);\n  border-bottom: 1px solid var(--line);\n  margin: 4px 0;\n}\n.language-options > p {\n  padding: 4px 10px;\n  font-size: var(--text-meta);\n}\n.language-options > button {\n  display: flex;\n  align-items: center;\n  justify-content: space-between;\n  min-height: 44px;\n  width: 100%;\n  padding: 8px 10px;\n  border-radius: 6px;\n  font-size: var(--text-support);\n  font-family: inherit;\n  text-align: left;\n  background: transparent;\n  border: 0;\n  cursor: pointer;\n}\n.language-options > button:hover,\n.language-options > button[aria-pressed=\"true\"] {\n  background: var(--green-soft);\n  color: var(--green-dark);\n}\n.language-menu > summary {\n  min-width: 44px;\n  justify-content: center;\n  padding: 8px;\n  font-size: var(--text-meta);\n  font-weight: 600;\n}\n"
     }
   ],
   "narrative": {
-    "northStar": "The Shared-Meal Ledger",
-    "overview": "Light paper surfaces, deep green actions and a continuous receipt make item assignment and payment amounts easy to scan at a shared table. The visual identity is practical and calm: participants stay next to the items they consume, while totals receive stronger size and contrast than supporting explanations.\n\nThis records the implemented recommendation in the standalone bill project. The direction is open to further user feedback; no user-provided visual reference or approved generated comp establishes formal visual approval. The durable language is Thai-first, with Latin and numeric text handled by Manrope. Page strategy and the first-viewport contract remain in `docs/surface-brief.md`.",
+    "northStar": "The Shared-Expense Ledger",
+    "overview": "Light paper surfaces, deep green actions and a continuous receipt make item assignment and payment amounts easy to scan for shared expenses. The visual identity is practical and calm: participants stay next to the items they share, while totals receive stronger size and contrast than supporting explanations.\n\nThis records the implemented recommendation in the standalone bill project. The direction is open to further user feedback; no user-provided visual reference or approved generated comp establishes formal visual approval. The durable language is Thai-first, with Latin and numeric text handled by Manrope. Page strategy and the first-viewport contract remain in `docs/surface-brief.md`.",
     "keyCharacteristics": [
       "White ledger panels on a light gray-green canvas.",
       "Deep green actions, selected states and prominent totals.",

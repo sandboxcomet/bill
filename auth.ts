@@ -45,12 +45,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login", error: "/login" },
   callbacks: {
-    jwt({ token, user }) {
+    async jwt({ token, user }) {
       if (user) token.id = String(user.id);
+      const userId = Number(token.id);
+      if (Number.isSafeInteger(userId) && userId > 0) {
+        // Read the stored nickname; never accept a client-supplied display name.
+        const profile = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { nickname: true, username: true },
+        });
+        token.nickname = profile?.nickname ?? null;
+        token.username = profile?.username ?? null;
+      }
       return token;
     },
     session({ session, token }) {
-      if (session.user && token.id) session.user.id = String(token.id);
+      if (session.user && token.id) {
+        session.user.id = String(token.id);
+        session.user.username = typeof token.username === "string" ? token.username : null;
+        session.user.nickname =
+          typeof token.nickname === "string" ? token.nickname : null;
+      }
       return session;
     },
   },

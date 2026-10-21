@@ -1,6 +1,6 @@
 "use server";
 
-import { auth } from "@/auth";
+import { requireUserId } from "@/lib/server/authorization";
 import { prisma } from "@/lib/prisma";
 
 /**
@@ -8,12 +8,11 @@ import { prisma } from "@/lib/prisma";
  * Returns the new bill's CUID — the caller handles navigation.
  */
 export async function createDraftBill(): Promise<string> {
-  const session = await auth();
-  if (!session?.user?.id) throw new Error("Unauthorized");
+  const userId = await requireUserId();
 
   const bill = await prisma.bill.create({
     data: {
-      userId: parseInt(session.user.id),
+      userId,
       name: "",
       receiptSubtotal: 0,
       grandTotal: 0,

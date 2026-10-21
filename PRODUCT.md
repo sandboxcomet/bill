@@ -1,14 +1,34 @@
-# WongLao Bill
+# เคลียร์โต๊ะ · Clear Toh
 <!-- impeccable:product-schema 1 -->
 ## Platform
 web
 ## Users
-Friends splitting restaurant and drink bills; the organizer assigns items and shares payment links.
+People splitting shared expenses such as travel, accommodation, household purchases and meals; the organizer assigns items and shares payment links.
 ## Product Purpose
 A standalone bill-only project for bill.wonglao.com, with its own Git repository and MySQL database, explicitly requested by the user.
 ## Capabilities and Constraints
-Create drafts, assign shared or individual items, discounts, service charge, VAT, per-person totals, private PIN-protected sharing, PromptPay, and verified slip uploads with owner review. Keep authentication and ledger checks. No game, trip, bot, or console features. No dependency on the WongLao repository or its database. Existing accounts and bills are not migrated implicitly.
+Create drafts, assign shared or individual items, discounts, service charge, VAT, per-person totals, item-level advancing payers with participant PromptPay numbers, item-payer reimbursements across multiple recipients with reciprocal offsets only within the same pair, private PIN-protected sharing, PromptPay, and verified slip uploads with owner review. The home page introduces bill creation; the personal bill list, status filters, search and empty state are on the separate /bills page. The home introduction is public. Bill creation, personal bills, account settings and owner changes require login. Published shared bills and participant payment pages do not require login: private shares require the bill PIN, and payment/evidence endpoints require a signed token scoped to that participant and current bill revision. Draft/cancelled bills remain owner-only. Home, login, OAuth/session endpoints, static assets and the machine health endpoint are public. PIN and participant tokens remain additional authorization requirements after login. Bill PINs contain exactly four visible digits, entered in four boxes in both the editor and the shared-bill gate. Local drafts are scoped to the authenticated account. Users can set an account nickname (1–40 characters) independently of their OAuth name and PromptPay. Nicknames are used in the account header and shared bill/payment creator display, persist across sessions, and can be edited through account settings. Nickname and PromptPay share one form and one save action; a new account may leave PromptPay unconfigured. Keep authentication and ledger checks. No game, trip-planning, bot, or console features. Expense bills may include travel costs. No dependency on the WongLao repository or its database. Existing accounts and bills are not migrated implicitly.
 ## Brand Commitments
-WongLao Bill. Thai-first copy. User asked for a UI recommendation; proposed light surfaces and deep green, mobile-first practical operation. This recommendation is an implementation assumption, not a user-pinned reference.
+Public brand: เคลียร์โต๊ะ / Clear Toh, explicitly renamed by the user. Use a simplified friends-around-a-table symbol based on the user’s supplied visual reference, in the app’s green/mint palette, with Thai primary and English secondary wordmarks. The user approved the existing text treatment; preserve it when changing the symbol. Internal project/domain remains WongLao Bill. Thai-first interface with light surfaces and deep green.
 ## Evidence on Hand
 Billing and payment implementation adapted from WongLao. No invented production data or live deployment claims.
+
+Reimbursement rule: allocate each item to its actual advancing payer, then offset only reciprocal payments between the same two people. Never move a third person's refund to a different recipient. A participant may both owe and receive money; show both amounts and require PromptPay for anyone with an incoming transfer.
+
+## Languages
+
+Thai is the default and English is the second language. The TH/EN language dropdown is always on the navbar, for signed-in users and guests, separate from the account menu. Selection updates client translations immediately, saves a one-year browser cookie and refreshes server copy/metadata without changing the current URL or remounting unaffected client state. Page URLs have no language prefix. Old /th and /en links redirect to clean URLs with queries intact. API URLs, bill IDs, participant tokens and stored user data remain unchanged. Preserve user-entered names/items and the approved brand wordmark.
+
+## Automatic payment updates
+
+Published shared bills and participant payments refresh automatically about every three seconds while visible, with pause/abort during payment actions and background tabs, immediate retry on focus/reconnect, and capped failure backoff. Reads retain PIN and participant-token authorization. Only incorrect PIN guesses consume the PIN attempt quota; repeated valid reads do not. Remaining amounts reflect verified/confirmed ledger credits, not pending slip uploads.
+
+Shared receipts support choosing a participant to show only their expense rows and balance, with an Everyone reset. Users can preview and share/download a receipt PNG with participant balances and a QR opening the bill. Confirmed completion adds a derived “เคลียร์แล้ว” stamp with reduced-motion support. Owners can reuse active participant names for a new empty round, with separate draft storage and no copied payment history.
+
+Update: the separate name-picker strip was removed at the user’s request. Participants open their own expense/payment view by tapping their existing row; no duplicate name controls appear above the receipt.
+
+Account setup and social groups: signed-in users without a username must choose one before using owner/account features. Usernames normalize to lowercase ASCII letters, numbers and underscores, are 3–24 characters, unique, and immutable once set; display nicknames remain editable. Public shared bills and scoped payments remain available without account setup. Exact username or full-email search returns a minimal profile and relationship state, never email or PromptPay numbers. Manual friend requests require recipient acceptance. Saving a bill or owned group with linked accounts automatically connects the creator to those accounts; it does not connect every pair of group members. Saved groups seed new empty rounds using active account details and separate drafts. Linked participant names and PromptPay numbers are resolved from the account by the server at save time; other users cannot override them. PromptPay is self-configured, without an ownership-verification claim. Existing bills retain linked-account receiver snapshots until an eligible save; no payment history is rewritten by profile changes.
+
+Auditable balances: tapping a published person’s amount opens their expense components, upfront payments, net overview and remaining transfers. Per-recipient details show exactly which paid items created the debt, which reverse-direction items offset it, confirmed payments and the remainder. Offsets stay within the same two people. Base/service-charge/VAT attribution and explicit satang adjustments explain existing ledger amounts without changing them; verified overpayment is shown separately and is never credited to another recipient.
+
+The public home page includes an illustrative interactive receipt for equal sharing, per-item sharing and multiple advancing payers. Visitors can explore sample calculations without signing in; the examples use the existing settlement engine and do not save bills. Original creation/demo routes remain unchanged, and the page explains the workflow from adding people to sharing a guest-accessible payment link and tracking confirmed completion.

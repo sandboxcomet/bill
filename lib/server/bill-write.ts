@@ -3,6 +3,10 @@ import Decimal from "decimal.js";
 import { prisma } from "@/lib/prisma";
 import { AccessError } from "./authorization";
 import { calculateBill } from "@/lib/billing";
+import { calculateSettlements, isPromptPayId } from "@/lib/settlements";
+import { writeSettlementTransfers } from "./settlement-ledger";
+import { autoFriend } from "./social";
+import { isBillPin } from "@/lib/pin";
 
 export function money(value: unknown, field: string): Decimal {
   if (typeof value !== "number" && typeof value !== "string")
@@ -46,7 +50,7 @@ export async function saveBill(id: string, userId: number, body: any) {
     await tx.$queryRaw`SELECT id FROM bills WHERE id = ${id} FOR UPDATE`;
     const bill = await tx.bill.findUnique({
       where: { id },
-      include: { participants: true },
+      include: { participants: true, settlements: true },
     });
     if (!bill || bill.userId !== userId)
       throw new AccessError("Not found", 404);
@@ -61,11 +65,18 @@ export async function saveBill(id: string, userId: number, body: any) {
       throw new AccessError("Invalid bill transition", 409);
     const editing =
       Array.isArray(body.items) || Array.isArray(body.participants);
+    const itemPayersEnabled = bill.itemPayersEnabled || body.itemPayersEnabled === true;
+    if (body.itemPayersEnabled !== undefined && typeof body.itemPayersEnabled !== "boolean")
+      throw new AccessError("Invalid payer mode", 409);
+    if (!editing && itemPayersEnabled !== bill.itemPayersEnabled)
+      throw new AccessError("Select payers with complete bill data", 409);
     if (editing) {
       const evidenceCount = await tx.paymentEvidence.count({
         where: {
-          targetType: "participant",
-          targetId: { in: bill.participants.map((p) => p.id) },
+          OR: [
+            { targetType: "participant", targetId: { in: bill.participants.map((p) => p.id) } },
+            { targetType: "settlement", targetId: { in: bill.settlements.map((s) => s.id) } },
+          ],
         },
       });
       if (
@@ -83,12 +94,29 @@ export async function saveBill(id: string, userId: number, body: any) {
         body.participants.length > 100
       )
         throw new AccessError("Invalid bill contents", 409);
-      const participants = body.participants.map((p: any) => ({
-        id: identity(p.id),
-        name: label(p.name, "participant"),
-        isPayer: p.isPayer === true,
-        totalPayable: new Decimal(0),
-      }));
+      const linkedIds: number[] = body.participants.flatMap((p: any) => {
+        if (p.accountUserId == null) return [];
+        if (!Number.isSafeInteger(p.accountUserId) || p.accountUserId <= 0) throw new AccessError("social.invalidMembers", 409);
+        return [p.accountUserId];
+      });
+      if (new Set(linkedIds).size !== linkedIds.length) throw new AccessError("social.duplicateAccount", 409);
+      const accounts = await tx.user.findMany({ where: { id: { in: linkedIds }, username: { not: null } },
+        select: { id: true, nickname: true, name: true, username: true, promptPayId: true } });
+      if (accounts.length !== linkedIds.length) throw new AccessError("social.personNotFound", 404);
+      const participants = body.participants.map((p: any) => {
+        const account = accounts.find(a => a.id === p.accountUserId);
+        const promptPayId = account ? account.promptPayId : p.promptPayId == null || p.promptPayId === "" ? null : p.promptPayId;
+        if (promptPayId !== null && (typeof promptPayId !== "string" || !isPromptPayId(promptPayId)))
+          throw new AccessError("PromptPay ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขประจำตัว 13 หลัก", 409);
+        return {
+          id: identity(p.id),
+          name: account ? (account.nickname || account.name || account.username!) : label(p.name, "participant"),
+          accountUserId: account?.id ?? null,
+          isPayer: p.isPayer === true,
+          totalPayable: new Decimal(0),
+          promptPayId,
+        };
+      });
       const ids = new Set<string>(participants.map((p: any) => p.id));
       if (ids.size !== participants.length)
         throw new AccessError("Duplicate participant ID", 409);
@@ -137,7 +165,13 @@ export async function saveBill(id: string, userId: number, body: any) {
             : i.consumers.length)
         )
           throw new AccessError("Every item needs a consumer", 409);
+        const payerId = itemPayersEnabled ? i.payerId ?? null : null;
+        if (payerId !== null && !ids.has(payerId))
+          throw new AccessError("คนออกเงินต้องอยู่ในบิลนี้", 409);
+        if (itemPayersEnabled && status === "PUBLISHED" && !payerId)
+          throw new AccessError("เลือกคนออกเงินให้ครบทุกรายการ", 409);
         return {
+          payerId,
           id: typeof i.id === "string" ? i.id : "",
           name: label(i.name, "item", status === "DRAFT"),
           price,
@@ -177,36 +211,51 @@ export async function saveBill(id: string, userId: number, body: any) {
         vat,
         grandTotal: total,
       });
+      const settlement = itemPayersEnabled ? calculateSettlements({
+        items, participants, serviceCharge: sc, vat, grandTotal: total,
+      }) : null;
+      if (itemPayersEnabled && status === "PUBLISHED" && !settlement)
+        throw new AccessError("เลือกคนออกเงินและผู้ร่วมจ่ายให้ครบทุกรายการ", 409);
+      if (status === "PUBLISHED" && settlement) {
+        for (const p of settlement.participants.filter((p) => p.amountToReceive.gt(0))) {
+          const person = participants.find((person: typeof participants[number]) => person.id === p.id);
+          if (!person?.promptPayId) {
+            if (person?.accountUserId) throw new AccessError("social.accountPromptPayRequired", 409);
+            throw new AccessError(`ใส่ PromptPay ของ ${p.name} เพื่อรับเงินคืน`, 409);
+          }
+        }
+      }
+      await autoFriend(tx, userId, linkedIds, "BILL");
       await tx.participant.updateMany({
         where: { billId: id },
         data: { archived: true },
       });
       for (const p of participants) {
-        const payable = result.participants
-          .find((r) => r.id === p.id)!
-          .totalPayable.toFixed(2);
+        const gross = result.participants.find((r) => r.id === p.id)!.totalPayable;
+        const balance = settlement?.participants.find((r) => r.id === p.id);
+        const data = {
+          name: p.name,
+          accountUserId: p.accountUserId,
+          promptPayId: p.promptPayId,
+          isPayer: itemPayersEnabled ? items.some((i: typeof items[number]) => i.payerId === p.id) : p.isPayer,
+          totalPayable: itemPayersEnabled ? (balance ? balance.amountToPay.toFixed(2) : "0.00") : gross.toFixed(2),
+          shareAmount: (balance?.shareAmount ?? gross).toFixed(2),
+          paidUpfront: balance?.paidUpfront.toFixed(2) ?? "0.00",
+          paidAmount: "0.00",
+          isPaid: false,
+          archived: false,
+        };
         await tx.participant.upsert({
-          where: { id: p.id },
-          create: {
-            id: p.id,
-            billId: id,
-            name: p.name,
-            isPayer: p.isPayer,
-            totalPayable: payable,
-          },
-          update: {
-            name: p.name,
-            isPayer: p.isPayer,
-            totalPayable: payable,
-            archived: false,
-          },
+          where: { id: p.id }, create: { id: p.id, billId: id, ...data }, update: data,
         });
       }
+      await writeSettlementTransfers(tx, id, settlement);
       await tx.billItem.deleteMany({ where: { billId: id } });
       for (const item of items)
         await tx.billItem.create({
           data: {
             billId: id,
+            payerId: item.payerId,
             name: item.name,
             price: item.price.toFixed(2),
             quantity: item.quantity,
@@ -223,6 +272,7 @@ export async function saveBill(id: string, userId: number, body: any) {
       await tx.bill.update({
         where: { id },
         data: {
+          itemPayersEnabled,
           receiptSubtotal: subtotal.toFixed(2),
           grandTotal: total.toFixed(2),
           totalDiscount: 0,
@@ -237,8 +287,8 @@ export async function saveBill(id: string, userId: number, body: any) {
       throw new AccessError("Invalid visibility", 409);
     const passcode =
       body.passcode === undefined ? bill.passcode : body.passcode;
-    if (passcode !== null && !/^\d{4,6}$/.test(passcode))
-      throw new AccessError("PIN must have 4–6 digits", 409);
+    if (passcode !== null && !isBillPin(passcode))
+      throw new AccessError("PIN must have exactly 4 digits", 409);
     if (status === "PUBLISHED" && !isPublic && !passcode)
       throw new AccessError("Private bills require a PIN", 409);
     if (status === "PUBLISHED" && !editing && bill.status !== "PUBLISHED")

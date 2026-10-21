@@ -23,6 +23,12 @@ export async function GET(
         participant.billId,
         evidence.targetId,
       );
+    } else if (evidence.targetType === "settlement") {
+      const settlement = await prisma.billSettlement.findUnique({
+        where: { id: evidence.targetId }, select: { billId: true, fromParticipantId: true },
+      });
+      if (!settlement) throw new AccessError("Not found", 404);
+      await requireParticipantAccess(request, settlement.billId, settlement.fromParticipantId);
     } else throw new AccessError("Not found", 404);
     return new Response(await readSlip(evidence.objectKey), {
       headers: {

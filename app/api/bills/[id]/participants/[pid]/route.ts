@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import Decimal from "decimal.js";
+import { buildExpenseDetails, expenseItems } from "@/lib/expense-details";
+import { calculateSettlements } from "@/lib/settlements";
 import { prisma } from "@/lib/prisma";
 import { requireParticipantAccess } from "@/lib/server/payment-access";
 import {
@@ -12,6 +15,8 @@ import {
   reviewPayment,
   paymentErrorResponse,
 } from "@/lib/server/payments";
+
+import { resolvePaymentTarget } from "@/lib/server/payment-target";
 
 type Context = { params: Promise<{ id: string; pid: string }> };
 const failure = (error: unknown) =>
@@ -33,18 +38,21 @@ export async function GET(request: NextRequest, { params }: Context) {
         id: true,
         name: true,
         grandTotal: true,
+        itemPayersEnabled: true,
         receiptSubtotal: true,
         totalDiscount: true,
         serviceCharge: true,
         vat: true,
-        owner: { select: { name: true, promptPayId: true } },
-        items: { include: { consumers: { select: { id: true, name: true } } } },
+        owner: { select: { name: true, nickname: true, promptPayId: true } },
+        items: { include: { consumers: { select: { id: true, name: true } } }, orderBy: { id: "asc" } },
         participants: {
-          where: { id: pid },
+          where: { archived: false },
           select: {
             id: true,
             name: true,
             totalPayable: true,
+            shareAmount: true,
+            paidUpfront: true,
             paidAmount: true,
             isPaid: true,
           },
@@ -52,15 +60,66 @@ export async function GET(request: NextRequest, { params }: Context) {
         _count: { select: { participants: true } },
       },
     });
-    const evidence = await latestEvidence(target(pid));
+    const participant = bill.participants.find((p) => p.id === pid);
+    if (!participant) throw new AccessError("Not found", 404);
+    const calculation = bill.itemPayersEnabled ? calculateSettlements({
+      participants: bill.participants.map((p) => ({ id: p.id, name: p.name, totalPayable: new Decimal(0) })),
+      items: bill.items.map((i) => ({ ...i, price: new Decimal(i.price.toString()),
+        discountRate: new Decimal(i.discountRate.toString()), includeSC: i.includeSc,
+        consumers: i.consumers.map((p) => p.id),
+        consumerQuantities: i.consumerQuantities as Record<string, number> | undefined,
+      })),
+      serviceCharge: new Decimal(bill.serviceCharge.toString()),
+      vat: new Decimal(bill.vat.toString()), grandTotal: new Decimal(bill.grandTotal.toString()),
+    }) : null;
+    const expenseDetails = buildExpenseDetails(bill, pid, calculation);
+    const evidence = bill.itemPayersEnabled ? null : await latestEvidence(target(pid));
+    const outgoing = bill.itemPayersEnabled ? await prisma.billSettlement.findMany({
+      where: { billId: id, fromParticipantId: pid, archived: false },
+      include: { toParticipant: { select: { name: true, promptPayId: true } } },
+      orderBy: { id: "asc" },
+    }) : [];
+    const incoming = bill.itemPayersEnabled ? await prisma.billSettlement.findMany({
+      where: { billId: id, toParticipantId: pid, archived: false }, select: { amount: true, paidAmount: true },
+    }) : [];
+    const unpaid = (rows: { amount: { toString(): string }; paidAmount: { toString(): string } }[]) => rows.reduce((sum, s) =>
+      sum.plus(Decimal.max(new Decimal(s.amount.toString()).minus(Decimal.max(s.paidAmount.toString(), 0)), 0)), new Decimal(0));
+    expenseDetails.remainingToPay = bill.itemPayersEnabled && outgoing.length ? unpaid(outgoing).toFixed(2)
+      : Decimal.max(new Decimal(participant.totalPayable.toString()).minus(bill.itemPayersEnabled ? 0 : participant.paidAmount.toString()), 0).toFixed(2);
+    expenseDetails.remainingToReceive = incoming.length ? unpaid(incoming).toFixed(2) : expenseDetails.amountToReceive;
+    const settlements = await Promise.all(outgoing.map(async (s) => {
+      const proof = await latestEvidence({ type: "settlement", id: s.id });
+      const beforeOffset = calculation ? calculation.itemAllocations
+        .filter((i) => i.payerId === s.toParticipantId)
+        .reduce((sum, i) => sum.plus(i.shares.find((share) => share.participantId === pid)?.amount ?? 0), new Decimal(0)) : null;
+      return {
+        beforeOffset,
+        offsetItems: calculation ? expenseItems(bill, calculation, s.toParticipantId, pid) : [],
+        offsetAmount: beforeOffset ? Decimal.max(beforeOffset.minus(s.amount.toString()), 0) : null,
+        id: s.id, recipientId: s.toParticipantId, name: s.toParticipant.name, promptPayId: s.toParticipant.promptPayId,
+        totalPayable: s.amount, paidAmount: s.paidAmount, isPaid: s.isPaid,
+        payslipUrl: proof ? evidenceUrl(proof.id, request) : null,
+        evidenceStatus: proof?.status ?? null,
+      };
+    }));
     return NextResponse.json(
       {
-        bill,
+        bill: {
+          ...bill,
+          participants: [participant],
+          items: bill.items.filter(item => expenseDetails.items.some(i => i.id === item.id)),
+          owner: {
+            ...bill.owner,
+            name: bill.owner.nickname || bill.owner.name,
+          },
+        },
         participant: {
-          ...bill.participants[0],
+          ...participant,
           payslipUrl: evidence ? evidenceUrl(evidence.id, request) : null,
           evidenceStatus: evidence?.status ?? null,
         },
+        settlements,
+        expenseDetails,
         canManage: isOwner,
       },
       { headers: { "Cache-Control": "private, no-store" } },
@@ -81,10 +140,11 @@ export async function POST(request: NextRequest, { params }: Context) {
     if (participant.bill.status !== "PUBLISHED")
       throw new AccessError("Bill is not published", 409);
     const data = await request.formData();
+    const payment = await resolvePaymentTarget(participant.bill, pid, data.get("settlementId"));
     const evidence = await submitPaymentEvidence(
-      { ...target(pid), version: participant.bill.version },
+      payment.target,
       data.get("file"),
-      participant.bill.owner.promptPayId,
+      payment.receiver,
       isOwner ? participant.bill.userId : null,
     );
     const updated = await prisma.participant.findUniqueOrThrow({
@@ -111,10 +171,11 @@ async function manage(
 ) {
   try {
     const { id, pid } = await context.params;
-    await requireParticipantAccess(request, id, pid, true);
+    const { participant } = await requireParticipantAccess(request, id, pid, true);
     const body = await request.json();
+    const payment = await resolvePaymentTarget(participant.bill, pid, body.settlementId);
     await reviewPayment(
-      target(pid),
+      payment.target,
       await requireUserId(),
       action,
       body.reason,

@@ -1,0 +1,63 @@
+name: wonglao-bill
+services:
+  database:
+    image: mysql:8.4
+    container_name: wonglao-bill-database
+    restart: unless-stopped
+    mem_limit: 384m
+    command: [--innodb-buffer-pool-size=67108864, --max-connections=30, --performance-schema=OFF]
+    environment:
+      MYSQL_DATABASE: wonglao_bill
+      MYSQL_USER: bill
+      MYSQL_PASSWORD: ${BILL_DB_PASSWORD:?Set BILL_DB_PASSWORD}
+      MYSQL_ROOT_PASSWORD: ${BILL_DB_ROOT_PASSWORD:?Set BILL_DB_ROOT_PASSWORD}
+    volumes:
+      - database:/var/lib/mysql
+    networks: [backend]
+    healthcheck:
+      test: [CMD-SHELL, 'MYSQL_PWD=$$MYSQL_PASSWORD mysql --protocol=TCP -h 127.0.0.1 -u bill wonglao_bill -e "SELECT 1" >/dev/null 2>&1']
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: &logging
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: '3'
+  app:
+    image: ${BILL_IMAGE:?Set BILL_IMAGE to sandboxcomet/wonglao-bill:latest}
+    container_name: wonglao-bill
+    restart: unless-stopped
+    init: true
+    mem_limit: 512m
+    cpus: 1.0
+    env_file:
+      - ${BILL_RUNTIME_DIR:?Set BILL_RUNTIME_DIR}/.env
+    environment:
+      NODE_ENV: production
+      AUTH_URL: https://bill.wonglao.com
+      DATABASE_URL: mysql://bill:${BILL_DB_PASSWORD:?Set BILL_DB_PASSWORD}@database:3306/wonglao_bill
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    networks: [backend, production]
+    labels:
+      traefik.enable: 'true'
+      traefik.docker.network: production
+      traefik.http.routers.wonglao-bill.rule: Host(`bill.wonglao.com`)
+      traefik.http.routers.wonglao-bill.entrypoints: https
+      traefik.http.routers.wonglao-bill.tls: 'true'
+      traefik.http.services.wonglao-bill.loadbalancer.server.port: '3000'
+    healthcheck:
+      test: [CMD, node, -e, "fetch('http://127.0.0.1:3000/api/health').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 10s
+      retries: 8
+      start_period: 30s
+    logging: *logging
+volumes:
+  database:
+    name: wonglao_bill_database
+networks:
+  backend:
+  production:
+    external: true

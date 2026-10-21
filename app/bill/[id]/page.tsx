@@ -1,8 +1,10 @@
+import { requestLocale } from "@/lib/server/locale";
+import { translate } from "@/lib/i18n";
 import SharedBill from "@/components/SharedBill";
-export const metadata = {
-  title: "บิลแบ่งจ่าย",
+export async function generateMetadata() { return {
+  title: translate(await requestLocale(), "bill.shared"),
   robots: { index: false, follow: false },
-};
+}; }
 export default async function Page({
   params,
 }: {

@@ -1,118 +1,196 @@
 "use client";
+import { useI18n } from "@/components/LanguageProvider";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import Link from "next/link";
 import { request, jsonBody } from "@/lib/client";
 import { Icon } from "@/components/Icons";
+
+type Profile = {
+  name: string | null;
+  nickname: string | null;
+  username: string | null;
+  promptPayId: string | null;
+};
+
 export default function Settings() {
-  const { status } = useSession();
-  const [value, setValue] = useState("");
+  const { t, feedback } = useI18n();
+  const { data: session, update } = useSession();
+  const userId = session?.user?.id;
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [nickname, setNickname] = useState("");
+  const [promptPay, setPromptPay] = useState("");
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState("");
+  const [loadError, setLoadError] = useState("");
+  const [nicknameError, setNicknameError] = useState("");
+  const [paymentError, setPaymentError] = useState("");
+  const [saveError, setSaveError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [attempt, setAttempt] = useState(0);
+
   useEffect(() => {
-    if (status !== "authenticated") return;
+    if (!userId) return;
+    let active = true;
     setLoading(true);
-    setError("");
-    request<any>("/api/profile")
-      .then((d) => setValue(d.user.promptPayId ?? ""))
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [status, attempt]);
-  async function save(e: React.FormEvent) {
+    setLoadError("");
+    request<{ user: Profile }>("/api/profile")
+      .then(({ user }) => {
+        if (!active) return;
+        setProfile(user);
+        setNickname(user.nickname ?? "");
+        setPromptPay(user.promptPayId ?? "");
+      })
+      .catch((e) => {
+        if (active) setLoadError(e.message);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [userId, attempt]);
+
+  async function saveSettings(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
+    if (saving) return;
+    setSaveError("");
     setSaved(false);
-    if (!/^(0\d{9}|\d{13})$/.test(value)) {
-      setError("ใส่เบอร์มือถือ 10 หลัก หรือเลขประจำตัว 13 หลัก");
-      return;
-    }
+    const value = nickname.trim();
+    const invalidNickname =
+      !value || value.length > 40 || /\p{Cc}/u.test(value);
+    const invalidPayment =
+      (Boolean(promptPay) || Boolean(profile?.promptPayId)) &&
+      !/^(0\d{9}|\d{13})$/.test(promptPay);
+    setNicknameError(
+      invalidNickname ? t("errors.nicknameInvalid") : "",
+    );
+    setPaymentError(
+      invalidPayment ? t("errors.promptPayFormat") : "",
+    );
+    if (invalidNickname || invalidPayment) return;
+
     setSaving(true);
     try {
-      await request("/api/profile", {
+      const { user } = await request<{ user: Profile }>("/api/profile", {
         method: "PATCH",
-        ...jsonBody({ promptPayId: value }),
+        ...jsonBody({
+          nickname: value,
+          ...(promptPay ? { promptPayId: promptPay } : {}),
+        }),
       });
+      setProfile(user);
+      setNickname(user.nickname ?? "");
+      setPromptPay(user.promptPayId ?? "");
+      await update();
       setSaved(true);
     } catch (e) {
-      setError((e as Error).message);
+      setSaveError((e as Error).message);
     } finally {
       setSaving(false);
     }
   }
+
   return (
     <div id="content" className="settings-page">
-      <h1>บัญชีรับเงิน</h1>
-      <p>ตั้งค่า PromptPay สำหรับให้เพื่อนโอนยอดในบิล</p>
-      <section className="panel">
-        {status === "loading" ? (
-          <p role="status">กำลังตรวจสอบบัญชี...</p>
-        ) : status !== "authenticated" ? (
-          <>
-            <h2>เข้าสู่ระบบเพื่อตั้งค่าบัญชี</h2>
-            <p className="field-hint">หมายเลขรับเงินจะผูกกับบัญชีของคุณ</p>
-            <Link
-              href="/login?callbackUrl=/settings"
-              className="button primary full-width"
-            >
-              เข้าสู่ระบบ
-            </Link>
-          </>
-        ) : loading ? (
-          <p role="status">กำลังโหลด...</p>
-        ) : (
-          <form onSubmit={save}>
+      <h1>{t("nav.accountSettings")}</h1>
+      <p>{t("settings.description")}</p>
+      {loading ? (
+        <section className="panel" role="status">
+          <p>{t("settings.loadingAccountDetails")}</p>
+        </section>
+      ) : loadError ? (
+        <section className="panel">
+          <p className="error" role="alert">
+            {feedback(loadError)}
+          </p>
+          <button
+            className="button secondary"
+            onClick={() => setAttempt((v) => v + 1)}
+          > {t("settings.reloadDetails")} </button>
+        </section>
+      ) : profile ? (
+        <section id="nickname" className="panel">
+          <form onSubmit={saveSettings} noValidate aria-busy={saving}>
             <div className="panel-heading">
-              <h2>PromptPay</h2>
-              <Icon name="wallet" />
+              <h2>{t("settings.accountDetails")}</h2>
+              <Icon name="users" />
             </div>
-            <p className="field-hint">
-              ใช้เบอร์มือถือหรือเลขประจำตัวที่ลงทะเบียน PromptPay แล้ว
-            </p>
+            <label className="field"><span>{t("account.username")}</span><input readOnly value={profile.username ? `@${profile.username}` : ""} /></label>
+            <p className="field-hint">{t("account.usernameImmutableHint")}</p>
             <label className="field">
-              <span>หมายเลข PromptPay</span>
+              <span>{t("settings.yourNickname")}</span>
               <input
-                inputMode="numeric"
-                value={value}
-                maxLength={13}
+                autoComplete="nickname"
+                required
+                maxLength={40}
+                value={nickname}
                 onChange={(e) => {
-                  setValue(e.target.value.replace(/\D/g, ""));
+                  setNickname(e.target.value);
+                  setNicknameError("");
+                  setSaveError("");
                   setSaved(false);
                 }}
-                placeholder="หมายเลขรับเงิน"
-                required
+                placeholder={t("settings.nicknamePlaceholder")}
+                disabled={saving}
+                aria-invalid={Boolean(nicknameError)}
+                aria-describedby={
+                  nicknameError
+                    ? "nickname-hint nickname-error"
+                    : "nickname-hint"
+                }
               />
             </label>
-            <button disabled={saving} className="button primary full-width">
-              {saving ? "กำลังบันทึก..." : "บันทึกบัญชีรับเงิน"}
-            </button>
-            {saved && (
-              <p className="success" role="status">
-                บันทึกหมายเลขรับเงินแล้ว
+            <p id="nickname-hint" className="field-hint"> {t("settings.nicknameHint")} </p>
+            {nicknameError && (
+              <p id="nickname-error" className="error" role="alert">
+                {feedback(nicknameError)}
               </p>
             )}
-          </form>
-        )}
-        {error && (
-          <>
-            <p className="error" role="alert">
-              {error}
-            </p>
-            <button
-              className="text-link"
-              onClick={() => setAttempt((v) => v + 1)}
-            >
-              โหลดข้อมูลใหม่
+            {profile.name && (
+              <p className="field-hint">{t("settings.loggedInAccount")} {profile.name}</p>
+            )}
+            <label className="field">
+              <span> {t("settings.promptPayNumber")}{!profile.promptPayId && t("common.optionalNote")}
+              </span>
+              <input
+                inputMode="numeric"
+                value={promptPay}
+                maxLength={13}
+                onChange={(e) => {
+                  setPromptPay(e.target.value.replace(/\D/g, ""));
+                  setPaymentError("");
+                  setSaveError("");
+                  setSaved(false);
+                }}
+                placeholder={t("settings.promptPayHint")}
+                disabled={saving}
+                aria-invalid={Boolean(paymentError)}
+                aria-describedby={
+                  paymentError ? "payment-hint payment-error" : "payment-hint"
+                }
+              />
+            </label>
+            <p id="payment-hint" className="field-hint"> {t("settings.promptPayChangeHint")} </p>
+            {paymentError && (
+              <p id="payment-error" className="error" role="alert">
+                {feedback(paymentError)}
+              </p>
+            )}
+            <button className="button primary full-width" disabled={saving}>
+              {saving ? t("common.saving") : t("settings.saveSettings")}
             </button>
-          </>
-        )}
-      </section>
-      <p className="field-hint">
-        เมื่อเปลี่ยนหมายเลข QR ของบิลที่แชร์ไว้จะใช้หมายเลขใหม่
-        ตรวจสอบให้ถูกต้องก่อนเปลี่ยน
-      </p>
+            {saveError && (
+              <p className="error" role="alert">
+                {feedback(saveError)}
+              </p>
+            )}
+            {saved && (
+              <p className="success" role="status"> {t("settings.settingsSaved")} </p>
+            )}
+          </form>
+        </section>
+      ) : null}
     </div>
   );
 }

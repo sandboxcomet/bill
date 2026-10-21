@@ -11,11 +11,19 @@ export class AccessError extends Error {
   }
 }
 
-export async function requireUserId(): Promise<number> {
+export async function optionalUserId(): Promise<number | null> {
   const session = await auth();
   const id = Number(session?.user?.id);
-  if (!Number.isSafeInteger(id) || id < 1)
-    throw new AccessError("Unauthorized", 401);
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
+}
+
+export async function requireUserId(requireUsername = true): Promise<number> {
+  const id = await optionalUserId();
+  if (id === null) throw new AccessError("Unauthorized", 401);
+  if (requireUsername) {
+    const user = await prisma.user.findUnique({ where: { id }, select: { username: true } });
+    if (!user?.username) throw new AccessError("account.usernameRequired", 403);
+  }
   return id;
 }
 

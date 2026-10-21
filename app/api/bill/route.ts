@@ -1,7 +1,11 @@
 import { requireQuota } from "@/lib/server/quota";
 import { PaymentError } from "@/lib/payment-contract";
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/auth";
+import {
+  optionalUserId,
+  AccessError,
+  accessErrorResponse,
+} from "@/lib/server/authorization";
 import { prisma } from "@/lib/prisma";
 import {
   createParticipantToken,
@@ -27,13 +31,18 @@ export async function GET(req: NextRequest) {
   const headers = { "Cache-Control": "no-store, no-cache, must-revalidate" };
 
   try {
+    const userId = await optionalUserId();
     const bill = await prisma.bill.findUnique({
       where: { id },
       include: {
-        owner: { select: { name: true, promptPayId: true } },
+        owner: { select: { name: true, nickname: true, promptPayId: true } },
         participants: { where: { archived: false } },
+        settlements: { where: { archived: false }, select: {
+          id: true, fromParticipantId: true, toParticipantId: true,
+          amount: true, paidAmount: true, isPaid: true,
+        } },
         items: {
-          include: { consumers: { select: { id: true, name: true } } },
+          include: { consumers: { select: { id: true, name: true } }, payer: { select: { id: true, name: true } } },
         },
       },
     });
@@ -44,14 +53,14 @@ export async function GET(req: NextRequest) {
         { status: 404, headers },
       );
 
-    const session = await auth();
-    const isOwner = Number(session?.user?.id) === bill.userId;
+    const isOwner = userId === bill.userId;
     if (!isOwner && bill.status !== "PUBLISHED")
       return NextResponse.json(
         { error: "Not found" },
         { status: 404, headers },
       );
-    if (!isOwner && !bill.isPublic && passcode)
+    // Rate-limit incorrect PIN guesses; authorized refreshes must not exhaust the quota.
+    if (!isOwner && !bill.isPublic && passcode && bill.passcode !== passcode)
       await requireQuota(`bill-pin:${bill.id}`, 30);
     // Private bills without a configured passcode remain private.
     if (
@@ -70,10 +79,17 @@ export async function GET(req: NextRequest) {
       {
         bill: {
           ...safeBill,
+          owner: {
+            ...bill.owner,
+            name: bill.owner.nickname || bill.owner.name,
+          },
           participants: bill.participants.map((p) => ({
             id: p.id,
             name: p.name,
             totalPayable: p.totalPayable,
+            shareAmount: p.shareAmount,
+            paidUpfront: p.paidUpfront,
+            paidAmount: p.paidAmount,
             isPaid: p.isPaid,
             isPayer: p.isPayer,
             paymentUrl: `/bill/${bill.id}/${p.id}`,
@@ -88,6 +104,7 @@ export async function GET(req: NextRequest) {
       { headers },
     );
   } catch (err: unknown) {
+    if (err instanceof AccessError) return accessErrorResponse(err);
     if (err instanceof PaymentError)
       return NextResponse.json(
         { error: err.message },

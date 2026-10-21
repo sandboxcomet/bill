@@ -1,0 +1,179 @@
+name: Deploy Clear Toh
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      approved_replace_container:
+        description: "Exact existing app container ID approved for replacement (leave empty on first deploy)"
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: bill-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: [self-hosted, mac-mini-m2]
+    timeout-minutes: 60
+    env:
+      IMAGE_NAME: sandboxcomet/wonglao-bill
+      BILL_WORKSPACE_NAME: bill-${{ github.run_id }}-${{ github.run_attempt }}
+      DEPLOY_HOST: ${{ secrets.BILL_DEPLOY_HOST }}
+      DEPLOY_PORT: ${{ secrets.BILL_DEPLOY_PORT }}
+      DEPLOY_USER: ${{ secrets.BILL_DEPLOY_USER }}
+      DEPLOY_ROOT: ${{ vars.BILL_DEPLOY_ROOT || '/var/opt/sandbox/bill' }}
+      APPROVED_REPLACE_CONTAINER: ${{ inputs.approved_replace_container || '' }}
+    steps:
+      - name: Prepare isolated build and SSH credentials
+        env:
+          SSH_KEY: ${{ secrets.BILL_SSH_PRIVATE_KEY }}
+          KNOWN_HOSTS: ${{ secrets.BILL_SSH_KNOWN_HOSTS }}
+          REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          REGISTRY_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYTHON'
+          import json, os, pathlib, subprocess
+          for setting, secret in {'DEPLOY_HOST': 'BILL_DEPLOY_HOST', 'DEPLOY_PORT': 'BILL_DEPLOY_PORT', 'DEPLOY_USER': 'BILL_DEPLOY_USER'}.items():
+              if not os.environ.get(setting, '').strip(): raise SystemExit('Missing GitHub secret: ' + secret)
+          for key in ('SSH_KEY', 'KNOWN_HOSTS', 'REGISTRY_USER', 'REGISTRY_TOKEN'):
+              if not os.environ.get(key): raise SystemExit('Missing GitHub secret for ' + key)
+          workspace = pathlib.Path(os.environ['RUNNER_TEMP']) / os.environ['BILL_WORKSPACE_NAME']
+          for path in (workspace, *workspace.parents):
+              if path.is_symlink(): raise SystemExit('Refusing symlink: ' + str(path))
+          probe = subprocess.run(['git', '-C', str(workspace.parent), 'rev-parse', '--show-toplevel'], capture_output=True, text=True)
+          if probe.returncode == 0 or 'not a git repository' not in probe.stderr:
+              raise SystemExit('Build workspace must be outside Git')
+          workspace.mkdir(mode=0o700)
+          config = workspace / 'docker'
+          config.mkdir(mode=0o700)
+          (config / 'config.json').write_text(json.dumps({
+              'credsStore': 'bill-env',
+              'cliPluginsExtraDirs': ['/Applications/Docker.app/Contents/Resources/cli-plugins'],
+          }))
+          helper = config / 'docker-credential-bill-env'
+          helper.write_text("#!/usr/bin/env python3\nimport json, os, sys\n"
+              "if sys.argv[1:] != ['get']: sys.exit(1)\n"
+              "if sys.stdin.read().strip() not in ('https://index.docker.io/v1/', 'registry-1.docker.io', 'index.docker.io', 'docker.io'): sys.exit(1)\n"
+              "json.dump({'Username': os.environ['REGISTRY_USER'], 'Secret': os.environ['REGISTRY_TOKEN']}, sys.stdout)\n")
+          helper.chmod(0o700)
+          hosts = workspace / 'known_hosts'
+          hosts.write_text(os.environ['KNOWN_HOSTS'].strip() + '\n')
+          hosts.chmod(0o600)
+          agent = subprocess.run(['ssh-agent', '-s', '-t', '3600'], capture_output=True, text=True, check=True)
+          import re
+          socket = re.search(r'SSH_AUTH_SOCK=([^;]+);', agent.stdout).group(1)
+          pid = re.search(r'SSH_AGENT_PID=(\d+);', agent.stdout).group(1)
+          environment = dict(os.environ, SSH_AUTH_SOCK=socket, SSH_AGENT_PID=pid)
+          subprocess.run(['ssh-add', '-t', '3600', '-'], input=os.environ['SSH_KEY'] + '\n', env=environment,
+              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, text=True, check=True)
+          endpoint = os.environ.get('DOCKER_HOST') or subprocess.check_output(['docker', 'context', 'inspect', '--format', '{{.Endpoints.docker.Host}}'], text=True).strip()
+          with open(os.environ['GITHUB_ENV'], 'a') as output:
+              for key, value in {'BILL_WORKSPACE': str(workspace), 'DOCKER_CONFIG': str(config), 'DOCKER_HOST': endpoint,
+                  'SSH_AUTH_SOCK': socket, 'SSH_AGENT_PID': pid, 'BILL_KNOWN_HOSTS': str(hosts)}.items():
+                  output.write(key + '=' + value + '\n')
+          with open(os.environ['GITHUB_PATH'], 'a') as output: output.write(str(config) + '\n')
+          PYTHON
+
+      # Preserve paths differing only by case: never check out the source on macOS.
+      - name: Download exact source revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --location \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header 'Accept: application/vnd.github+json' \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/tarball/$GITHUB_SHA" \
+            | python3 -c '
+          import os, pathlib, sys, tarfile
+          workspace = pathlib.Path(os.environ["BILL_WORKSPACE"])
+          selected = {"tool/deploy-vm.sh", "tool/preserve-image.sh", "deployment/compose.vm.yml"}
+          found = set()
+          with tarfile.open(fileobj=sys.stdin.buffer, mode="r|gz") as source:
+              with tarfile.open(workspace / "context.tar.gz", mode="w:gz") as target:
+                  for entry in source:
+                      root, separator, relative = entry.name.partition("/")
+                      if not separator or not relative: continue
+                      if relative.startswith("/") or ".." in relative.split("/"): raise ValueError("Unsafe archive path")
+                      if any(part == ".env" or (part.startswith(".env.") and part != ".env.example") for part in relative.split("/")):
+                          raise ValueError("Runtime secrets must never enter the source archive")
+                      entry.name = relative
+                      if entry.islnk() and entry.linkname.startswith(root + "/"): entry.linkname = entry.linkname[len(root) + 1:]
+                      entry.pax_headers = {k: v for k, v in entry.pax_headers.items() if k not in ("path", "linkpath")}
+                      if relative in selected:
+                          if not entry.isfile(): raise ValueError("Deployment source must be a regular file")
+                          data = source.extractfile(entry).read()
+                          import io
+                          target.addfile(entry, io.BytesIO(data))
+                          destination = workspace / relative
+                          destination.parent.mkdir(parents=True, exist_ok=True)
+                          with destination.open("xb") as output: output.write(data)
+                          found.add(relative)
+                      else: target.addfile(entry, source.extractfile(entry) if entry.isfile() else None)
+          if found != selected: raise SystemExit("Missing deployment source")
+          '
+          bash -n "$BILL_WORKSPACE/tool/deploy-vm.sh"
+          bash -n "$BILL_WORKSPACE/tool/preserve-image.sh"
+          docker info >/dev/null
+          docker buildx version
+
+      - name: Preserve deployed image before publishing latest
+        env:
+          REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          REGISTRY_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        shell: bash
+        run: bash "$BILL_WORKSPACE/tool/preserve-image.sh"
+
+      - name: Build and publish latest
+        env:
+          REGISTRY_USER: ${{ secrets.DOCKERHUB_USERNAME }}
+          REGISTRY_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker buildx build --file Dockerfile \
+            --platform linux/amd64 \
+            --tag "$IMAGE_NAME:latest" \
+            --tag "$IMAGE_NAME:build-$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --label "org.opencontainers.image.revision=$GITHUB_SHA" \
+            --metadata-file "$BILL_WORKSPACE/image.json" \
+            --push --provenance=false --progress=plain - < "$BILL_WORKSPACE/context.tar.gz"
+          python3 - <<'PYTHON'
+          import json, os, pathlib, re
+          digest = json.loads((pathlib.Path(os.environ['BILL_WORKSPACE']) / 'image.json').read_text())['containerimage.digest']
+          if not re.fullmatch(r'sha256:[a-f0-9]{64}', digest): raise SystemExit('Invalid published image digest')
+          with open(os.environ['GITHUB_ENV'], 'a') as output: output.write('BILL_IMAGE_DIGEST=' + digest + '\n')
+          PYTHON
+
+      - name: Refresh latest, migrate billing database and deploy
+        shell: bash
+        run: |
+          set -euo pipefail
+          release="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+          compose_payload=$(base64 < "$BILL_WORKSPACE/deployment/compose.vm.yml" | tr -d '\r\n')
+          printf -v args '%q ' "$IMAGE_NAME:latest" "$release" "$DEPLOY_ROOT" "$compose_payload" "$APPROVED_REPLACE_CONTAINER" "$BILL_IMAGE_DIGEST"
+          ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o IdentityFile=none \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$BILL_KNOWN_HOSTS" \
+            -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+            "$DEPLOY_USER@$DEPLOY_HOST" "bash -s -- $args" < "$BILL_WORKSPACE/tool/deploy-vm.sh"
+          {
+            echo '### BILL deployment'
+            printf 'Image: `%s:latest`\n\nDigest: `%s`\n\nRelease: `%s`\n' "$IMAGE_NAME" "$BILL_IMAGE_DIGEST" "$release"
+            echo 'Billing migrations applied; running image ID and digest verified. DNS configuration is separate.'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Stop temporary SSH agent
+        if: always()
+        shell: bash
+        run: |
+          if [[ "${SSH_AGENT_PID:-}" =~ ^[0-9]+$ ]]; then kill "$SSH_AGENT_PID"; fi

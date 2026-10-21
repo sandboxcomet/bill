@@ -1,8 +1,10 @@
+import { requestLocale } from "@/lib/server/locale";
+import { translate } from "@/lib/i18n";
 import Payment from "@/components/Payment";
-export const metadata = {
-  title: "ยอดชำระของคุณ",
+export async function generateMetadata() { return {
+  title: translate(await requestLocale(), "payment.title"),
   robots: { index: false, follow: false },
-};
+}; }
 export default async function Page({
   params,
 }: {

@@ -1,24 +1,37 @@
 import type { Metadata, Viewport } from "next";
 import Providers from "@/components/Providers";
+import { auth } from "@/auth";
 import Shell from "@/components/Shell";
 import "./globals.css";
-export const metadata: Metadata = {
+import { LanguageProvider } from "@/components/LanguageProvider";
+import { requestLocale } from "@/lib/server/locale";
+import { translate } from "@/lib/i18n";
+export async function generateMetadata(): Promise<Metadata> {
+  const locale = await requestLocale();
+  return {
   metadataBase: new URL("https://bill.wonglao.com"),
   title: {
-    default: "WongLao Bill — แบ่งบิลให้ลงตัว",
-    template: "%s | WongLao Bill",
+    default: translate(locale, "meta.title"),
+    template: translate(locale, "meta.titleTemplate"),
   },
   description:
-    "ใครกินอะไร จ่ายเท่านั้น แบ่งบิลกับเพื่อน คำนวณยอดรายคน และแชร์ลิงก์โอนผ่าน PromptPay",
+    translate(locale, "meta.description"),
 };
+}
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#f5f7f6",
 };
-export default function Layout({ children }: { children: React.ReactNode }) {
+export default async function Layout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const session = await auth();
+  const locale = await requestLocale();
   return (
-    <html lang="th">
+    <html lang={locale}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link
@@ -33,11 +46,13 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <a className="skip-link" href="#content">
-          ข้ามไปยังเนื้อหา
+          {translate(locale, "nav.skipToContent")}
         </a>
-        <Providers>
+        <LanguageProvider locale={locale}>
+        <Providers session={session}>
           <Shell>{children}</Shell>
         </Providers>
+        </LanguageProvider>
       </body>
     </html>
   );

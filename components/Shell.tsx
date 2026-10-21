@@ -1,64 +1,51 @@
 "use client";
-import Link from "next/link";
+import { useI18n } from "@/components/LanguageProvider";
+import Link from "@/components/LocalizedLink";
+import { useSession } from "next-auth/react";
 import { usePathname } from "next/navigation";
-import { signOut, useSession } from "next-auth/react";
+import { stripLocale } from "@/lib/locale";
 import { Icon } from "./Icons";
+import UserMenu from "./UserMenu";
+import LanguageMenu from "./LanguageMenu";
 export default function Shell({ children }: { children: React.ReactNode }) {
-  const path = usePathname();
+  const { t } = useI18n();
   const { data: session } = useSession();
+  const pathname = stripLocale(usePathname());
+  const isMyBills = pathname === "/bills" || pathname.startsWith("/bills/");
   return (
     <>
       <header className="site-header">
         <div className="header-inner">
-          <Link className="brand" href="/" aria-label="WongLao Bill หน้าหลัก">
-            <span className="brand-symbol">
-              <Icon name="receipt" size={23} />
-            </span>
-            <span>
-              วงเหล้า<span className="brand-divider">/</span>
-              <b>bill</b>
+          <Link className="brand" href="/" aria-label={t("nav.brandHome")}>
+            <img className="brand-logo" src="/brand-mark.svg?v=clear-toh-friends-1" width={40} height={40} alt="" aria-hidden="true" />
+            <span className="brand-wordmark">
+              <span className="brand-product" lang="th">เคลียร์โต๊ะ</span>
+              <span className="brand-english" lang="en">Clear Toh</span>
             </span>
           </Link>
-          <nav aria-label="เมนูหลัก">
-            <Link
-              className={path === "/" ? "nav-link active" : "nav-link"}
-              href="/"
-            >
-              บิลของฉัน
-            </Link>
-            <Link
-              className={path === "/settings" ? "nav-link active" : "nav-link"}
-              href="/settings"
-            >
-              <Icon name="settings" size={17} />
-              <span>บัญชีรับเงิน</span>
+          <nav className="desktop-nav" aria-label={t("nav.main")}>
+            <Link className={`nav-link${isMyBills ? " active" : ""}`} href="/bills" aria-current={isMyBills ? "page" : undefined}>
+              {t("nav.myBills")}
             </Link>
           </nav>
           <div className="header-account">
+            <LanguageMenu />
             {session?.user ? (
-              <>
-                <span className="account-name">{session.user.name}</span>
-                <button
-                  className="icon-button"
-                  onClick={() => signOut({ callbackUrl: "/" })}
-                  aria-label="ออกจากระบบ"
-                >
-                  <Icon name="logout" size={18} />
-                </button>
-              </>
+              <UserMenu name={session.user.nickname || session.user.name || t("nav.myAccount")} />
             ) : (
-              <Link className="button button-small secondary" href="/login">
-                เข้าสู่ระบบ
-                <Icon name="arrow" size={16} />
-              </Link>
+              <>
+                <Link className="button button-small secondary header-login" href="/login" aria-label={t("auth.logIn")}>
+                  <span className="header-login-label">{t("auth.logIn")}</span><Icon name="login" size={16} />
+                </Link>
+              </>
             )}
           </div>
         </div>
       </header>
       <main className="page-container">{children}</main>
       <footer className="site-footer">
-        <span>WongLao Bill</span>
-        <span>มื้อนี้แบ่งให้ชัด แล้วนัดกันใหม่</span>
+        <span>เคลียร์โต๊ะ · Clear Toh</span>
+        <span>{t("brand.tagline")}</span>
       </footer>
     </>
   );

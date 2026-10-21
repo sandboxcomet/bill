@@ -1,7 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { AccessError } from "./authorization";
+import { AccessError, optionalUserId } from "./authorization";
 
 function signingKey() {
   const key = process.env.PAYMENT_LINK_SECRET || process.env.AUTH_SECRET;
@@ -79,6 +78,7 @@ export async function requireParticipantAccess(
   participantId: string,
   ownerOnly = false,
 ) {
+  const userId = await optionalUserId();
   const participant = await prisma.participant.findFirst({
     where: { id: participantId, billId, archived: false },
     include: {
@@ -86,8 +86,7 @@ export async function requireParticipantAccess(
     },
   });
   if (!participant) throw new AccessError("Not found", 404);
-  const session = await auth();
-  const isOwner = Number(session?.user?.id) === participant.bill.userId;
+  const isOwner = userId === participant.bill.userId;
   if (isOwner) return { participant, isOwner };
   if (ownerOnly || participant.bill.status !== "PUBLISHED")
     throw new AccessError("Forbidden");
