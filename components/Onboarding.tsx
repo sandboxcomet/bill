@@ -1,13 +1,10 @@
 "use client";
 import { useState } from "react";
-import { useSession } from "next-auth/react";
-import { useI18n, useLocalizedRouter } from "./LanguageProvider";
+import { useI18n } from "./LanguageProvider";
 import { isUsername, normalizeUsername } from "@/lib/social";
 import { jsonBody, request } from "@/lib/client";
 export default function Onboarding({ destination }: { destination: string }) {
   const { t, feedback } = useI18n();
-  const { update } = useSession();
-  const router = useLocalizedRouter();
   const [username, setUsername] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -18,7 +15,9 @@ export default function Onboarding({ destination }: { destination: string }) {
     setBusy(true); setError("");
     try {
       await request("/api/profile", { method: "PATCH", ...jsonBody({ username: value }) });
-      await update(); router.replace(destination); router.refresh();
+      // Start one fresh request after saving. Refreshing onboarding while a
+      // client navigation is pending can render its redirect again.
+      window.location.replace(destination);
     } catch (e) { setError((e as Error).message); }
     finally { setBusy(false); }
   }
