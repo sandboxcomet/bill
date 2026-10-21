@@ -394,6 +394,7 @@ export const thai = {
   "split.yourExample": "คุณดื่ม 2 แก้ว ใส่",
   "split.friendExample": "เพื่อนดื่ม 1 แก้ว ใส่",
   "account.setupTitle": "ตั้ง username ของคุณ",
+  "editor.addMyself": "เพิ่มตัวฉัน",
   "account.setupHint": "ตั้งครั้งเดียว เพื่อให้เพื่อนค้นหาและเพิ่มคุณเข้าบิลได้ ชื่อที่แสดงยังใช้ชื่อเล่นเดิม",
   "account.username": "Username",
   "account.usernameHint": "ใช้ a–z ตัวเลข และ _ จำนวน 3–24 ตัว ไม่ซ้ำกับคนอื่น และเปลี่ยนภายหลังไม่ได้",

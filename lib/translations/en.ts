@@ -396,6 +396,7 @@ export const english = {
   "split.yourExample": "You had 2 glasses. Enter",
   "split.friendExample": "Your friend had 1 glass. Enter",
   "account.setupTitle": "Choose your username",
+  "editor.addMyself": "Add myself",
   "account.setupHint": "Set this once so friends can find you and add you to bills. Your display name stays the same.",
   "account.username": "Username",
   "account.usernameHint": "Use 3–24 letters (a–z), numbers or underscores. It must be unique and cannot be changed later.",

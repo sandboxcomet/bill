@@ -454,6 +454,18 @@ export default function BillEditor({
     }), ...additions.map(p => ({ id: uid(), name: p.name, isPayer: false,
       accountUserId: p.id, username: p.username, hasPromptPay: p.hasPromptPay }))] });
   }
+  const canAddSelf = !demo && status === "authenticated" && Boolean(session?.user?.username) &&
+    !draft.participants.some(p => p.accountUserId === Number(session?.user?.id));
+  function addSelf() {
+    if (!canAddSelf || locked || saving || !session?.user?.username) return;
+    addAccounts([{
+      id: Number(session.user.id),
+      name: creatorName,
+      username: session.user.username,
+      image: session.user.image ?? null,
+      hasPromptPay: profilePromptPay?.userId === session.user.id && Boolean(profilePromptPay.value),
+    }]);
+  }
   function removePerson(id: string) {
     update({
       participants: draft.participants.filter((p) => p.id !== id),
@@ -709,6 +721,9 @@ export default function BillEditor({
                   </span>
                 ))}
               </div>
+              {canAddSelf && <button type="button" className="button secondary button-small" onClick={addSelf}>
+                <Icon name="plus" size={17} /> {t("editor.addMyself")}
+              </button>}
               {!demo && <BillPeoplePicker onAdd={addAccounts} disabled={locked || saving} />}
               <form
                 className="inline-form"
