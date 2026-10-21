@@ -74,7 +74,7 @@ npm run build
 
 ## Deploy ไป bill.wonglao.com
 
-ใช้ GitHub Actions รูปแบบเดียวกับ ESS: runner `ubuntu-latest` build และ push `sandboxcomet/wonglao-bill:latest` พร้อม backup image ก่อน deploy ผ่าน SSH และ Traefik ไป `bill.wonglao.com` ดูขั้นตอนและ Secrets ใน [deployment/README.md](deployment/README.md) Repository: `sandboxcomet/bill` ปลายทางเครื่อง ESS ที่ `/var/opt/sandbox/bill` (สถานะ deploy จริงดู GitHub Actions และ `/api/health`)
+ใช้ GitHub Actions รูปแบบเดียวกับ ESS: runner `ubuntu-latest` build และ push `sandboxcomet/wonglao-bill:latest` พร้อม backup image ก่อน deploy ผ่าน SSH และ Traefik ไป `bill.wonglao.com` ดูขั้นตอนและ Secrets ใน [deployment/README.md](deployment/README.md) Deploy แล้วที่ [bill.wonglao.com](https://bill.wonglao.com) จาก repository `sandboxcomet/bill` ไปเครื่อง ESS ที่ `/var/opt/sandbox/bill` รอบแรกผ่าน [GitHub Actions #39571036488](https://github.com/sandboxcomet/bill/actions/runs/39571036488) และ `/api/health` ตอบ `200` พร้อมสถานะฐานข้อมูล `ok`
 
 ขั้นตอน manual ด้านล่างเป็นทางเลือกสำหรับโฮสต์ที่ใช้ Nginx:
 
