@@ -35,6 +35,7 @@ type Data = {
   settlements: (Payable & { id: string; recipientId: string; promptPayId: string | null })[];
   canManage: boolean;
   requiresClaim: boolean;
+  readOnly?: boolean;
   expenseDetails?: ExpenseDetails | null;
 };
 export default function Payment({ id, pid }: { id: string; pid: string }) {
@@ -50,7 +51,8 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
   const [reason, setReason] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const selected = data?.settlements.find((s) => s.id === selectedId) ?? data?.settlements[0];
-  const proofUrl = selected?.payslipUrl ?? (!data?.bill.itemPayersEnabled ? data?.participant.payslipUrl : null);
+  const proofUrl = data?.readOnly || (data?.requiresClaim && !data.canManage) ? null
+    : selected?.payslipUrl ?? (!data?.bill.itemPayersEnabled ? data?.participant.payslipUrl : null);
   const qrRef = useRef<HTMLDivElement>(null);
   const [readyQr, setReadyQr] = useState("");
   const endpoint = `/api/bills/${id}/participants/${pid}`;
@@ -228,21 +230,44 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
         <button className="button secondary" onClick={load}> {t("common.retry")} </button>
       </div>
     );
-  const claimPanel = data.requiresClaim ? <section className="payment-account-claim" aria-labelledby="payment-claim-heading">
+  const [claimHintBefore, claimHintAfter] = t("payment.claimHint", ["\uFFFC"]).split("\uFFFC");
+  const claimPanel = data.requiresClaim && !data.readOnly ? <section className="payment-account-claim" aria-labelledby="payment-claim-heading">
     <h2 id="payment-claim-heading">{t("payment.claimTitle")}</h2>
-    <p>{t("payment.claimHint", [data.participant.name])}</p>
+    <p>{claimHintBefore}<strong className="claim-participant-name">{data.participant.name}</strong>{claimHintAfter}</p>
     <p><strong>{session?.user?.nickname}</strong> · @{session?.user?.username}</p>
     <p className="field-hint">{t("payment.claimPreserveHint")}</p>
     <button type="button" className="button primary full-width" disabled={working || loading} onClick={claim}>
       {t(working ? "common.saving" : "payment.claimAction")}</button>
     {error && <p className="error" role="alert">{feedback(error)}</p>}
   </section> : null;
-  if (data.requiresClaim && !data.canManage) return <div id="content" className="payment-page">
+  const claimTransfers = data.bill.itemPayersEnabled ? data.settlements : [{
+    ...data.participant, name: data.bill.owner.name ?? t("bill.creator"), id: "owner",
+  }];
+  const unpaid = (payable: Payable) => Decimal.max(new Decimal(payable.totalPayable).minus(Decimal.max(payable.paidAmount, 0)), 0);
+  const claimRemaining = claimTransfers.reduce((sum, transfer) => sum.plus(unpaid(transfer)), new Decimal(0));
+  if ((data.requiresClaim || data.readOnly) && !data.canManage) return <div id="content" className="payment-page">
     <Link href={`/bill/${id}`} className="text-link muted"><Icon name="back" size={16} />{t("nav.backToFullBill")}</Link>
     <article className="share-receipt payment-receipt">
       <div className="receipt-brand" lang="th">เคลียร์โต๊ะ <span lang="en">Clear Toh</span></div>
-      <div className="pay-heading"><h1>{t("payment.personTitle", [data.participant.name])}</h1><p>{data.bill.name}</p></div>
+      <div className="pay-heading"><h1>{t("payment.claimPreviewTitle", [data.participant.name])}</h1><p>{data.bill.name}</p></div>
+      {data.readOnly && <p className="field-hint">{t("payment.viewOnlyHint")}</p>}
       {claimPanel}
+      <section className="payment-claim-summary" aria-labelledby="claim-amount-heading">
+        <h2 id="claim-amount-heading">{t("payment.claimRemaining")}</h2>
+        <strong className="claim-amount">฿ {baht(claimRemaining)}</strong>
+        {claimRemaining.isZero() && <p className="field-hint">{t(data.readOnly ? "payment.viewOnlyNoOutgoing" : "payment.noOutgoingHint")}</p>}
+        <dl className="expense-totals">
+          {claimTransfers.map(transfer => <div key={transfer.id}>
+            <dt>{t("payment.claimTransferTo", [transfer.name])}
+              {new Decimal(transfer.paidAmount).gt(0) && <small>{t("payment.claimPaidNote", [baht(transfer.totalPayable), baht(transfer.paidAmount)])}</small>}
+            </dt><dd>฿ {baht(unpaid(transfer))}</dd>
+          </div>)}
+          {data.expenseDetails && new Decimal(data.expenseDetails.remainingToReceive).gt(0) && <div>
+            <dt>{t("explanation.remainingToReceive")}</dt><dd>฿ {baht(data.expenseDetails.remainingToReceive)}</dd>
+          </div>}
+        </dl>
+      </section>
+      <ExpenseBreakdown details={data.expenseDetails} compact subjectName={data.readOnly ? data.participant.name : undefined} />
     </article>
   </div>;
   if (data.bill.itemPayersEnabled && !selected) return (

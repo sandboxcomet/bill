@@ -32,7 +32,7 @@ export default function Onboarding({ destination, initialUsername = "", initialN
     <h1>{t("account.setupTitle")}</h1><p>{t("account.setupHint")}</p>
     <form className="panel" onSubmit={submit} aria-busy={busy} noValidate>
       <label className="field"><span>{t("account.username")}</span><input autoFocus={!initialUsername} autoComplete="username" autoCapitalize="none" spellCheck={false}
-        value={username} onChange={e => { setUsername(e.target.value); setUsernameError(""); setError(""); }} maxLength={25} placeholder="@ponnn" disabled={busy} readOnly={Boolean(initialUsername)} required
+        value={username} onChange={e => { setUsername(e.target.value); setUsernameError(""); setError(""); }} maxLength={25} placeholder="ponnn" disabled={busy} readOnly={Boolean(initialUsername)} required
         aria-invalid={Boolean(usernameError)} aria-describedby={usernameError ? "username-hint username-error" : "username-hint"} /></label>
       <p id="username-hint" className="field-hint">{t(initialUsername ? "account.usernameImmutableHint" : "account.usernameHint")}</p>
       {usernameError && <p id="username-error" className="error" role="alert">{feedback(usernameError)}</p>}

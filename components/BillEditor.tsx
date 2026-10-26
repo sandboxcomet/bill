@@ -124,7 +124,6 @@ export default function BillEditor({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
-  const [personName, setPersonName] = useState("");
   const [promptPay, setPromptPay] = useState("");
   const [profilePromptPay, setProfilePromptPay] = useState<{ userId: string; value: string } | null>(null);
   const [billStatus, setBillStatus] = useState("DRAFT");
@@ -430,12 +429,12 @@ export default function BillEditor({
         ? Object.values(i.consumerQuantities).some((q) => q > 0)
         : i.consumers.length),
   );
-  const addPerson = () => {
-    const name = personName.trim();
-    if (!name) return;
+  const addPerson = (value: string) => {
+    const name = value.trim();
+    if (!name) return false;
     if (draft.participants.length >= 100) {
       setError(t("errors.participantLimit"));
-      return;
+      return false;
     }
     update({
       participants: [
@@ -443,16 +442,17 @@ export default function BillEditor({
         { id: uid(), name, isPayer: false },
       ],
     });
-    setPersonName("");
+    return true;
   };
   function addAccounts(people: AccountPerson[]) {
     const additions = [...new Map(people.map(p => [p.id, p])).values()].filter(p => !draft.participants.some(existing => (existing.canonicalAccountUserId ?? existing.accountUserId) === p.id));
-    if (draft.participants.length + additions.length > 100) { setError(t("errors.participantLimit")); return; }
+    if (draft.participants.length + additions.length > 100) { setError(t("errors.participantLimit")); return false; }
     update({ participants: [...draft.participants.map(existing => {
       const account = people.find(p => p.id === (existing.canonicalAccountUserId ?? existing.accountUserId));
       return account ? { ...existing, name: account.name, username: account.username, hasPromptPay: account.hasPromptPay } : existing;
     }), ...additions.map(p => ({ id: uid(), name: p.name, isPayer: false,
       accountUserId: p.id, username: p.username, hasPromptPay: p.hasPromptPay }))] });
+    return true;
   }
   const canAddSelf = !demo && status === "authenticated" && Boolean(session?.user?.username) &&
     !draft.participants.some(p => (p.canonicalAccountUserId ?? p.accountUserId) === Number(session?.user?.id));
@@ -724,32 +724,11 @@ export default function BillEditor({
               {canAddSelf && <button type="button" className="button secondary button-small" onClick={addSelf}>
                 <Icon name="plus" size={17} /> {t("editor.addMyself")}
               </button>}
-              {!demo && <BillPeoplePicker onAdd={addAccounts} disabled={locked || saving}
+              <BillPeoplePicker onAdd={addAccounts} onAddName={addPerson} disabled={locked || saving} allowAccounts={!demo}
                 selectedAccountIds={draft.participants.flatMap(person => {
                   const id = person.canonicalAccountUserId ?? person.accountUserId;
                   return id == null ? [] : [id];
-                })} />}
-              <form
-                className="inline-form"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  addPerson();
-                }}
-              >
-                <input
-                  aria-label={t("editor.friendName")}
-                  maxLength={191}
-                  value={personName}
-                  onChange={(e) => setPersonName(e.target.value)}
-                  placeholder={t("editor.friendNamePlaceholder")}
-                />
-                <button
-                  type="submit"
-                  className="button secondary"
-                  disabled={!personName.trim()}
-                >
-                  <Icon name="plus" size={17} /> {t("editor.addFriend")} </button>
-              </form>
+                })} />
               {!draft.participants.length && (
                 <p className="field-hint"> {t("editor.participantsEmpty")} </p>
               )}

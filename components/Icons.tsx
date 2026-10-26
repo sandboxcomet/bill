@@ -13,6 +13,7 @@ const paths = {
       <path d="M9 9h6M9 13h6" />
     </>
   ),
+  chevron: <path d="m6 9 6 6 6-6" />,
   plus: <path d="M12 5v14M5 12h14" />,
   arrow: <path d="m9 5 7 7-7 7M4 12h12" />,
   back: <path d="m14 5-7 7 7 7M7 12h13" />,

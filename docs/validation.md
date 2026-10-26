@@ -465,3 +465,44 @@ Discount, service charge and VAT now share one mobile row through a shared subgr
 Actual `/demo` editor browser checks pass Thai/English at 320, 390, 440, 520, 600 and 1280px: all three controls share their top edge with no row or page overflow. Entering a 12.5 discount and toggling both aria-pressed controls works. Screenshots are in `/tmp/wonglao-inline-discount-20261026/` (`th-320.png`, `th-440.png`, `th-1280.png`, `en-320.png`). Whitespace checks pass. Finish-review disposition: ship, with no material fixes; existing hook findings for legacy colors/radii and the stale sidecar remain outside this layout fix.
 
 Only inline browser checks were used; no test source files were created and no real bills, accounts or payments were mutated. No real-device verification is claimed. Production rollout remains paused for VM disk space, and the owner's retained Docker images remain untouched.
+
+## Unified participant picker — 2026-10-26
+
+Replaced the separate friends select, account/group disclosure and manual-name form with one editable combobox. Focus opens accepted friends and saved groups; typing filters suggestions or offers exact account search and explicit add-by-name. Selected canonical accounts are excluded and groups add only remaining members. Friends and groups retain independent loading failures and retries.
+
+Actual new-editor browser checks with synthetic API responses pass Thai/English at 320, 440 and 1280px, including keyboard interaction, stale search suppression, missing accounts, invalid identifiers, selected-account/group filtering and manual addition. Separate empty, friends-error, groups-error, search-error/retry, locked and demo checks pass. Renders have no horizontal overflow and retain 44px targets. Screenshots are in `/tmp/wonglao-unified-people-20261026/`, including the final full-page manual-entry view `th-320-manual-page.png`.
+
+Scoped ESLint, TypeScript and whitespace checks pass. Finish-review disposition: ship, with no fixes. The detector reports 87 inherited findings and none in the new styles at lines 3365–3392; the stale sidecar remains outside scope. Checks were inline only, with no test source files created or real bill/account/payment mutations. No deployment was performed for this task and no real-device verification is claimed.
+
+
+## Automatic friendship after participant account confirmation — 2026-10-26
+
+A successful manual-participant claim now calls the existing bill friendship helper in the same serializable transaction as the account link and LINK_ACCOUNT audit. It connects only the payer and canonical bill owner, skips self-friendship, and retains all existing access, profile, version and duplicate-account guards. Thai/English confirmation copy explains the automatic friendship. Repeated claims remain idempotent; no historical rows are backfilled.
+
+Fifteen inline actual-module scenarios pass against mocked transaction/database boundaries: new friendship, repeat confirmation, existing/pending/declined friendship, merged owner, self-owner, conflicting/duplicate account, cancelled/stale bill, incomplete profile, lost claim, friendship/audit failure rollback and unchanged participant financial/receiver fields. Scoped ESLint, TypeScript and whitespace checks pass. No test source files were created, live database mutations or deployment performed.
+
+## Payment preview before participant confirmation — 2026-10-26
+
+Before a non-owner confirms a manually named entry, the payment page now shows the bill/person, aggregate remaining outgoing amount, recipient balances, prior-payment note and an initially open compact expense breakdown with items, main fees, advances and receivables. QR/upload controls and private proof reads stay unavailable until the claim succeeds. The full expense breakdown default and owner management are unchanged.
+
+Actual Payment browser checks use mocked APIs with real `participantExpenses`/`calculateSettlements` fixtures. Thai/English at 320, 440 and 1280px across legacy and multi-payer bills pass twelve variants: items are visible before confirmation, remaining amounts match, no QR/upload/proof reads occur, and `{ claimSelf: true }` leads to the normal payment view. Receiving-only/no-outgoing, fully paid, partially paid multi-recipient, claim-conflict preview preservation and unaffected owner management also pass. No overflow or browser exceptions were observed. Screenshots are in `/tmp/wonglao-claim-preview-20261026/` (`th-320-legacy.png`, `th-1280-multi.png`, `en-440-multi.png`).
+
+Scoped ESLint, TypeScript and whitespace checks pass. Finish-review disposition: ship, with no fixes; the component hook reports no issues and the stale design sidecar remains outside scope. Checks were inline only, with no test source files created, real claim/payment/account mutations or deployment. No real-device verification is claimed.
+
+
+## Collapsed payment preview details — 2026-10-26
+
+At the owner’s request, the pre-confirmation compact expense breakdown now starts collapsed using its existing default. The aggregate remaining amount, recipient balances and prior-payment notes stay visible. Selecting the existing detail summary expands the item/fee breakdown. Scoped ESLint and whitespace checks pass; no test source files or deployment were created for this default-state change.
+
+
+## Confirmation above the amount preview — 2026-10-26
+
+Moved the complete account confirmation block and its action above the remaining-payment summary and collapsed expense details. The translated explanation emphasizes the saved participant name in bold dark green without changing the sentence or inserting raw HTML. Actual browser checks pass Thai/English at 320/1280px: confirmation/button precede amounts, details start collapsed and expand, the name is emphasized, no horizontal overflow, and explicit confirmation still leads to the payment view. Scoped ESLint and whitespace pass. Inline checks used mocked API responses; no test source files, real account/payment mutations or deployment were created.
+
+## Read-only payment details for another signed-in account — 2026-10-26
+
+Live local reproduction on bill `cmvp0pctb000114z1dq59i1af` confirmed owner `@yanaphat` (id 2) already received GET 200 with management access, while `@yaphat` (Pon, id 3) received GET 403 `payment.linkedToAnotherAccount`. GET now uses `requireParticipantViewAccess` separately from strict mutation/proof access. Another complete signed-in account with a valid participant share/PIN token receives a read-only amount/item projection without receiver numbers, evidence or account IDs, and without evidence queries. Claims, uploads, review, reversal and proof reads remain denied. Owner/merged-owner and payer-alias access is preserved, with no ownership or stored data rewrites. Read-only UI keeps the breakdown collapsed and labels costs/advances with the participant's name.
+
+The original viewer now receives GET 200/readOnly and the owner retains GET 200/canManage. An actual shared-bill payment-button navigation as id 3 also passes with the token obtained from the share flow. Live local owner/viewer browser checks pass Thai/English at 320, 440 and 1280px across twelve variants: details expand, with no overflow, browser exceptions, mutations or proof reads. Actual guard/route probes with mocked DB boundaries cover roles/aliases, safe projection and no evidence queries; strict POST/PATCH/DELETE/claim/proof denial; missing, tampered, cross-bill, stale and private-bill token checks; cancellation, anonymous/incomplete profiles and unlinked-entry claims. Screenshots are in `/tmp/wonglao-payment-view-20261026/` (`viewer-th-320.png`, `viewer-th-1280.png`, `owner-th-1280.png`).
+
+Scoped ESLint, TypeScript and whitespace checks pass. Fresh finish-review disposition: ship, with no fixes. Checks were inline only, with no test source files created, real bill/account/claim/payment mutations, deployment or real-device verification. The existing user development server on port 3000 remains running.

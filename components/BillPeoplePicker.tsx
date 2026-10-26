@@ -1,57 +1,145 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { AccountPerson, SavedGroup } from "@/lib/social";
-import { request } from "@/lib/client";
+import { isUsername, normalizeUsername } from "@/lib/social";
+import { jsonBody, request } from "@/lib/client";
 import { useI18n } from "./LanguageProvider";
-import AccountSearch from "./AccountSearch";
 import Link from "./LocalizedLink";
-export default function BillPeoplePicker({ onAdd, disabled, selectedAccountIds }: {
-  onAdd: (people: AccountPerson[]) => void; disabled: boolean; selectedAccountIds: number[];
+import { Icon } from "./Icons";
+
+type Choice = { key: string; label: string; detail?: string; run: () => void };
+export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedAccountIds, allowAccounts = true }: {
+  onAdd: (people: AccountPerson[]) => boolean;
+  onAddName: (name: string) => boolean;
+  disabled: boolean;
+  selectedAccountIds: number[];
+  allowAccounts?: boolean;
 }) {
   const { t, feedback } = useI18n();
-  const [open, setOpen] = useState(false); const [friends, setFriends] = useState<AccountPerson[]>([]); const [groups, setGroups] = useState<SavedGroup[]>([]);
-  const [friendsLoading, setFriendsLoading] = useState(true); const [friendsError, setFriendsError] = useState(""); const [friendAttempt, setFriendAttempt] = useState(0);
-  const [loading, setLoading] = useState(false); const [error, setError] = useState(""); const [attempt, setAttempt] = useState(0);
+  const listId = useId();
+  const input = useRef<HTMLInputElement>(null);
+  const revision = useRef(0);
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [active, setActive] = useState(-1);
+  const [friends, setFriends] = useState<AccountPerson[]>([]);
+  const [groups, setGroups] = useState<SavedGroup[]>([]);
+  const [friendsLoading, setFriendsLoading] = useState(allowAccounts);
+  const [groupsLoading, setGroupsLoading] = useState(allowAccounts);
+  const [friendsError, setFriendsError] = useState("");
+  const [groupsError, setGroupsError] = useState("");
+  const [friendAttempt, setFriendAttempt] = useState(0);
+  const [groupAttempt, setGroupAttempt] = useState(0);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [searched, setSearched] = useState(false);
+  const [person, setPerson] = useState<AccountPerson | null>(null);
   useEffect(() => {
-    let active = true; setFriendsLoading(true); setFriendsError("");
+    if (!allowAccounts) return;
+    let live = true;
+    setFriendsLoading(true); setFriendsError("");
     request<{ friends: { status: string; person: AccountPerson }[] }>("/api/friends")
-      .then(result => { if (active) setFriends(result.friends.filter(friend => friend.status === "ACCEPTED").map(friend => friend.person)); })
-      .catch(error => { if (active) setFriendsError(error.message); })
-      .finally(() => { if (active) setFriendsLoading(false); });
-    return () => { active = false; };
-  }, [friendAttempt]);
+      .then(result => { if (live) setFriends(result.friends.filter(friend => friend.status === "ACCEPTED").map(friend => friend.person)); })
+      .catch(error => { if (live) setFriendsError(error.message); })
+      .finally(() => { if (live) setFriendsLoading(false); });
+    return () => { live = false; };
+  }, [allowAccounts, friendAttempt]);
   useEffect(() => {
-    if (!open) return;
-    let active = true; setLoading(true); setError("");
+    if (!allowAccounts) return;
+    let live = true;
+    setGroupsLoading(true); setGroupsError("");
     request<{ groups: SavedGroup[] }>("/api/friend-groups")
-      .then(result => { if (active) setGroups(result.groups); })
-      .catch(e => { if (active) setError(e.message); }).finally(() => { if (active) setLoading(false); });
-    return () => { active = false; };
-  }, [open, attempt]);
-  const available = friends.filter(friend => !selectedAccountIds.includes(friend.id));
-  return <div className="bill-account-picker">
-    <label className="field friend-dropdown"><span>{t("social.chooseFriend")}</span>
-      <select value="" disabled={disabled || friendsLoading || Boolean(friendsError) || !available.length}
-        onChange={event => {
-          const person = available.find(friend => friend.id === Number(event.target.value));
-          if (person && !disabled) onAdd([person]);
-        }}>
-        <option value="">{t(friendsLoading ? "social.loadingFriends" : !available.length && friends.length ? "social.allFriendsAdded" : "social.chooseFriendHint")}</option>
-        {available.map(friend => <option key={friend.id} value={friend.id}>{friend.name} · @{friend.username}</option>)}
-      </select>
-    </label>
-    {friendsError ? <p className="error" role="alert">{feedback(friendsError)} <button type="button" className="text-link" disabled={disabled || friendsLoading} onClick={() => setFriendAttempt(value => value + 1)}>{t("common.retry")}</button></p>
-      : !friendsLoading && !friends.length && <p className="field-hint">{t("social.noAcceptedFriends")} <Link className="text-link" href="/friends">{t("social.manageFriends")}</Link></p>}
-    <details className="bill-people-picker" onToggle={e => setOpen(e.currentTarget.open)}>
-    <summary>{t("social.addFromAccount")}</summary>
-    <p className="field-hint">{t("social.billAutoFriendHint")}</p>
-    {open && <>
-      <AccountSearch onSelect={person => onAdd([person])} disabled={disabled} />
-      {loading && <p role="status">{t("social.loadingGroups")}</p>}
-      {error && <p className="error" role="alert">{feedback(error)} <button type="button" onClick={() => setAttempt(n => n + 1)}>{t("common.retry")}</button></p>}
-      {groups.length > 0 && <div className="social-picker-section"><strong>{t("social.groupsHeading")}</strong><div className="allocation-chips">{groups.map(group => <button className="allocation-chip" type="button" disabled={disabled} key={group.id} onClick={() => onAdd(group.members)}>{group.name}</button>)}</div></div>}
-      <Link className="text-link" href="/friends">{t("social.manageFriends")}</Link>
-    </>}
-    </details>
+      .then(result => { if (live) setGroups(result.groups); })
+      .catch(error => { if (live) setGroupsError(error.message); })
+      .finally(() => { if (live) setGroupsLoading(false); });
+    return () => { live = false; };
+  }, [allowAccounts, groupAttempt]);
+  useEffect(() => () => { revision.current++; }, []);
+  function reset() {
+    revision.current++; setQuery(""); setPerson(null); setSearched(false);
+    setSearchError(""); setSearching(false); setActive(-1); setOpen(false);
+    input.current?.focus();
+  }
+  function addAccounts(people: AccountPerson[]) {
+    if (!disabled && onAdd(people)) reset();
+  }
+  const value = query.trim();
+  const filter = value.toLocaleLowerCase();
+  const matches = (name: string) => name.toLocaleLowerCase().includes(filter);
+  const canSearch = allowAccounts && (isUsername(normalizeUsername(value)) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
+  const accountQuery = value.includes("@");
+  const availableFriends = friends.filter(friend => !selectedAccountIds.includes(friend.id) && (matches(friend.name) || matches(`@${friend.username}`)));
+  const availableGroups = groups.filter(group => group.members.some(member => !selectedAccountIds.includes(member.id)) && matches(group.name));
+  async function search() {
+    if (!canSearch || disabled || searching) return;
+    const current = ++revision.current;
+    setSearching(true); setSearchError(""); setPerson(null); setSearched(false); setActive(-1);
+    try {
+      const result = await request<{ person: AccountPerson | null }>("/api/people/search", { method: "POST", ...jsonBody({ query: value }) });
+      if (revision.current === current) { setPerson(result.person); setSearched(true); }
+    } catch (error) { if (revision.current === current) setSearchError((error as Error).message); }
+    finally { if (revision.current === current) setSearching(false); }
+  }
+  const choices: Choice[] = [
+    ...availableFriends.map(friend => ({ key: `friend-${friend.id}`, label: friend.name, detail: `@${friend.username}`, run: () => addAccounts([friend]) })),
+    ...availableGroups.map(group => ({ key: `group-${group.id}`, label: group.name, detail: t("social.groupPeople", [group.members.filter(member => !selectedAccountIds.includes(member.id)).length]), run: () => addAccounts(group.members) })),
+  ];
+  if (person && !selectedAccountIds.includes(person.id) && !availableFriends.some(friend => friend.id === person.id))
+    choices.push({ key: `account-${person.id}`, label: person.name, detail: `@${person.username}`, run: () => addAccounts([person]) });
+  if (canSearch && !searched && !searching)
+    choices.push({ key: "search", label: t("social.searchAccountFor", [value]), run: () => { void search(); } });
+  if (value && value.length <= 191 && !accountQuery)
+    choices.push({ key: "manual", label: t("social.addNameOnly", [value]), detail: t("social.nameOnlyHint"), run: () => { if (!disabled && onAddName(value)) reset(); } });
+  const expanded = open && !disabled;
+  const selected = active >= 0 && active < choices.length ? active : -1;
+  const selectedKey = selected >= 0 ? choices[selected].key : null;
+  useEffect(() => {
+    if (expanded && selectedKey) document.getElementById(`${listId}-${selectedKey}`)?.scrollIntoView({ block: "nearest" });
+  }, [expanded, selectedKey, listId]);
+  return <div className="bill-people-picker" onBlur={event => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) { setOpen(false); setActive(-1); }
+  }}>
+    <label className="field" htmlFor={`${listId}-input`}><span>{t("social.addParticipant")}</span></label>
+    <div className="people-picker-input">
+      <input ref={input} id={`${listId}-input`} role="combobox" aria-autocomplete="list" aria-expanded={expanded}
+        aria-controls={expanded ? listId : undefined} aria-activedescendant={expanded && selected >= 0 ? `${listId}-${choices[selected].key}` : undefined}
+        placeholder={t("social.participantPlaceholder")} value={query} disabled={disabled} maxLength={254} autoComplete="off" autoCapitalize="none" spellCheck={false}
+        onFocus={() => setOpen(true)} onClick={() => setOpen(true)} onChange={event => {
+          revision.current++; setQuery(event.target.value); setPerson(null); setSearched(false);
+          setSearchError(""); setSearching(false); setOpen(true); setActive(-1);
+        }} onKeyDown={event => {
+          if (event.nativeEvent.isComposing) return;
+          if (event.key === "Escape") { event.preventDefault(); setOpen(false); setActive(-1); }
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault(); setOpen(true);
+            setActive(index => choices.length ? event.key === "ArrowDown" ? (index + 1) % choices.length : (index <= 0 ? choices.length : index) - 1 : -1);
+          }
+          if (event.key === "Enter") {
+            event.preventDefault();
+            if (expanded && selected >= 0) choices[selected].run();
+            else if (value) { setOpen(true); if (canSearch) void search(); else if (!accountQuery && value.length <= 191 && onAddName(value)) reset(); }
+            else setOpen(true);
+          }
+        }} />
+      <button type="button" className="people-picker-toggle" disabled={disabled} aria-label={t("social.togglePeople")}
+        aria-expanded={expanded} onClick={() => { input.current?.focus(); setOpen(!expanded); setActive(-1); }}><Icon name="chevron" size={18} /></button>
+    </div>
+    {expanded && <div className="people-picker-menu">
+      {(friendsLoading || groupsLoading || searching) && <p className="field-hint" role="status">{t(searching ? "social.searching" : "social.loading")}</p>}
+      <div id={listId} role="listbox" aria-label={t("social.addParticipant")}>
+        {choices.map((choice, index) => <button id={`${listId}-${choice.key}`} key={choice.key} type="button" role="option" aria-selected={selected === index}
+          className="people-picker-option" tabIndex={-1} onMouseDown={event => event.preventDefault()} onClick={choice.run}>
+          <span>{choice.label}</span>{choice.detail && <small>{choice.detail}</small>}
+        </button>)}
+      </div>
+      {searched && !person && <p className="field-hint" role="status">{t("social.personNotFound")}</p>}
+      {value && accountQuery && !canSearch && allowAccounts && <p className="field-hint" role="status">{t("social.searchInvalid")}</p>}
+      {person && selectedAccountIds.includes(person.id) && <p className="field-hint" role="status">{t("social.personAlreadyAdded")}</p>}
+      {!value && !friendsLoading && !groupsLoading && !choices.length && <p className="field-hint">{t("social.typeParticipant")}</p>}
+      {searchError && <p className="error" role="alert">{feedback(searchError)} <button type="button" className="text-link" onClick={() => { void search(); }}>{t("common.retry")}</button></p>}
+      {friendsError && <p className="error" role="alert">{t("social.friendsUnavailable")} <button type="button" className="text-link" onClick={() => setFriendAttempt(n => n + 1)}>{t("common.retry")}</button></p>}
+      {groupsError && <p className="error" role="alert">{t("social.groupsUnavailable")} <button type="button" className="text-link" onClick={() => setGroupAttempt(n => n + 1)}>{t("common.retry")}</button></p>}
+      {allowAccounts && <Link className="text-link people-picker-manage" href="/friends">{t("social.manageFriends")}</Link>}
+    </div>}
   </div>;
 }

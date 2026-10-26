@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isPendingEvidence } from "@/lib/payment-status";
 import { participantExpenses } from "@/lib/participant-expenses";
 import { prisma } from "@/lib/prisma";
-import { requireParticipantAccess } from "@/lib/server/payment-access";
+import { requireParticipantAccess, requireParticipantViewAccess } from "@/lib/server/payment-access";
 import {
   AccessError,
   accessErrorResponse,
@@ -31,7 +31,7 @@ function evidenceUrl(evidenceId: string, _request: Request) {
 export async function GET(request: NextRequest, { params }: Context) {
   try {
     const { id, pid } = await params;
-    const { isOwner, participant: accessParticipant } = await requireParticipantAccess(request, id, pid, false, true);
+    const { isOwner, participant: accessParticipant, readOnly } = await requireParticipantViewAccess(request, id, pid);
     const bill = await prisma.bill.findUniqueOrThrow({
       where: { id },
       select: {
@@ -62,7 +62,6 @@ export async function GET(request: NextRequest, { params }: Context) {
     });
     const participant = bill.participants.find((p) => p.id === pid);
     if (!participant) throw new AccessError("Not found", 404);
-    const evidence = bill.itemPayersEnabled ? null : await latestEvidence(target(pid));
     const outgoing = bill.itemPayersEnabled ? await prisma.billSettlement.findMany({
       where: { billId: id, fromParticipantId: pid, archived: false },
       include: { toParticipant: { select: { name: true, promptPayId: true } } },
@@ -72,6 +71,15 @@ export async function GET(request: NextRequest, { params }: Context) {
       where: { billId: id, toParticipantId: pid, archived: false }, select: { amount: true, paidAmount: true },
     }) : [];
     const { expenseDetails, settlements: transfers } = participantExpenses(bill, pid, outgoing, incoming);
+    const owner = primaryProfile(bill.owner);
+    if (readOnly) return NextResponse.json({
+      bill: { name: bill.name, itemPayersEnabled: bill.itemPayersEnabled,
+        owner: { name: owner.nickname || owner.name, promptPayId: null } },
+      participant: { ...participant, payslipUrl: null, evidenceStatus: null },
+      settlements: transfers.map(transfer => ({ ...transfer, promptPayId: null, payslipUrl: null, evidenceStatus: null })),
+      expenseDetails, canManage: false, requiresClaim: false, readOnly: true,
+    }, { headers: { "Cache-Control": "private, no-store" } });
+    const evidence = bill.itemPayersEnabled ? null : await latestEvidence(target(pid));
     const settlements = await Promise.all(transfers.map(async (transfer) => {
       const proof = await latestEvidence({ type: "settlement", id: transfer.id });
       return { ...transfer,
@@ -80,7 +88,6 @@ export async function GET(request: NextRequest, { params }: Context) {
         evidenceStatus: proof?.status ?? null,
       };
     }));
-    const owner = primaryProfile(bill.owner);
     return NextResponse.json(
       {
         bill: {

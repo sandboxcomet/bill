@@ -80,6 +80,21 @@ export async function requireParticipantAccess(
   ownerOnly = false,
   allowUnlinked = false,
 ) {
+  return participantAccess(request, billId, participantId, { ownerOnly, allowUnlinked });
+}
+
+export async function requireParticipantViewAccess(request: Request, billId: string, participantId: string) {
+  return participantAccess(request, billId, participantId, { allowUnlinked: true, allowReadOnly: true });
+}
+
+async function participantAccess(
+  request: Request,
+  billId: string,
+  participantId: string,
+  { ownerOnly = false, allowUnlinked = false, allowReadOnly = false }: {
+    ownerOnly?: boolean; allowUnlinked?: boolean; allowReadOnly?: boolean;
+  },
+) {
   const userId = await requireUserId();
   const participant = await prisma.participant.findFirst({
     where: { id: participantId, billId, archived: false },
@@ -90,10 +105,11 @@ export async function requireParticipantAccess(
   if (!participant) throw new AccessError("Not found", 404);
   participant.bill.owner = { ...primaryProfile(participant.bill.owner), mergedInto: null };
   const isOwner = await ownsAccount(userId, participant.bill.userId);
-  if (isOwner) return { participant, isOwner, userId };
+  if (isOwner) return { participant, isOwner, userId, readOnly: false };
   if (ownerOnly || participant.bill.status !== "PUBLISHED")
     throw new AccessError("Forbidden");
-  if (participant.accountUserId && !await ownsAccount(userId, participant.accountUserId))
+  const readOnly = Boolean(participant.accountUserId && !await ownsAccount(userId, participant.accountUserId));
+  if (readOnly && !allowReadOnly)
     throw new AccessError("payment.linkedToAnotherAccount", 403);
   const token = request.headers.get("x-payment-token") ?? "";
   if (
@@ -108,7 +124,7 @@ export async function requireParticipantAccess(
   }
   if (!participant.accountUserId && !allowUnlinked)
     throw new AccessError("payment.claimRequired", 403);
-  return { participant, isOwner, userId };
+  return { participant, isOwner, userId, readOnly };
 }
 
 // The receipt's amount explanation remains available with its PIN-derived token.

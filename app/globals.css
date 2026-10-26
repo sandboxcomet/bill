@@ -1958,7 +1958,12 @@ small {
 }
 .payment-account-claim { padding-block: 24px; border-block-end: 1px solid var(--line); }
 .payment-account-claim > p { margin-block: 12px; overflow-wrap: anywhere; }
+.payment-account-claim .claim-participant-name { color: var(--green-dark); font-weight: 700; }
 .payment-account-claim > .button { margin-block-start: 16px; }
+.payment-claim-summary { margin-block: 24px; }
+.payment-claim-summary h2 { font-size: var(--text-body); color: var(--muted); }
+.payment-claim-summary .claim-amount { display: block; margin-top: 8px; font-size: 2rem; font-variant-numeric: tabular-nums; }
+.payment-claim-summary dt > small { display: block; margin-top: 4px; font-size: var(--text-meta); color: var(--muted); }
 .account-connections { scroll-margin-top: 24px; }
 .account-connections > .field-hint { margin: 10px 0 20px; }
 .account-connections h3 { font-size: var(--text-body); margin: 24px 0 8px; }
@@ -3363,19 +3368,25 @@ small {
 .social-person-info small, .social-status { font-size: var(--text-meta); color: var(--muted); }
 .social-row-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .social-group-form { margin-top: 16px; border-top: 1px dashed var(--line); padding-top: 16px; }
-.social-group-form summary, .bill-people-picker summary { cursor: pointer; color: var(--green-dark); font-weight: 600; min-height: 44px; align-content: center; }
+.social-group-form summary { cursor: pointer; color: var(--green-dark); font-weight: 600; min-height: 44px; align-content: center; }
 .social-group-form > .field { margin-top: 12px; }
 .social-member-options { display: flex; flex-wrap: wrap; gap: 8px 16px; margin: 12px 0; }
 .social-member-options label { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
 .social-member-options input { width: 18px; height: 18px; }
 .social-group-form > form { margin-top: 16px; }
-.bill-people-picker { margin: 12px 0; border-block: 1px dashed var(--line); padding: 4px 0; }
-.bill-account-picker { margin-block-start: 16px; }
-.friend-dropdown { gap: 8px; }
-.friend-dropdown select { min-height: 46px; max-width: 100%; }
-.bill-people-picker > .text-link { display: inline-flex; margin: 12px 0; }
-.social-picker-section { margin-top: 14px; }
-.social-picker-section > strong { display: block; margin-bottom: 8px; font-size: var(--text-meta); }
+.bill-people-picker { position: relative; margin-top: 16px; }
+.bill-people-picker > .field { margin-bottom: 7px; }
+.people-picker-input { display: flex; align-items: center; border: 1px solid var(--line); border-radius: 8px; background: var(--paper); }
+.people-picker-input:focus-within { outline: 2px solid var(--green); outline-offset: 1px; }
+.people-picker-input input { flex: 1; min-width: 0; width: 100%; border: 0; background: transparent; }
+.people-picker-input input:focus { outline: none; }
+.people-picker-toggle { display: grid; place-items: center; flex-shrink: 0; width: 44px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--green-dark); cursor: pointer; }
+.people-picker-menu { margin-top: 8px; border: 1px solid var(--line); border-radius: 8px; padding: 8px; background: var(--paper); max-height: min(360px, 50dvh); overflow-y: auto; }
+.people-picker-option { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 2px; min-height: 44px; width: 100%; padding: 10px 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); text-align: start; font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.people-picker-option:hover, .people-picker-option[aria-selected="true"] { background: var(--green-soft); color: var(--green-dark); }
+.people-picker-option small { color: var(--muted); font-size: var(--text-meta); }
+.people-picker-menu > .field-hint, .people-picker-menu > .error { margin: 8px; }
+.people-picker-manage { display: flex; align-items: center; min-height: 44px; padding: 8px; border-top: 1px solid var(--line); }
 .account-payer-note { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
 .person-chip > small { color: var(--muted); }
 @media (max-width: 520px) {

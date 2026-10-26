@@ -14,8 +14,8 @@ function Components({ base, serviceCharge, vat, rounding }: { base: string; serv
     {!new Decimal(rounding).isZero() && <div><dt>{t("explanation.rounding")}</dt><dd>฿ {baht(rounding)}</dd></div>}
   </dl>;
 }
-export default function ExpenseBreakdown({ details, recipient, initiallyOpen = false }: {
-  details?: ExpenseDetails | null; recipient?: ExpenseRecipient; initiallyOpen?: boolean;
+export default function ExpenseBreakdown({ details, recipient, initiallyOpen = false, compact = false, subjectName }: {
+  details?: ExpenseDetails | null; recipient?: ExpenseRecipient; initiallyOpen?: boolean; compact?: boolean; subjectName?: string;
 }) {
   const { t } = useI18n();
   if (!details) return null;
@@ -23,9 +23,10 @@ export default function ExpenseBreakdown({ details, recipient, initiallyOpen = f
   const hasOffset = recipient?.offsetAmount && new Decimal(recipient.offsetAmount).gt(0);
   const net = new Decimal(details.paidUpfront).minus(details.shareTotal);
   const alreadyPaid = recipient ? Decimal.max(recipient.paidAmount ?? 0, 0) : new Decimal(0);
+  const totalLabel = subjectName ? t("expenses.participantTotal", [subjectName]) : t("expenses.yourTotal");
   return <details key={recipient?.recipientId ?? "overview"} className="panel payment-expenses" open={initiallyOpen || undefined}>
     <summary className="expense-summary">
-      <span className="expense-summary-label"><strong>{recipient ? t("expenses.recipientHeading", [recipient.name]) : t("expenses.yourTotal")}</strong>
+      <span className="expense-summary-label"><strong>{recipient ? t("expenses.recipientHeading", [recipient.name]) : totalLabel}</strong>
         <span className="expense-summary-closed">{t("expenses.showDetails")}</span><span className="expense-summary-open">{t("expenses.hideDetails")}</span></span>
       <b>฿ {baht(recipient?.totalPayable ?? details.shareTotal)}</b>
       <svg className="expense-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
@@ -34,17 +35,17 @@ export default function ExpenseBreakdown({ details, recipient, initiallyOpen = f
       {recipient && <p className="expense-reason">{t("explanation.recipientReason", [recipient.name])}</p>}
       <ul className="expense-list">{items.map(item => <li key={item.id}>
         <div className="expense-item-heading"><strong>{item.name}{item.quantity > 1 ? ` × ${item.quantity}` : ""}</strong><b>฿ {baht(item.shareAmount)}</b></div>
-        <p>{t("expenses.itemTotal")} {baht(item.total)}{Number(item.discountRate) > 0 ? t("expenses.discountNote", [Number(item.discountRate)]) : ""}</p>
-        <p>{details.pairwise && (item.paidByYou ? t("expenses.youPaidUpfront") : t("expenses.paidBy", [item.payerName]))}
+        {!compact && <p>{t("expenses.itemTotal")} {baht(item.total)}{Number(item.discountRate) > 0 ? t("expenses.discountNote", [Number(item.discountRate)]) : ""}</p>}
+        <p>{details.pairwise && (item.paidByYou && !subjectName ? t("expenses.youPaidUpfront") : t("expenses.paidBy", [item.paidByYou ? subjectName : item.payerName]))}
           {item.totalParts ? t("expenses.weightNote", [item.parts, item.totalParts]) : t("expenses.splitNote", [item.consumerCount])}</p>
-        {item.baseAmount !== undefined && <Components base={item.baseAmount} serviceCharge={item.serviceCharge} vat={item.vat} rounding={item.roundingAdjustment} />}
-        {item.paidByYou && <p>{t("explanation.itemAdvanced", [baht(item.total)])}</p>}
+        {!compact && item.baseAmount !== undefined && <Components base={item.baseAmount} serviceCharge={item.serviceCharge} vat={item.vat} rounding={item.roundingAdjustment} />}
+        {!compact && item.paidByYou && <p>{subjectName ? t("explanation.itemAdvancedBy", [subjectName, baht(item.total)]) : t("explanation.itemAdvanced", [baht(item.total)])}</p>}
       </li>)}</ul>
       {!recipient && <>
         {details.baseSubtotal !== undefined && <Components base={details.baseSubtotal} serviceCharge={details.serviceCharge} vat={details.vat} rounding={details.roundingAdjustment} />}
-        <dl className="expense-totals"><div><dt>{t("expenses.yourTotal")}</dt><dd>฿ {baht(details.shareTotal)}</dd></div>
+        <dl className="expense-totals"><div><dt>{totalLabel}</dt><dd>฿ {baht(details.shareTotal)}</dd></div>
           {new Decimal(details.paidUpfront).gt(0) && <>
-            <div><dt>{t("explanation.advanced")}</dt><dd>฿ {baht(details.paidUpfront)}</dd></div>
+            <div><dt>{t(subjectName ? "explanation.participantAdvanced" : "explanation.advanced", [subjectName])}</dt><dd>฿ {baht(details.paidUpfront)}</dd></div>
             <div><dt>{t(net.gte(0) ? "explanation.netReceive" : "explanation.netPay")}</dt><dd>฿ {baht(net.abs())}</dd></div>
           </>}
           <div><dt>{t("explanation.remainingToPay")}</dt><dd>฿ {baht(details.remainingToPay ?? details.amountToPay ?? details.shareTotal)}</dd></div>
