@@ -19,6 +19,7 @@ import ShareReceiptImage from "./ShareReceiptImage";
 import AmountExplanation from "./AmountExplanation";
 import { personBalance } from "@/lib/bill-view";
 import { useBillTitle } from "@/lib/use-bill-title";
+import InstagramBrowserNotice from "./InstagramBrowserNotice";
 type Bill = {
   id: string;
   name: string;
@@ -195,6 +196,7 @@ export default function SharedBill({ id }: { id: string }) {
           void load(pin);
         }}
       >
+        <InstagramBrowserNotice />
         <Icon name="shield" size={36} />
         <h1>{t("bill.pinRequired")}</h1>
         <p>{t("bill.pinHint")}</p>
@@ -242,6 +244,7 @@ export default function SharedBill({ id }: { id: string }) {
   const orderedPeople = [...bill.participants].sort((a, b) => personOrder(a) - personOrder(b));
   return (
     <div id="content" className="share-layout">
+      <InstagramBrowserNotice />
       <div className="share-toolbar">
       {session?.user && <Link href="/bills" className="text-link muted">
         <Icon name="back" size={16} /> {t("nav.backToBills")} </Link>}

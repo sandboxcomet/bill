@@ -1911,6 +1911,22 @@ small {
   gap: 70px;
   align-items: center;
 }
+.instagram-browser-notice {
+  max-width: 880px;
+  margin: 24px auto;
+  padding: 16px 20px;
+  border-radius: 9px;
+  background: var(--green-soft);
+  color: var(--green-dark);
+}
+.instagram-browser-heading { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.instagram-browser-heading h2 { font-size: var(--text-title); }
+.instagram-browser-heading .icon-button { flex-shrink: 0; min-width: 44px; min-height: 44px; margin: -6px -10px 0 0; color: inherit; }
+.instagram-browser-notice p { margin: 8px 0 12px; color: inherit; font-size: var(--text-support); }
+.instagram-browser-notice .instagram-browser-steps { font-weight: 600; }
+.instagram-browser-notice + .auth-layout { margin-top: 24px; }
+.instagram-browser-manual { margin-top: 12px; }
+.instagram-browser-manual .field { margin-top: 0; color: inherit; }
 .auth-intro h1 {
   font-size: 2.375rem;
   line-height: 1.6;
@@ -1932,6 +1948,19 @@ small {
   display: grid;
   gap: 13px;
 }
+.passkey-login .field-hint { margin: 8px 0 0; }
+.passkey-settings { scroll-margin-top: 24px; }
+.passkey-settings > .field-hint { margin: 10px 0; }
+.passkey-settings form > .button { margin-top: 16px; }
+.passkey-empty { margin: 24px 0; color: var(--muted); font-size: var(--text-support); }
+.passkey-list { list-style: none; margin: 24px 0 0; padding: 0; }
+.passkey-list li { padding: 18px 0; border-top: 1px solid var(--line); }
+.passkey-key-heading { display: flex; align-items: start; justify-content: space-between; gap: 16px; }
+.passkey-key-heading > div { display: grid; gap: 4px; min-width: 0; overflow-wrap: anywhere; }
+.passkey-key-heading small { color: var(--muted); font-size: var(--text-meta); }
+.passkey-key-heading > .button { flex-shrink: 0; }
+.passkey-revoke { margin-top: 16px; }
+.passkey-revoke p { margin-bottom: 12px; font-size: var(--text-support); }
 .provider-button {
   min-height: 50px;
   gap: 12px;

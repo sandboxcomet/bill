@@ -50,6 +50,12 @@ npm run dev
 
 กำหนด Google หรือ LINE OAuth ใน `.env` อย่างน้อยหนึ่ง provider ปุ่ม provider จะปรากฏเมื่อมีทั้ง ID และ secret ไม่มีช่องทาง guest login สำหรับสร้างบัญชีถาวร
 
+หลังเข้าสู่ระบบ เปิด **ตั้งค่าบัญชี → เข้าใช้งานด้วย Passkey → เพิ่ม Passkey** เพื่อผูกกับบัญชีเดิม ครั้งต่อไปใช้ปุ่ม **เข้าสู่ระบบด้วย Passkey** โดยเลือก Face ID/ลายนิ้วมือ/รหัสปลดล็อกจากอุปกรณ์ได้ ไม่สร้างบัญชีใหม่และยังใช้ Google/LINE เดิมกลับเข้าบัญชีได้ การเพิ่มและปิดใช้ต้องมีการเข้าสู่ระบบภายใน 15 นาที มีชื่อกำกับแต่ละ Passkey และปิดใช้ได้จากหน้าตั้งค่า (เก็บประวัติไว้และยุติเซสชันที่ใช้ Passkey นั้น)
+
+Passkey ใช้ `AUTH_URL` เป็น origin และใช้ hostname นั้นเป็น RP ID แบบเจาะจง: production ต้องเป็น `https://bill.wonglao.com` ส่วน local ใช้ `http://localhost:3000` ได้ กุญแจของ local ใช้แทนกุญแจ production ไม่ได้ ไม่ต้องเพิ่ม OAuth client/secret สำหรับ Passkey; ใช้ migration `20261026150000_passkeys` ผ่าน `npm run db:deploy` ก่อนรันโค้ดใหม่ CI/CD ใช้ขั้นตอน migration เดิม หากเบราว์เซอร์ในแอปไม่รองรับ ให้เปิด Safari/Chrome ผ่านคำแนะนำ IG หรือใช้ Google/LINE
+
+ใช้ SimpleWebAuthn 14 ผ่าน npm aliases `@wonglao/webauthn-server` / `@wonglao/webauthn-browser` เพื่อแยกจาก optional peer ของ WebAuthn 9 ใน Auth.js ซึ่งไม่ได้เปิดใช้ ระบบนี้ตรวจ WebAuthn ฝั่ง server แล้วเข้า JWT session เดิมผ่าน Credentials provider โดยไม่เปิดการสมัครบัญชีด้วย Passkey และไม่ส่ง biometric/private key มาที่ server คำขอผูกกับ HttpOnly cookie มีอายุ 5 นาที ใช้ครั้งเดียวแม้ตรวจไม่ผ่าน และเก็บ record ว่าถูกใช้แล้วแทนการลบทิ้ง
+
 | Environment | Google callback | LINE callback |
 | --- | --- | --- |
 | Local — ใช้ OAuth เดิม | `http://localhost:3000/api/auth/callback/google` | `http://localhost:3000/api/auth/callback/line` |

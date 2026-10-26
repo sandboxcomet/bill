@@ -4,6 +4,8 @@ import { localizedPath, stripLocale } from "@/lib/locale";
 import { signIn, auth } from "@/auth";
 import { redirect } from "next/navigation";
 import { Icon } from "@/components/Icons";
+import InstagramBrowserNotice from "@/components/InstagramBrowserNotice";
+import PasskeyLogin from "@/components/PasskeyLogin";
 
 function ProviderLogo({ provider }: { provider: "google" | "line" }) {
   return (
@@ -67,6 +69,8 @@ export default async function Login({
     process.env.AUTH_LINE_ID && process.env.AUTH_LINE_SECRET,
   );
   return (
+    <>
+    <InstagramBrowserNotice />
     <div id="content" className="auth-layout">
       <div className="auth-intro">
         <h1> {t("auth.sharedExpenses")} <br />
@@ -84,6 +88,7 @@ export default async function Login({
         )}
         {query.connected === "1" && <p className="success" role="status">{t("connections.completed")}</p>}
         <div className="auth-providers">
+          <PasskeyLogin destination={destination} />
           {google && (
             <form
               action={async () => {
@@ -123,5 +128,6 @@ export default async function Login({
         <p className="auth-fine"> {t("auth.separateAccountNotice")} </p>
       </section>
     </div>
+    </>
   );
 }

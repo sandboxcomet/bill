@@ -7,7 +7,7 @@ import { signOut } from "next-auth/react";
 import { Icon } from "./Icons";
 
 export default function UserMenu({ name, email, username, provider }: {
-  name: string; email?: string | null; username?: string | null; provider?: "google" | "line" | null;
+  name: string; email?: string | null; username?: string | null; provider?: "google" | "line" | "passkey" | null;
 }) {
   const { t, href } = useI18n();
   const menuRef = useRef<HTMLDetailsElement>(null);
@@ -44,7 +44,7 @@ export default function UserMenu({ name, email, username, provider }: {
         <strong>{name}</strong>
         {username && <span>@{username}</span>}
         {email && <span>{email}</span>}
-        {provider && <span className="user-menu-provider">{t("auth.signedInWith", [provider === "google" ? "Google" : "LINE"])}</span>}
+        {provider && <span className="user-menu-provider">{t("auth.signedInWith", [provider === "google" ? "Google" : provider === "passkey" ? "Passkey" : "LINE"])}</span>}
       </div>
       <Link href="/bills" onClick={close}><Icon name="receipt" size={17} />{t("nav.myBills")}</Link>
       <Link href="/friends" onClick={close}><Icon name="users" size={17} />{t("social.pageTitle")}</Link>

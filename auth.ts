@@ -1,10 +1,18 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Line from "next-auth/providers/line";
+import Credentials from "next-auth/providers/credentials";
+import { CredentialsSignin } from "next-auth";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
 import { sessionCookieName } from "@/lib/server/auth-session";
 import { captureConnection } from "@/lib/server/account-connections";
+import { authenticatePasskey, PasskeyError } from "@/lib/server/passkeys";
+import { PaymentError } from "@/lib/payment-contract";
+
+class PasskeySigninError extends CredentialsSignin {
+  code = "passkey_failed";
+}
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   debug: false,
@@ -38,6 +46,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     };
   })(),
   providers: [
+    Credentials({
+      id: "passkey", name: "Passkey", credentials: { response: { type: "text" } },
+      async authorize(credentials, request) {
+        try { return await authenticatePasskey(credentials.response, request); }
+        catch (error) {
+          if (!(error instanceof PasskeyError) && !(error instanceof PaymentError)) {
+            console.error("[passkey] Sign-in failed", error instanceof Error ? error.name : "unknown");
+          }
+          throw new PasskeySigninError();
+        }
+      },
+    }),
     ...(process.env.AUTH_GOOGLE_ID && process.env.AUTH_GOOGLE_SECRET
       ? [Google]
       : []),
@@ -53,8 +73,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     },
     async jwt({ token, user, account }) {
       if (user) token.id = String(user.id);
-      if (account?.provider === "google" || account?.provider === "line")
+      if (account?.provider === "google" || account?.provider === "line" || account?.provider === "passkey")
         token.loginProvider = account.provider;
+      if (user && account) token.passkeyId = account.provider === "passkey" ? user.passkeyId : undefined;
       const userId = Number(token.id);
       if (Number.isSafeInteger(userId) && userId > 0) {
         // Read the stored nickname; never accept a client-supplied display name.
@@ -63,6 +84,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           select: { nickname: true, username: true, authVersion: true, mergedIntoId: true, accounts: { select: { provider: true } } },
         });
         if (!profile || profile.mergedIntoId) return null;
+        if (account?.provider === "passkey" && user?.passkeyAuthVersion !== profile.authVersion) return null;
+        if (token.loginProvider === "passkey" && typeof token.passkeyId !== "string") return null;
+        if (typeof token.passkeyId === "string") {
+          const key = await prisma.passkey.findUnique({ where: { id: token.passkeyId },
+            select: { revokedAt: true, user: { select: { id: true, mergedIntoId: true } } } });
+          if (!key || key.revokedAt || (key.user.mergedIntoId || key.user.id) !== userId) return null;
+        }
         if (user && account) {
           token.authVersion = profile.authVersion;
           token.authenticatedAt = Date.now();
@@ -83,7 +111,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (session.user && token.id) {
         session.user.id = String(token.id);
         session.user.username = typeof token.username === "string" ? token.username : null;
-        session.user.loginProvider = token.loginProvider === "google" || token.loginProvider === "line" ? token.loginProvider : null;
+        session.user.loginProvider = token.loginProvider === "google" || token.loginProvider === "line" || token.loginProvider === "passkey" ? token.loginProvider : null;
         session.user.nickname =
           typeof token.nickname === "string" ? token.nickname : null;
       }

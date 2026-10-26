@@ -6,7 +6,7 @@ type Profile = {
   name?: string | null;
   username: string | null;
   nickname: string | null;
-  loginProvider: "google" | "line" | null;
+  loginProvider: "google" | "line" | "passkey" | null;
 };
 
 // Suggestions are editable form defaults, never an automatic profile update.

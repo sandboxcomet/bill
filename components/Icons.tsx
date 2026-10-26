@@ -1,5 +1,6 @@
 import type { CSSProperties } from "react";
 const paths = {
+  key: <><circle cx="8" cy="8" r="5" /><path d="m11.5 11.5 9 9M17 17l3-3M14 14l3-3" /></>,
   globe: (
     <>
       <circle cx="12" cy="12" r="9" />

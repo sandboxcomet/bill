@@ -16,6 +16,8 @@ model User {
  image String? @db.Text
  promptPayId String? @map("prompt_pay_id")
  authVersion Int @default(0) @map("auth_version")
+ passkeyUserHandle String? @unique @map("passkey_user_handle") @db.VarChar(64)
+ passkeys Passkey[]
  mergedIntoId Int? @map("merged_into_id")
  mergedInto User? @relation("MergedAccounts", fields: [mergedIntoId], references: [id], onDelete: Restrict)
  mergedAccounts User[] @relation("MergedAccounts")
@@ -32,6 +34,39 @@ model User {
  updatedAt DateTime @updatedAt @map("updated_at")
  @@index([mergedIntoId])
  @@map("users")
+}
+
+model Passkey {
+ id String @id @default(cuid())
+ userId Int @map("user_id")
+ user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+ credentialId String @map("credential_id") @db.Text
+ credentialHash String @unique @map("credential_hash") @db.Char(64)
+ publicKey Bytes @map("public_key") @db.Blob
+ userHandle String @map("user_handle") @db.VarChar(64)
+ counter BigInt @default(0)
+ transports Json
+ deviceType String @map("device_type") @db.VarChar(32)
+ backedUp Boolean @map("backed_up")
+ name String @db.VarChar(80)
+ createdAt DateTime @default(now()) @map("created_at")
+ lastUsedAt DateTime? @map("last_used_at")
+ revokedAt DateTime? @map("revoked_at")
+ @@index([userId, revokedAt])
+ @@map("passkeys")
+}
+
+model PasskeyChallenge {
+ id String @id @db.Char(64)
+ purpose String @db.VarChar(16)
+ challenge String @db.VarChar(128)
+ userId Int? @map("user_id")
+ authVersion Int? @map("auth_version")
+ expiresAt DateTime @map("expires_at")
+ consumedAt DateTime? @map("consumed_at")
+ createdAt DateTime @default(now()) @map("created_at")
+ @@index([expiresAt])
+ @@map("passkey_challenges")
 }
 
 model AccountConnection {

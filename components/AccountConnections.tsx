@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { signIn, useSession } from "next-auth/react";
 import { request, jsonBody } from "@/lib/client";
 import { useI18n } from "./LanguageProvider";
+import { signInWithPasskey, passkeyClientError } from "@/lib/passkey-client";
 
 type Provider = "google" | "line";
 type Summary = {
@@ -90,8 +91,9 @@ export default function AccountConnections() {
     setBusy(true); setError("");
     try {
       await request("/api/account-connections", { method: "POST", ...jsonBody({ action: "cancel" }) });
-      await signIn(provider, { redirectTo: "/settings#connections" });
-    } catch (reason) { setError((reason as Error).message); setBusy(false); }
+      if (provider === "passkey") await signInWithPasskey("/settings#connections");
+      else await signIn(provider, { redirectTo: "/settings#connections" });
+    } catch (reason) { setError(passkeyClientError(reason)); setBusy(false); }
   }
 
   const review = data?.review;
