@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { AccessError, optionalUserId } from "./authorization";
+import { AccessError, requireUserId, optionalUserId } from "./authorization";
 import { ownsAccount, primaryProfile } from "./account-identity";
 
 function signingKey() {
@@ -78,8 +78,9 @@ export async function requireParticipantAccess(
   billId: string,
   participantId: string,
   ownerOnly = false,
+  allowUnlinked = false,
 ) {
-  const userId = await optionalUserId();
+  const userId = await requireUserId();
   const participant = await prisma.participant.findFirst({
     where: { id: participantId, billId, archived: false },
     include: {
@@ -89,9 +90,11 @@ export async function requireParticipantAccess(
   if (!participant) throw new AccessError("Not found", 404);
   participant.bill.owner = { ...primaryProfile(participant.bill.owner), mergedInto: null };
   const isOwner = await ownsAccount(userId, participant.bill.userId);
-  if (isOwner) return { participant, isOwner };
+  if (isOwner) return { participant, isOwner, userId };
   if (ownerOnly || participant.bill.status !== "PUBLISHED")
     throw new AccessError("Forbidden");
+  if (participant.accountUserId && !await ownsAccount(userId, participant.accountUserId))
+    throw new AccessError("payment.linkedToAnotherAccount", 403);
   const token = request.headers.get("x-payment-token") ?? "";
   if (
     !verifyParticipantToken(
@@ -103,5 +106,18 @@ export async function requireParticipantAccess(
   ) {
     throw new AccessError("Open this payment from the bill share page", 403);
   }
-  return { participant, isOwner };
+  if (!participant.accountUserId && !allowUnlinked)
+    throw new AccessError("payment.claimRequired", 403);
+  return { participant, isOwner, userId };
+}
+
+// The receipt's amount explanation remains available with its PIN-derived token.
+// It cannot authorize payment uploads, identity claims or private slip images.
+export async function requireExpenseAccess(request: Request, billId: string, participantId: string) {
+  const participant = await prisma.participant.findFirst({ where: { id: participantId, billId, archived: false }, include: { bill: true } });
+  if (!participant) throw new AccessError("Not found", 404);
+  if (await ownsAccount(await optionalUserId(), participant.bill.userId)) return;
+  if (participant.bill.status !== "PUBLISHED" || !verifyParticipantToken(
+    request.headers.get("x-payment-token") ?? "", billId, participantId, billAccessRevision(participant.bill),
+  )) throw new AccessError("Open this payment from the bill share page", 403);
 }

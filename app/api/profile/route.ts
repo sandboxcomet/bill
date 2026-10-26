@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { isUsername, normalizeUsername } from "@/lib/social";
+import { isNickname } from "@/lib/profile";
 import { AccessError } from "@/lib/server/authorization";
 import { prisma } from "@/lib/prisma";
 import { requireUserId, accessErrorResponse } from "@/lib/server/authorization";
@@ -32,10 +33,7 @@ export async function PATCH(req: NextRequest) {
     }
     if (Object.hasOwn(body, "nickname")) {
       if (
-        typeof body.nickname !== "string" ||
-        !body.nickname.trim() ||
-        body.nickname.trim().length > 40 ||
-        /\p{Cc}/u.test(body.nickname)
+        !isNickname(body.nickname)
       ) {
         return NextResponse.json(
           { error: "ใส่ชื่อเล่น 1–40 ตัวอักษร โดยไม่ขึ้นบรรทัดใหม่" },
@@ -67,8 +65,10 @@ export async function PATCH(req: NextRequest) {
     }
     const user = await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
-      const current = await tx.user.findUnique({ where: { id: userId }, select: { username: true } });
+      const current = await tx.user.findUnique({ where: { id: userId }, select: { username: true, nickname: true } });
       if (current?.username && data.username && current.username !== data.username) throw new AccessError("account.usernameImmutable", 409);
+      if (!(data.username ?? current?.username)) throw new AccessError("account.usernameRequired", 403);
+      if (!isNickname(data.nickname ?? current?.nickname)) throw new AccessError("account.nicknameRequired", 403);
       return tx.user.update({ where: { id: userId }, data, select: fields });
     });
     return NextResponse.json({ user }, { headers });

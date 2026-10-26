@@ -3,6 +3,9 @@ export const baht = (value: string | number | { toString(): string }) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(Number(value));
+export class RequestError extends Error {
+  constructor(message: string, public readonly status: number, public readonly code = message) { super(message); }
+}
 export async function request<T = any>(
   url: string,
   options?: RequestInit,
@@ -12,10 +15,12 @@ export async function request<T = any>(
     .json()
     .catch(() => ({ error: "ไม่สามารถอ่านข้อมูลได้ กรุณาลองใหม่" }));
   if (!response.ok)
-    throw new Error(
+    throw new RequestError(
       response.status === 401
         ? "กรุณาเข้าสู่ระบบก่อนบันทึกบิล"
         : data.error || "ดำเนินการไม่สำเร็จ กรุณาลองใหม่",
+      response.status,
+      typeof data.error === "string" ? data.error : "",
     );
   return data;
 }

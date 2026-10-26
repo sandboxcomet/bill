@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isLocale, localeFromPath, localizedPath, stripLocale } from "@/lib/locale";
+import { hasCompleteProfile } from "@/lib/profile";
 
 export const proxy = auth((request) => {
   const originalPath = request.nextUrl.pathname;
@@ -37,19 +38,18 @@ export const proxy = auth((request) => {
     return next();
   }
 
-  // Shared reads and scoped payments enforce PIN/token access in their handlers.
+  // The shared receipt stays public/PIN-protected. Every payment route requires
+  // a signed-in account with a complete profile in addition to its scoped token.
   if (
-    /^\/bill\/[^/]+(?:\/[^/]+)?\/?$/.test(pathname) ||
+    /^\/bill\/[^/]+\/?$/.test(pathname) ||
     (request.method === "GET" && pathname === "/api/bill") ||
-    (/^\/api\/bills\/[^/]+\/participants\/[^/]+\/?$/.test(pathname) &&
-      ["GET", "POST"].includes(request.method)) ||
-    (request.method === "GET" && /^\/api\/payment-evidence\/[^/]+\/?$/.test(pathname))
+    (request.method === "GET" && /^\/api\/bills\/[^/]+\/participants\/[^/]+\/expenses\/?$/.test(pathname))
   ) return next();
 
   const userId = Number(request.auth?.user?.id);
   if (Number.isSafeInteger(userId) && userId > 0) {
-    if (!request.auth?.user?.username && !["/onboarding", "/api/profile", "/settings", "/api/account-connections"].includes(pathname)) {
-      if (pathname.startsWith("/api/")) return NextResponse.json({ error: "account.usernameRequired" }, { status: 403, headers: { "Cache-Control": "private, no-store" } });
+    if (!hasCompleteProfile(request.auth?.user) && !["/onboarding", "/api/profile"].includes(pathname)) {
+      if (pathname.startsWith("/api/")) return NextResponse.json({ error: request.auth?.user?.username ? "account.nicknameRequired" : "account.usernameRequired" }, { status: 403, headers: { "Cache-Control": "private, no-store" } });
       const setup = new URL("/onboarding", request.url);
       setup.searchParams.set("callbackUrl", originalPath + search);
       return NextResponse.redirect(setup);

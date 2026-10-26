@@ -21,11 +21,11 @@ npm run dev
 
 ฐานข้อมูล local: MySQL `wonglao_bill` พอร์ต `127.0.0.1:3306` ใช้ผู้ใช้ `bill` ที่มีสิทธิ์เฉพาะฐานนี้ รหัสผ่านอยู่ใน `.env` ที่ไม่เข้า Git และใช้แยกจากฐาน WongLao เดิม ย้ายข้อมูลจากฐาน Docker มาครบแล้ว โดยเก็บฐาน Docker และสำเนาสำรองใน `artifacts/` ไว้ ส่วน database service ใน `compose.yaml` ใช้สำหรับ deployment แบบ container
 
-หน้าแรก `/` และหน้าตัวอย่าง `/demo` เปิดได้โดยไม่ต้องเข้าสู่ระบบ หน้าตัวอย่างให้ลองแก้ไขและคำนวณบิลโดยไม่บันทึกลงฐานข้อมูล ต้องเข้าสู่ระบบก่อนสร้างบิลจริง ใช้หน้ารวมบิล ลิงก์แชร์ และหน้าชำระเงิน ผู้ร่วมบิลต้องเข้าสู่ระบบด้วย Google หรือ LINE ก่อนดูยอดและส่งสลิป PIN และ token ของรายการจ่ายยังเป็นสิทธิ์เพิ่มเติมหลังล็อกอิน ร่างในเครื่องแยกตามบัญชีผู้ใช้ ผู้ที่ยังไม่ล็อกอินจะถูกส่งไปหน้าเข้าสู่ระบบพร้อม URL ที่จะกลับไปต่อ API ของแอปตอบ 401 โดยยกเว้นเฉพาะ endpoint ของ OAuth/session และ health check
+หน้าแรก `/` และหน้าตัวอย่าง `/demo` เปิดได้โดยไม่ต้องเข้าสู่ระบบ หน้าตัวอย่างให้ลองแก้ไขและคำนวณบิลโดยไม่บันทึกลงฐานข้อมูล บิลที่เผยแพร่และคำอธิบายยอดรายคนเปิดดูก่อนล็อกอินได้ โดยบิลส่วนตัวต้องผ่าน PIN และคำอธิบายยอดต้องมี token ของผู้ร่วมบิล ต้องเข้าสู่ระบบและมีทั้งชื่อผู้ใช้และชื่อเล่นก่อนสร้างบิลจริง ใช้หน้ารวมบิล ตั้งค่าบัญชี หรือเปิดหน้าชำระเงิน ข้อมูลชำระเงินเต็ม การส่งสลิป และรูปสลิปต้องผ่านการตรวจบัญชี ส่วนผู้ร่วมบิลที่ไม่ใช่เจ้าของยังต้องมี token และบัญชีที่เชื่อมกับรายการนั้น PIN และ token ไม่ใช้แทนการล็อกอิน ร่างในเครื่องแยกตามบัญชีผู้ใช้ ผู้ที่ยังไม่ล็อกอินจะถูกส่งไปหน้าเข้าสู่ระบบพร้อม URL ที่จะกลับไปต่อ หากบัญชียังตั้งค่าไม่ครบจะไปหน้ากรอกชื่อผู้ใช้และชื่อเล่นก่อน
 
 ## หน้าหลักและบิลของฉัน
 
-หน้า `/` ใช้เริ่มสร้างบิลและแนะนำการแบ่งบิล ส่วนรายการบิลส่วนตัว การค้นหา ตัวกรองสถานะ และสถานะยังไม่มีบิล อยู่ที่ `/bills` เข้าผ่านเมนู **บิลของฉัน** ลิงก์ย้อนกลับจากตัวแก้ไขจะกลับมาหน้านี้ หน้าแรกเปิดดูได้โดยไม่ต้องล็อกอิน ส่วนหน้าบิลของฉันและการใช้งานบิลต้องล็อกอิน
+หน้า `/` ใช้เริ่มสร้างบิลและแนะนำการแบ่งบิล ส่วนรายการบิลส่วนตัว การค้นหา ตัวกรองสถานะ และสถานะยังไม่มีบิล อยู่ที่ `/bills` เข้าผ่านเมนู **บิลของฉัน** ลิงก์ย้อนกลับจากตัวแก้ไขจะกลับมาหน้านี้ หน้าแรกและบิลที่เผยแพร่เปิดดูได้โดยไม่ต้องล็อกอิน ส่วนหน้าบิลของฉัน การสร้างหรือแก้ไขบิล และการชำระเงินต้องล็อกอินและตั้งค่าบัญชีให้ครบ
 
 ## ฟีเจอร์
 
@@ -42,9 +42,9 @@ npm run dev
 
 ## ชื่อเล่นและตั้งค่าบัญชี
 
-เมื่อเริ่มบิลใหม่ ระบบเพิ่มผู้สร้างเป็นผู้ร่วมบิลให้อัตโนมัติ โดยใช้ชื่อเล่น หรือชื่อบัญชีหากยังไม่มีชื่อเล่น ฉบับร่างในเครื่องเดิมจะเพิ่มให้ครั้งเดียวโดยไม่เพิ่มชื่อซ้ำ และยังนำตัวเองออกจากผู้ร่วมบิลได้
+ต้องตั้งชื่อผู้ใช้และชื่อเล่นให้ครบก่อนเริ่มบิลหรือชำระเงิน บัญชีเดิมที่ขาดอย่างใดอย่างหนึ่งจะต้องกรอกให้ครบในหน้าเริ่มต้น ชื่อผู้ใช้เดิมแสดงไว้และแก้ไขไม่ได้ ส่วนชื่อเล่นต้องมี 1–40 ตัวอักษรและแก้ไขภายหลังได้ เมื่อเริ่มบิลใหม่ ระบบเพิ่มผู้สร้างเป็นผู้ร่วมบิลให้อัตโนมัติโดยใช้ชื่อเล่น ฉบับร่างในเครื่องเดิมจะเพิ่มให้ครั้งเดียวโดยไม่เพิ่มชื่อซ้ำ และยังนำตัวเองออกจากผู้ร่วมบิลได้
 
-กดชื่อมุมบนหรือเมนู **ตั้งค่าบัญชี** เพื่อบันทึกชื่อเล่น 1–40 ตัวอักษร ชื่อเล่นจะใช้แสดงแทนชื่อเต็มในมุมบนและเป็นชื่อผู้สร้างบิล/ผู้รับเงินในหน้าบิลที่แชร์ หากยังไม่ตั้งจะแสดงลิงก์ **ตั้งชื่อเล่น** ชื่อจาก Google/LINE ยังคงเป็นข้อมูลบัญชีเดิม ตั้งชื่อเล่นและหมายเลข PromptPay ในฟอร์มเดียว แล้วกด **บันทึกการตั้งค่า** ครั้งเดียว หากยังไม่มีหมายเลขรับเงิน สามารถบันทึกเฉพาะชื่อเล่นก่อนได้
+กดชื่อมุมบนหรือเมนู **ตั้งค่าบัญชี** เพื่อบันทึกชื่อเล่น 1–40 ตัวอักษร ชื่อเล่นจะใช้แสดงแทนชื่อเต็มในมุมบนและเป็นชื่อผู้สร้างบิล/ผู้รับเงินในหน้าบิลที่แชร์ ชื่อจาก Google/LINE ยังคงเป็นข้อมูลบัญชีเดิม ตั้งชื่อเล่นและหมายเลข PromptPay ในฟอร์มเดียว แล้วกด **บันทึกการตั้งค่า** ครั้งเดียว หากยังไม่มีหมายเลขรับเงิน สามารถบันทึกเฉพาะชื่อเล่นก่อนได้
 
 ## เข้าสู่ระบบ
 
@@ -106,7 +106,7 @@ Use `feedback(message)` only at the boundary for human-readable API errors or pr
 
 ### Usernames, friends and saved groups
 
-Migration `20261021140000_social_accounts` adds nullable unique usernames for existing users, friendship states, owned groups, group memberships and optional participant/account links. Existing users choose a username on their next protected account visit; guest bill/payment links are unaffected. Username setup uses PATCH `/api/profile`. Exact account search uses POST `/api/people/search` with `{ query }`; only signed-in onboarded users can search, and results omit email/PromptPay numbers. GET/POST/PATCH `/api/friends` list, request and answer connections. GET/POST `/api/friend-groups` list/create owned groups; `/new?group=…&round=…` creates a separate empty editor round.
+Migration `20261021140000_social_accounts` adds nullable unique usernames for existing users, friendship states, owned groups, group memberships and optional participant/account links. Existing users missing a username or nickname must complete both on their next protected account or payment visit. Usernames remain immutable; onboarding prefills an existing username as read-only and requires a 1–40 character nickname. PATCH `/api/profile` refuses an update that leaves either field missing. Public shared bills and safe amount explanations remain available before setup; payment and slip access require a complete signed-in profile. Exact account search uses POST `/api/people/search` with `{ query }`; only signed-in onboarded users can search, and results omit email/PromptPay numbers. GET/POST/PATCH `/api/friends` list, request and answer connections. GET/POST `/api/friend-groups` list/create owned groups; `/new?group=…&round=…` creates a separate empty editor round.
 
 Saving linked accounts in a bill/group auto-accepts the creator/member friendship (including a pending request). Manual requests remain pending until answered by their recipient. All account PromptPay values used in a bill are read server-side at save time; posted overrides are ignored. The saved receiver snapshot remains on existing linked bills until a permitted bill save. A profile number is self-configured and is not proof of account ownership.
 
@@ -133,4 +133,12 @@ Saving linked accounts in a bill/group auto-accepts the creator/member friendshi
 
 หลังยืนยัน ให้เข้าสู่ระบบใหม่ด้วย Google หรือ LINE ที่เชื่อมแล้ว ทั้งสองช่องทางจะเข้าบัญชีหลักเดียวกัน บิล กลุ่ม เพื่อน และประวัติการจ่ายของทั้งสองบัญชียังคงอยู่ หากทั้งสองบัญชีเคยเป็นผู้ร่วมบิลเดียวกัน แถวผู้ร่วมบิล ยอดเงิน และเลขรับเงินที่บันทึกไว้ยังแยกกัน บัญชีหลักเป็นแหล่งข้อมูล PromptPay ระดับบัญชีของเจ้าของบิล ส่วนเลขรับเงินที่บันทึกกับผู้ร่วมบิลเดิมไม่ถูกเขียนทับจากการรวมบัญชี
 
-ก่อนเริ่มเชื่อมต้องเข้าสู่ระบบล่าสุดภายใน 15 นาที และยืนยันการเชื่อมภายใน 10 นาทีหลังเริ่มขั้นตอน การยืนยันใช้ได้ครั้งเดียว หากข้อมูลเปลี่ยน หมดเวลา หรือพบช่องทาง provider ที่ขัดกัน ให้กด **เริ่มเชื่อมบัญชีใหม่** เพื่อยืนยันอีกครั้ง ปุ่ม provider ที่ยังไม่ได้ตั้งค่า OAuth จะใช้งานไม่ได้ งานนี้ยังไม่ได้ทดสอบการเชื่อมกับ Google/LINE จริงครบกระบวนการหรือ deploy ฟีเจอร์นี้ขึ้น production
+ก่อนเริ่มเชื่อมต้องเข้าสู่ระบบล่าสุดภายใน 15 นาที และยืนยันการเชื่อมภายใน 10 นาทีหลังเริ่มขั้นตอน การยืนยันใช้ได้ครั้งเดียว หากข้อมูลเปลี่ยน หมดเวลา หรือพบช่องทาง provider ที่ขัดกัน ให้กด **เริ่มเชื่อมบัญชีใหม่** เพื่อยืนยันอีกครั้ง ปุ่ม provider ที่ยังไม่ได้ตั้งค่า OAuth จะใช้งานไม่ได้ การเชื่อมและรวมบัญชีกับ Google/LINE จริงครบกระบวนการยังต้องตรวจสอบกับบัญชีผู้ใช้จริง
+
+## ยืนยันตัวตนผู้ร่วมบิลก่อนชำระ
+
+หากเจ้าของบิลพิมพ์ชื่อผู้ร่วมบิลไว้เอง ผู้จ่ายต้องเข้าสู่ระบบ กรอกชื่อผู้ใช้และชื่อเล่นให้ครบ แล้วกดยืนยันว่ารายการนี้เป็นของตนหนึ่งครั้งก่อนใช้ส่วนชำระเงิน ระบบแสดงชื่อที่บันทึกไว้คู่กับชื่อเล่นและชื่อผู้ใช้ของบัญชีที่กำลังเข้าสู่ระบบ การยืนยันเชื่อมรายการกับบัญชีจริงจาก session โดยไม่เปลี่ยนชื่อผู้ร่วมบิล เลขรับเงินที่บันทึกไว้ หรือยอดเงินเดิม ครั้งถัดไปใช้บัญชีที่เชื่อมแล้วได้เลย เจ้าของยังจัดการรายการของคนอื่นได้โดยไม่ถูกเชื่อมเป็นคนเหล่านั้นโดยอัตโนมัติ
+
+รายการที่เชื่อมกับบัญชีอื่นแล้ว หรือบัญชีที่มีผู้ร่วมบิลอีกคนในบิลเดียวกัน จะยืนยันซ้ำไม่ได้ โดยนับ alias ของบัญชีที่รวมแล้วเป็นบัญชีเดียวกัน รายการที่เก็บถาวร บิลที่ยกเลิก หรือเวอร์ชันบิลที่เปลี่ยนไปจะถูกปฏิเสธ ให้กลับไปเปิดจากหน้าบิลอีกครั้ง
+
+POST `/api/bills/:id/participants/:pid/claim` รับ `{ claimSelf: true }` ใช้บัญชีจาก session, ตรวจ same-origin และ token ของผู้ร่วมบิลสำหรับผู้ที่ไม่ใช่เจ้าของ แล้วล็อกบิลก่อนเชื่อมบัญชี ส่วน GET `/api/bills/:id/participants/:pid/expenses` ใช้ token จากหน้าบิลที่ผ่านสิทธิ์แล้ว และคืนเฉพาะ `expenseDetails` กับ `settlements` สำหรับคำอธิบายยอดด้วยสูตรเดียวกับหน้าชำระเงิน โดยไม่คืนข้อมูลผู้รับเงิน หลักฐานสลิป หรือบัญชี จึงเปิดคำอธิบายยอดก่อนล็อกอินได้ การเปลี่ยนสิทธิ์และเชื่อมผู้ร่วมบิลครั้งนี้ไม่ต้องเพิ่ม schema migration

@@ -1941,6 +1941,9 @@ small {
 .settings-page .field {
   margin-top: 20px;
 }
+.payment-account-claim { padding-block: 24px; border-block-end: 1px solid var(--line); }
+.payment-account-claim > p { margin-block: 12px; overflow-wrap: anywhere; }
+.payment-account-claim > .button { margin-block-start: 16px; }
 .account-connections { scroll-margin-top: 24px; }
 .account-connections > .field-hint { margin: 10px 0 20px; }
 .account-connections h3 { font-size: var(--text-body); margin: 24px 0 8px; }

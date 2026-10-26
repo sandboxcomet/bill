@@ -1,5 +1,7 @@
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { isNickname } from "@/lib/profile";
+import { isUsername } from "@/lib/social";
 
 export class AccessError extends Error {
   constructor(
@@ -21,8 +23,9 @@ export async function requireUserId(requireUsername = true): Promise<number> {
   const id = await optionalUserId();
   if (id === null) throw new AccessError("Unauthorized", 401);
   if (requireUsername) {
-    const user = await prisma.user.findUnique({ where: { id }, select: { username: true } });
-    if (!user?.username) throw new AccessError("account.usernameRequired", 403);
+    const user = await prisma.user.findUnique({ where: { id }, select: { username: true, nickname: true } });
+    if (!user?.username || !isUsername(user.username)) throw new AccessError("account.usernameRequired", 403);
+    if (!isNickname(user.nickname)) throw new AccessError("account.nicknameRequired", 403);
   }
   return id;
 }

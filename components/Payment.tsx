@@ -1,12 +1,13 @@
 "use client";
 import { useI18n } from "@/components/LanguageProvider";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useSession } from "next-auth/react";
 import Link from "@/components/LocalizedLink";
 import BrandedQr from "./BrandedQr";
 import generatePayload from "promptpay-qr";
 import Decimal from "decimal.js";
 import { isPendingEvidence } from "@/lib/payment-status";
-import { baht, request, jsonBody } from "@/lib/client";
+import { baht, request, jsonBody, RequestError } from "@/lib/client";
 import { Icon } from "./Icons";
 import type { ExpenseItem } from "@/lib/expense-details";
 import ExpenseBreakdown, { type ExpenseDetails } from "./ExpenseBreakdown";
@@ -33,10 +34,12 @@ type Data = {
   participant: Payable;
   settlements: (Payable & { id: string; recipientId: string; promptPayId: string | null })[];
   canManage: boolean;
+  requiresClaim: boolean;
   expenseDetails?: ExpenseDetails | null;
 };
 export default function Payment({ id, pid }: { id: string; pid: string }) {
   const { t, feedback } = useI18n();
+  const { data: session } = useSession();
   const [data, setData] = useState<Data | null>(null);
   useBillTitle(data?.bill.name);
   const [loading, setLoading] = useState(true);
@@ -53,6 +56,14 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
   const endpoint = `/api/bills/${id}/participants/${pid}`;
   // Version the read URL so Fast Refresh also reloads pre-recipient expense data.
   const readEndpoint = `${endpoint}?expenseDetails=explanation-v2`;
+  const redirectAccount = useCallback((error: unknown) => {
+    if (!(error instanceof RequestError)) return false;
+    const page = error.status === 401 ? "/login" : error.status === 403 &&
+      ["account.usernameRequired", "account.nicknameRequired", "account.profileRequired"].includes(error.code) ? "/onboarding" : null;
+    if (!page) return false;
+    window.location.replace(`${page}?callbackUrl=${encodeURIComponent(`/bill/${id}/${pid}`)}`);
+    return true;
+  }, [id, pid]);
   const headers = useCallback(() => {
     let token = "";
     try {
@@ -66,11 +77,11 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
     try {
       setData(await request<Data>(readEndpoint, { headers: headers(), cache: "no-store" }));
     } catch (e) {
-      setError((e as Error).message);
+      if (!redirectAccount(e)) setError((e as Error).message);
     } finally {
       setLoading(false);
     }
-  }, [readEndpoint, headers]);
+  }, [readEndpoint, headers, redirectAccount]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -78,14 +89,15 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
     const response = await fetch(readEndpoint, { headers: headers(), cache: "no-store", signal });
     const result = await response.json();
     if (signal.aborted) return;
+    if (!response.ok && redirectAccount(new RequestError(result.error || "", response.status, result.error))) return;
     if ([401, 403, 404].includes(response.status)) {
       setData(null);
-      setError("เปิดจากหน้าบิลอีกครั้ง");
+      setError(result.error || "เปิดจากหน้าบิลอีกครั้ง");
       return;
     }
     if (!response.ok) throw new Error("Refresh failed");
     setData(result);
-  }, [readEndpoint, headers]);
+  }, [readEndpoint, headers, redirectAccount]);
   const liveStatus = useLiveRefresh(refresh, Boolean(data && !working && !loading));
   useEffect(() => {
     const url = proofUrl;
@@ -115,6 +127,16 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
       if (blob) URL.revokeObjectURL(blob);
     };
   }, [proofUrl, headers]);
+  async function claim() {
+    if (working) return;
+    setWorking(true); setError(""); setMessage("");
+    try {
+      const payload = jsonBody({ claimSelf: true });
+      await request(`${endpoint}/claim`, { method: "POST", ...payload, headers: { ...payload.headers, ...headers() } });
+      await load();
+    } catch (error) { if (!redirectAccount(error)) setError((error as Error).message); }
+    finally { setWorking(false); }
+  }
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
@@ -142,7 +164,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
           : t("payment.slipVerifiedNotice"),
       );
     } catch (e) {
-      setError((e as Error).message);
+      if (!redirectAccount(e)) setError((e as Error).message);
     } finally {
       setWorking(false);
     }
@@ -175,7 +197,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
         reverse ? t("payment.reversedNotice") : t("payment.paymentConfirmed"),
       );
     } catch (e) {
-      setError((e as Error).message);
+      if (!redirectAccount(e)) setError((e as Error).message);
     } finally {
       setWorking(false);
     }
@@ -206,6 +228,23 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
         <button className="button secondary" onClick={load}> {t("common.retry")} </button>
       </div>
     );
+  const claimPanel = data.requiresClaim ? <section className="payment-account-claim" aria-labelledby="payment-claim-heading">
+    <h2 id="payment-claim-heading">{t("payment.claimTitle")}</h2>
+    <p>{t("payment.claimHint", [data.participant.name])}</p>
+    <p><strong>{session?.user?.nickname}</strong> · @{session?.user?.username}</p>
+    <p className="field-hint">{t("payment.claimPreserveHint")}</p>
+    <button type="button" className="button primary full-width" disabled={working || loading} onClick={claim}>
+      {t(working ? "common.saving" : "payment.claimAction")}</button>
+    {error && <p className="error" role="alert">{feedback(error)}</p>}
+  </section> : null;
+  if (data.requiresClaim && !data.canManage) return <div id="content" className="payment-page">
+    <Link href={`/bill/${id}`} className="text-link muted"><Icon name="back" size={16} />{t("nav.backToFullBill")}</Link>
+    <article className="share-receipt payment-receipt">
+      <div className="receipt-brand" lang="th">เคลียร์โต๊ะ <span lang="en">Clear Toh</span></div>
+      <div className="pay-heading"><h1>{t("payment.personTitle", [data.participant.name])}</h1><p>{data.bill.name}</p></div>
+      {claimPanel}
+    </article>
+  </div>;
   if (data.bill.itemPayersEnabled && !selected) return (
     <div id="content" className="payment-page">
       <Link href={`/bill/${id}`} className="text-link muted"><Icon name="back" size={16} />{t("nav.backToFullBill")}</Link>
@@ -248,6 +287,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
         </p>
         <LiveStatus status={liveStatus} />
       </div>
+      {claimPanel}
       {data.bill.itemPayersEnabled && data.settlements.length > 1 && (
         <div className="payment-recipients" role="group" aria-label={t("payment.chooseRecipient")}>
           <p>{t("payment.recipientCountHint", [data.settlements.length])}</p>

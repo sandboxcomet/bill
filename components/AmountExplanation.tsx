@@ -17,7 +17,7 @@ export default function AmountExplanation({ billId, participantId, name, token, 
   const [open, setOpen] = useState(false); const [loading, setLoading] = useState(false);
   const [data, setData] = useState<Details | null>(null); const [error, setError] = useState(""); const [attempt, setAttempt] = useState(0);
   const read = useCallback(async (signal: AbortSignal) => {
-    const response = await fetch(`/api/bills/${encodeURIComponent(billId)}/participants/${encodeURIComponent(participantId)}?expenseDetails=explanation-v2`, {
+    const response = await fetch(`/api/bills/${encodeURIComponent(billId)}/participants/${encodeURIComponent(participantId)}/expenses`, {
       headers: { "x-payment-token": tokenRef.current }, cache: "no-store", signal,
     });
     const result = await response.json(); if (signal.aborted) return;
