@@ -1,5 +1,7 @@
 "use client";
+import { sharedBillPath, manageBillPath } from "@/lib/bill-paths";
 import { useI18n } from "@/components/LanguageProvider";
+import { notFound } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "@/components/LocalizedLink";
 import { useLocalizedRouter } from "@/components/LanguageProvider";
@@ -61,6 +63,7 @@ type Bill = {
 export default function SharedBill({ id }: { id: string }) {
   const { t, formatLocale, feedback } = useI18n();
   const [bill, setBill] = useState<Bill | null>(null);
+  const [missing, setMissing] = useState(false);
   useBillTitle(bill?.name);
   const [loading, setLoading] = useState(true);
   const [pinRequired, setPinRequired] = useState(false);
@@ -81,7 +84,10 @@ export default function SharedBill({ id }: { id: string }) {
           cache: "no-store",
         });
         const d = await r.json();
-        if (r.status === 403) {
+        if (r.status === 404) {
+          setBill(null);
+          setMissing(true);
+        } else if (r.status === 403) {
           setPinRequired(true);
           if (passcode) setError(t("errors.pinIncorrect"));
         } else if (!r.ok) {
@@ -125,7 +131,8 @@ export default function SharedBill({ id }: { id: string }) {
     const result = await response.json();
     if (signal.aborted) return;
     if (response.status === 403) { setPinRequired(true); return; }
-    if (response.status === 401 || response.status === 404) {
+    if (response.status === 404) { setBill(null); setMissing(true); return; }
+    if (response.status === 401) {
       setBill(null);
       setError("ไม่พบบิล หรือบิลนี้ยังไม่ได้เปิดแชร์");
       return;
@@ -135,6 +142,7 @@ export default function SharedBill({ id }: { id: string }) {
   }, [id]);
   const liveStatus = useLiveRefresh(refresh, Boolean(bill?.status === "PUBLISHED" && !loading && !pinRequired && !sharing));
   async function share() {
+    const url = new URL(sharedBillPath(id), window.location.origin).href;
     setSharing(true);
     setMessage("");
     try {
@@ -142,15 +150,15 @@ export default function SharedBill({ id }: { id: string }) {
         await navigator.share({
           title: bill?.name || t("bill.ourBill"),
           text: t("share.linkDescription"),
-          url: window.location.href,
+          url,
         });
       } else {
-        await navigator.clipboard.writeText(window.location.href);
+        await navigator.clipboard.writeText(url);
         setMessage(t("share.linkCopied"));
       }
     } catch (e) {
       if ((e as Error).name !== "AbortError")
-        setMessage(t("share.copyLinkFallback", [window.location.href]));
+        setMessage(t("share.copyLinkFallback", [url]));
     } finally {
       setSharing(false);
     }
@@ -166,6 +174,7 @@ export default function SharedBill({ id }: { id: string }) {
       );
     }
   }
+  if (missing) notFound();
   if (loading)
     return (
       <div id="content" className="empty-state" role="status">
@@ -236,7 +245,7 @@ export default function SharedBill({ id }: { id: string }) {
         {!cancelled && bill.status === "PUBLISHED" && <ShareReceiptImage data={() => ({
           name: bill.name || t("bill.ourBill"), total: bill.grandTotal,
           date: new Date(bill.createdAt).toLocaleDateString(formatLocale, { day: "numeric", month: "long", year: "numeric" }),
-          url: `${window.location.origin}/bill/${encodeURIComponent(bill.id)}`,
+          url: `${window.location.origin}${sharedBillPath(bill.id)}`,
           complete: progress.complete, privateBill: !bill.isPublic,
           people: bill.participants.map(p => {
             const balance = personBalance(p, bill.settlements, bill.itemPayersEnabled);
@@ -246,7 +255,7 @@ export default function SharedBill({ id }: { id: string }) {
         })} />}
         {owner && <button className="button share-link-button" onClick={() => router.push(`/new?repeat=${encodeURIComponent(id)}&round=${crypto.randomUUID()}`)}><Icon name="copy" size={16} />{t("bill.repeatGroup")}</button>}
         {owner && !cancelled && (
-          <Link className="button secondary" href={`/bills/${id}/edit`}> {t("bill.edit")} </Link>
+          <Link className="button secondary" href={manageBillPath(id)}> {t("bill.edit")} </Link>
         )}
       </div>
       </div>

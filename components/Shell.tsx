@@ -11,7 +11,7 @@ export default function Shell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
   const { data: session } = useSession();
   const pathname = stripLocale(usePathname());
-  const isMyBills = pathname === "/bills" || pathname.startsWith("/bills/");
+  const isMyBills = pathname === "/bills" || pathname.startsWith("/bills/") || pathname.startsWith("/manage/");
   return (
     <>
       <header className="site-header">

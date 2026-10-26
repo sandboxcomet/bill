@@ -1,4 +1,5 @@
 "use client";
+import { sharedBillPath, participantPaymentPath } from "@/lib/bill-paths";
 import { useI18n } from "@/components/LanguageProvider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
@@ -63,7 +64,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
     const page = error.status === 401 ? "/login" : error.status === 403 &&
       ["account.usernameRequired", "account.nicknameRequired", "account.profileRequired"].includes(error.code) ? "/onboarding" : null;
     if (!page) return false;
-    window.location.replace(`${page}?callbackUrl=${encodeURIComponent(`/bill/${id}/${pid}`)}`);
+    window.location.replace(`${page}?callbackUrl=${encodeURIComponent(participantPaymentPath(id, pid))}`);
     return true;
   }, [id, pid]);
   const headers = useCallback(() => {
@@ -226,7 +227,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
         <p className="error" role="alert">
           {feedback(error)}
         </p>
-        <Link className="button primary" href={`/bill/${id}`}> {t("errors.reopenFromBill")} </Link>
+        <Link className="button primary" href={sharedBillPath(id)}> {t("errors.reopenFromBill")} </Link>
         <button className="button secondary" onClick={load}> {t("common.retry")} </button>
       </div>
     );
@@ -246,7 +247,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
   const unpaid = (payable: Payable) => Decimal.max(new Decimal(payable.totalPayable).minus(Decimal.max(payable.paidAmount, 0)), 0);
   const claimRemaining = claimTransfers.reduce((sum, transfer) => sum.plus(unpaid(transfer)), new Decimal(0));
   if ((data.requiresClaim || data.readOnly) && !data.canManage) return <div id="content" className="payment-page">
-    <Link href={`/bill/${id}`} className="text-link muted"><Icon name="back" size={16} />{t("nav.backToFullBill")}</Link>
+    <Link href={sharedBillPath(id)} className="text-link muted"><Icon name="back" size={16} />{t("nav.backToFullBill")}</Link>
     <article className="share-receipt payment-receipt">
       <div className="receipt-brand" lang="th">เคลียร์โต๊ะ <span lang="en">Clear Toh</span></div>
       <div className="pay-heading"><h1>{t("payment.claimPreviewTitle", [data.participant.name])}</h1><p>{data.bill.name}</p></div>
@@ -272,7 +273,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
   </div>;
   if (data.bill.itemPayersEnabled && !selected) return (
     <div id="content" className="payment-page">
-      <Link href={`/bill/${id}`} className="text-link muted"><Icon name="back" size={16} />{t("nav.backToFullBill")}</Link>
+      <Link href={sharedBillPath(id)} className="text-link muted"><Icon name="back" size={16} />{t("nav.backToFullBill")}</Link>
       <article className="share-receipt payment-receipt">
       <div className="receipt-brand" lang="th">เคลียร์โต๊ะ <span lang="en">Clear Toh</span></div>
       <div className="pay-heading">
@@ -301,7 +302,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
   } catch {}
   return (
     <div id="content" className="payment-page">
-      <Link className="text-link muted" href={`/bill/${id}`}>
+      <Link className="text-link muted" href={sharedBillPath(id)}>
         <Icon name="back" size={16} /> {t("nav.backToFullBill")} </Link>
       <article className="share-receipt payment-receipt">
       <div className="receipt-brand" lang="th">เคลียร์โต๊ะ <span lang="en">Clear Toh</span></div>

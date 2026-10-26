@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isLocale, localeFromPath, localizedPath, stripLocale } from "@/lib/locale";
+import { isSharedBillPath, legacyBillRedirect, billIdFromPagePath } from "@/lib/bill-paths";
 import { hasCompleteProfile } from "@/lib/profile";
+import { prisma } from "@/lib/prisma";
+import { ownsAccount } from "@/lib/server/account-identity";
 
-export const proxy = auth((request) => {
+export const proxy = auth(async (request) => {
   const originalPath = request.nextUrl.pathname;
   const pathname = stripLocale(originalPath);
   const { search } = request.nextUrl;
@@ -26,10 +29,28 @@ export const proxy = auth((request) => {
     response.headers.set("Cache-Control", "private, no-store");
     return response;
   }
+  const legacy = legacyBillRedirect(pathname);
+  if (legacy) {
+    const url = request.nextUrl.clone();
+    url.pathname = legacy;
+    return NextResponse.redirect(url, 308);
+  }
+  // Resolve missing/stopped bills before HTML streaming commits a 200 response.
+  const billId = billIdFromPagePath(pathname);
+  if (billId) {
+    const bill = await prisma.bill.findUnique({ where: { id: billId }, select: { status: true, userId: true } });
+    const userId = Number(request.auth?.user?.id);
+    if (!bill || bill.status === "UNSHARED" || (bill.status !== "PUBLISHED" && !await ownsAccount(Number.isSafeInteger(userId) && userId > 0 ? userId : null, bill.userId))) {
+      const headers = new Headers(request.headers);
+      headers.set("x-clear-toh-locale", locale);
+      return NextResponse.rewrite(new URL("/404", request.url), { status: 404, headers: { "Cache-Control": "private, no-store" }, request: { headers } });
+    }
+  }
   if (
     pathname === "/" ||
     pathname === "/demo" ||
     pathname === "/login" ||
+    pathname === "/404" ||
     pathname === "/api/auth" ||
     pathname.startsWith("/api/auth/") ||
     pathname === "/api/health" ||
@@ -41,6 +62,7 @@ export const proxy = auth((request) => {
   // The shared receipt stays public/PIN-protected. Every payment route requires
   // a signed-in account with a complete profile in addition to its scoped token.
   if (
+    isSharedBillPath(pathname) ||
     /^\/bill\/[^/]+\/?$/.test(pathname) ||
     (request.method === "GET" && pathname === "/api/bill") ||
     (request.method === "GET" && /^\/api\/bills\/[^/]+\/participants\/[^/]+\/expenses\/?$/.test(pathname))

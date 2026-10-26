@@ -1,9 +1,7 @@
-import BillEditor from "@/components/BillEditor";
-export default async function Page({
-  params,
-}: {
-  params: Promise<{ id: string }>;
-}) {
+import { notFound, permanentRedirect } from "next/navigation";
+import { isSharedBillPath, sharedBillPath, manageBillPath } from "@/lib/bill-paths";
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  return <BillEditor billId={id} />;
+  if (!isSharedBillPath(sharedBillPath(id))) notFound();
+  permanentRedirect(manageBillPath(id));
 }

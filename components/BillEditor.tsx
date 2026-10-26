@@ -1,4 +1,5 @@
 "use client";
+import { sharedBillPath, manageBillPath } from "@/lib/bill-paths";
 import { nameInitial } from "@/lib/name-initial";
 import { useI18n, useLocalizedRouter } from "@/components/LanguageProvider";
 import Link from "@/components/LocalizedLink";
@@ -124,6 +125,7 @@ export default function BillEditor({
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [saving, setSaving] = useState(false);
+  const [sharingError, setSharingError] = useState("");
   const [promptPay, setPromptPay] = useState("");
   const [profilePromptPay, setProfilePromptPay] = useState<{ userId: string; value: string } | null>(null);
   const [billStatus, setBillStatus] = useState("DRAFT");
@@ -220,7 +222,7 @@ export default function BillEditor({
     if (!billId || status === "loading") return;
     if (status === "unauthenticated") {
       router.replace(
-        `/login?callbackUrl=${encodeURIComponent(`/bills/${billId}/edit`)}`,
+        `/login?callbackUrl=${encodeURIComponent(manageBillPath(billId))}`,
       );
       return;
     }
@@ -233,7 +235,7 @@ export default function BillEditor({
         version.current = bill.version;
         setBillStatus(bill.status);
         if (bill.status === "CANCELLED") {
-          router.replace(`/bill/${billId}`);
+          router.replace(sharedBillPath(billId));
           return;
         }
         setLocked(
@@ -575,6 +577,7 @@ export default function BillEditor({
           locked
             ? {
                 version: version.current,
+                status: publish ? "PUBLISHED" : billStatus,
                 name: draft.name,
                 isPublic: draft.isPublic,
                 passcode: draft.isPublic ? null : draft.passcode,
@@ -593,10 +596,10 @@ export default function BillEditor({
           );
         } catch {}
       if (publish) {
-        router.push(`/bill/${id}`);
+        router.push(sharedBillPath(id));
       } else {
         setNotice(t("editor.draftSaved"));
-        if (!billId) router.replace(`/bills/${id}/edit`);
+        if (!billId) router.replace(manageBillPath(id));
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : t("errors.saveFailed"));
@@ -604,6 +607,19 @@ export default function BillEditor({
       setSaving(false);
       saveGuard.current = false;
     }
+  }
+  async function stopSharing() {
+    if (saveGuard.current || !idRef.current || billStatus !== "PUBLISHED") return;
+    saveGuard.current = true;
+    setSaving(true); setSharingError(""); setNotice("");
+    try {
+      const saved = await request<{ version: number; status: string }>(`/api/bills/${idRef.current}`, {
+        method: "PATCH", ...jsonBody({ version: version.current, status: "UNSHARED" }),
+      });
+      version.current = saved.version;
+      setBillStatus(saved.status);
+    } catch (error) { setSharingError((error as Error).message); }
+    finally { setSaving(false); saveGuard.current = false; }
   }
   if (loading || !loaded)
     return (
@@ -653,7 +669,7 @@ export default function BillEditor({
               : t("editor.readyToEdit")}
         </span>
       </div>
-      <div className="page-heading">
+      <div className="page-heading bill-editor-heading">
         <div>
           <h1>
             {demo
@@ -664,10 +680,17 @@ export default function BillEditor({
           </h1>
           <p>{t("editor.intro")}</p>
         </div>
-        <span className="status status-draft">
-          {billStatus === "PUBLISHED" ? t("bill.status.published") : t("bill.status.draft")}
-        </span>
+        <div className="editor-share-actions">
+          <span className={`status status-${billStatus.toLowerCase()}`}>
+            {t(billStatus === "PUBLISHED" ? "bill.status.published" : billStatus === "UNSHARED" ? "bill.status.unshared" : "bill.status.draft")}
+          </span>
+          {!demo && billId && billStatus === "PUBLISHED" && <button type="button" className="button secondary" disabled={saving} onClick={stopSharing}>
+            {t("editor.stopSharing")}
+          </button>}
+        </div>
       </div>
+      {sharingError && <p className="error" role="alert">{feedback(sharingError)}</p>}
+      {billStatus === "UNSHARED" && <div className="notice" role="status">{t("editor.sharingStoppedHint")}</div>}
       {demo && (
         <div className="notice"> {t("editor.demoNotice")}{" "}
           <Link href="/new"> {t("editor.createYourOwnBill")} <Icon name="arrow" size={15} />
@@ -1124,7 +1147,7 @@ export default function BillEditor({
                     <span className="spinner" />
                   ) : (
                     <Icon name="link" size={18} />
-                  )} {t("editor.saveAndCreateShareLink")} </button>
+                  )} {t(billStatus === "UNSHARED" ? "editor.shareAgain" : "editor.saveAndCreateShareLink")} </button>
                 <button
                   className="button secondary full-width"
                   onClick={() => save(false)}

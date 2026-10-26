@@ -76,6 +76,7 @@ export async function PATCH(
       success: true,
       billId: id,
       version: bill.version,
+      status: bill.status,
     });
   } catch (error) {
     return accessErrorResponse(error);

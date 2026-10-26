@@ -1,32 +1,34 @@
 "use client";
+import { sharedBillPath, manageBillPath } from "@/lib/bill-paths";
 import type { TranslationKey } from "@/lib/i18n";
 import { useI18n } from "@/components/LanguageProvider";
 import Link from "@/components/LocalizedLink";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import type { BillListItem, BillPaymentStatus } from "@/lib/bill-list";
+import { useLiveRefresh } from "@/lib/use-live-refresh";
+import LiveStatus from "./LiveStatus";
 import { useSession } from "next-auth/react";
 import { Icon } from "./Icons";
 import { baht, request } from "@/lib/client";
 
-type Bill = {
-  id: string;
-  name: string;
-  status: string;
-  grandTotal: string;
-  createdAt: string;
-  _count: { participants: number; items: number };
-};
 const labels: Record<string, TranslationKey> = {
   DRAFT: "bill.status.draft",
   PUBLISHED: "bill.status.published",
   CANCELLED: "bill.status.cancelled",
+  UNSHARED: "bill.status.unshared",
+};
+const paymentLabels: Record<BillPaymentStatus, TranslationKey> = {
+  UNPAID: "myBills.paymentUnpaid", PARTIAL: "myBills.paymentPartial", REVIEW: "myBills.paymentReview",
+  BANK_PENDING: "payment.bankPendingShort", PAID: "myBills.paymentPaid", NO_PAYMENT: "myBills.noPayment",
 };
 export default function MyBills() {
   const { t, formatLocale, feedback } = useI18n();
   const { status } = useSession();
-  const [bills, setBills] = useState<Bill[]>([]);
+  const [bills, setBills] = useState<BillListItem[]>([]);
+  const [payableBills, setPayableBills] = useState<BillListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [filter, setFilter] = useState("ALL");
+  const [filter, setFilter] = useState<"OWNED" | "TO_PAY">("OWNED");
   const [search, setSearch] = useState("");
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
@@ -34,14 +36,15 @@ export default function MyBills() {
     if (status === "unauthenticated") {
       setLoading(false);
       setBills([]);
+      setPayableBills([]);
       return;
     }
     let active = true;
     setLoading(true);
     setError("");
-    request<{ bills: Bill[] }>("/api/bills")
+    request<{ bills: BillListItem[]; payableBills: BillListItem[] }>("/api/bills")
       .then((d) => {
-        if (active) setBills(d.bills);
+        if (active) { setBills(d.bills); setPayableBills(d.payableBills); }
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -53,10 +56,14 @@ export default function MyBills() {
       active = false;
     };
   }, [status, attempt]);
-  const visible = bills.filter(
-    (b) =>
-      (filter === "ALL" || b.status === filter) &&
-      b.name.toLowerCase().includes(search.toLowerCase()),
+  const refresh = useCallback(async (signal: AbortSignal) => {
+    const data = await request<{ bills: BillListItem[]; payableBills: BillListItem[] }>("/api/bills", { signal });
+    if (!signal.aborted) { setBills(data.bills); setPayableBills(data.payableBills); }
+  }, []);
+  const liveStatus = useLiveRefresh(refresh, status === "authenticated" && !loading && !error);
+  const toPay = filter === "TO_PAY";
+  const visible = (toPay ? payableBills : bills).filter(
+    (b) => b.name.toLowerCase().includes(search.toLowerCase()),
   );
   return (
     <div id="content">
@@ -66,8 +73,9 @@ export default function MyBills() {
           <p>
             {loading
               ? t("myBills.loadingYourBills")
-              : t("myBills.countHint", [bills.length])}
+              : toPay ? t("myBills.toPayHint", [payableBills.length]) : t("myBills.countHint", [bills.length])}
           </p>
+          {!loading && !error && <LiveStatus status={liveStatus} />}
         </div>
         <Link className="button primary" href="/new">
           <Icon name="plus" size={18} /> {t("bill.create")} </Link>
@@ -75,11 +83,10 @@ export default function MyBills() {
       <section className="bills-section" aria-label={t("myBills.myBillList")}>
         <div className="list-toolbar">
           <div className="tabs" aria-label={t("myBills.filterBillStatus")}>
-            {[
-              ["ALL", t("myBills.all")],
-              ["DRAFT", t("bill.status.draft")],
-              ["PUBLISHED", t("bill.status.published")],
-            ].map(([key, label]) => (
+            {([
+              ["OWNED", t("nav.myBills")],
+              ["TO_PAY", t("myBills.toPayTab", [payableBills.length])],
+            ] as const).map(([key, label]) => (
               <button
                 key={key}
                 className={filter === key ? "tab active" : "tab"}
@@ -120,7 +127,7 @@ export default function MyBills() {
                 key={b.id}
                 className="bill-row"
                 href={
-                  b.status === "DRAFT" ? `/bills/${b.id}/edit` : `/bill/${b.id}`
+                  ["DRAFT", "UNSHARED"].includes(b.status) ? manageBillPath(b.id) : sharedBillPath(b.id)
                 }
               >
                 <span className="bill-row-icon">
@@ -137,12 +144,21 @@ export default function MyBills() {
                     {b._count.participants} {t("common.people")}<span>·</span>
                     {b._count.items} {t("bill.item")} </p>
                 </div>
-                <span className={`status status-${b.status.toLowerCase()}`}>
-                  {labels[b.status] ? t(labels[b.status]) : b.status}
-                </span>
-                <strong className="bill-row-amount">
-                  ฿ {baht(b.grandTotal)}
-                </strong>
+                <div className="bill-row-status">
+                  <div className="bill-row-badges">
+                    <span className={`status status-${b.status.toLowerCase()}`}>
+                      {labels[b.status] ? t(labels[b.status]) : b.status}
+                    </span>
+                    {b.payment && <span className={`status ${["PAID", "NO_PAYMENT"].includes(b.payment.status) ? "status-published" : ["REVIEW", "BANK_PENDING", "PARTIAL"].includes(b.payment.status) ? "status-draft" : ""}`}>
+                      {t(paymentLabels[b.payment.status])}
+                    </span>}
+                  </div>
+                  {!toPay && b.payment && b.payment.totalPeople > 0 && <small>{t("myBills.settledPeople", [b.payment.settledCount, b.payment.totalPeople])}</small>}
+                </div>
+                <div className="bill-row-amount">
+                  <small>{t(toPay ? "myBills.yourRemaining" : "myBills.billTotal")}</small>
+                  <strong>฿ {baht(toPay ? b.payment!.remaining : b.grandTotal)}</strong>
+                </div>
                 <Icon name="arrow" size={18} />
               </Link>
             ))}
@@ -155,19 +171,15 @@ export default function MyBills() {
             <h3>
               {search
                 ? t("myBills.noMatchingBills")
-                : filter !== "ALL"
-                  ? t("myBills.noBillsWithThisStatus")
-                  : t("myBills.createYourFirstBill")}
+                : toPay ? t("myBills.noPayableBills") : t("myBills.createYourFirstBill")}
             </h3>
             <p>
               {search
                 ? t("myBills.tryAnotherName")
-                : filter !== "ALL"
-                  ? t("myBills.statusFilterHint")
-                  : t("myBills.emptyHint")}
+                : toPay ? t("myBills.payableEmptyHint") : t("myBills.emptyHint")}
             </p>
-            <Link className="button secondary" href="/new">
-              <Icon name="plus" size={17} /> {t("bill.create")} </Link>
+            {toPay ? <button className="button secondary" onClick={() => setFilter("OWNED")}>{t("myBills.showCreated")}</button>
+              : <Link className="button secondary" href="/new"><Icon name="plus" size={17} /> {t("bill.create")}</Link>}
           </div>
         )}
       </section>

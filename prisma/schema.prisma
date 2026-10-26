@@ -121,7 +121,7 @@ model Bill {
 
   isPublic Boolean @default(true) @map("is_public")
   passcode String? // plain PIN (4 digits)
-  status   String  @default("DRAFT") // DRAFT | PUBLISHED
+  status   String  @default("DRAFT") // DRAFT | PUBLISHED | UNSHARED | CANCELLED
   itemPayersEnabled Boolean @default(false) @map("item_payers_enabled")
 
   items        BillItem[]

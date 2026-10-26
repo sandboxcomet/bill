@@ -7,6 +7,7 @@ import {
   accessErrorResponse,
 } from "@/lib/server/authorization";
 import { prisma } from "@/lib/prisma";
+import { participantPaymentPath } from "@/lib/bill-paths";
 import { isPendingEvidence } from "@/lib/payment-status";
 import { ownsAccount, primaryProfile, resolvedOwnerFields } from "@/lib/server/account-identity";
 import {
@@ -49,7 +50,7 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    if (!bill)
+    if (!bill || bill.status === "UNSHARED")
       return NextResponse.json(
         { error: "Not found" },
         { status: 404, headers },
@@ -124,7 +125,7 @@ export async function GET(req: NextRequest) {
             isPaid: p.isPaid,
             isPayer: p.isPayer,
             slipStatus: slipStatuses.get(p.id) ?? { needsReview: false, bankPending: false },
-            paymentUrl: `/bill/${bill.id}/${p.id}`,
+            paymentUrl: participantPaymentPath(bill.id, p.id),
             paymentToken: createParticipantToken(
               bill.id,
               p.id,

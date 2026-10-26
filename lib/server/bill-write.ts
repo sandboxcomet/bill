@@ -59,11 +59,17 @@ export async function saveBill(id: string, userId: number, body: any) {
       throw new AccessError("บิลถูกแก้ไขจากหน้าต่างอื่น กรุณาโหลดใหม่", 409);
     const status = body.status ?? bill.status;
     if (
-      !["DRAFT", "PUBLISHED", "CANCELLED"].includes(status) ||
+      !["DRAFT", "PUBLISHED", "UNSHARED", "CANCELLED"].includes(status) ||
       bill.status === "CANCELLED" ||
-      (bill.status === "PUBLISHED" && status === "DRAFT")
+      (["PUBLISHED", "UNSHARED"].includes(bill.status) && status === "DRAFT") ||
+      (status === "UNSHARED" && !["PUBLISHED", "UNSHARED"].includes(bill.status))
     )
       throw new AccessError("Invalid bill transition", 409);
+    // Closing a published link must not rewrite or revalidate its saved contents.
+    if (bill.status === "PUBLISHED" && status === "UNSHARED" &&
+      Object.keys(body).every(key => key === "version" || key === "status")) {
+      return tx.bill.update({ where: { id }, data: { status, version: { increment: 1 } } });
+    }
     const editing =
       Array.isArray(body.items) || Array.isArray(body.participants);
     const itemPayersEnabled = bill.itemPayersEnabled || body.itemPayersEnabled === true;
@@ -305,7 +311,7 @@ export async function saveBill(id: string, userId: number, body: any) {
       throw new AccessError("PIN must have exactly 4 digits", 409);
     if (status === "PUBLISHED" && !isPublic && !passcode)
       throw new AccessError("Private bills require a PIN", 409);
-    if (status === "PUBLISHED" && !editing && bill.status !== "PUBLISHED")
+    if (status === "PUBLISHED" && !editing && !["PUBLISHED", "UNSHARED"].includes(bill.status))
       throw new AccessError("Publish with complete bill data", 409);
     return tx.bill.update({
       where: { id },
