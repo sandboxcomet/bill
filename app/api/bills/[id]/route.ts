@@ -3,7 +3,7 @@ import { requireUserId, accessErrorResponse } from "@/lib/server/authorization";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { ownsAccount, primaryProfile, resolvedProfileFields } from "@/lib/server/account-identity";
+import { ownsAccount, primaryProfile, resolvedProfileFields, participantDisplay } from "@/lib/server/account-identity";
 
 // GET /api/bills/[id] — load draft data
 export async function GET(
@@ -55,8 +55,9 @@ export async function GET(
     },
   });
   return NextResponse.json(
-    { bill: { ...bill, participants: bill.participants.map(({ accountUser, ...p }) => {
-      const account = accountUser ? primaryProfile(accountUser) : null;
+    { bill: { ...bill, participants: bill.participants.map(person => {
+      const p = participantDisplay(person);
+      const account = person.accountUser ? primaryProfile(person.accountUser) : null;
       return { ...p, canonicalAccountUserId: account?.id, username: account?.username ?? undefined,
         hasPromptPay: Boolean(account?.promptPayId) };
     }), hasPaymentEvidence: evidenceCount > 0 } },

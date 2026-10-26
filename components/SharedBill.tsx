@@ -35,6 +35,7 @@ type Bill = {
   participants: {
     id: string;
     name: string;
+    isYou?: boolean;
     totalPayable: string;
     shareAmount: string;
     paidUpfront: string;
@@ -232,6 +233,9 @@ export default function SharedBill({ id }: { id: string }) {
   const owner = bill.canManage === true;
   const cancelled = bill.status === "CANCELLED";
   const progress = billProgress(bill);
+  const orderedPeople = session?.user
+    ? [...bill.participants].sort((a, b) => Number(Boolean(b.isYou)) - Number(Boolean(a.isYou)))
+    : bill.participants;
   return (
     <div id="content" className="share-layout">
       <div className="share-toolbar">
@@ -333,16 +337,17 @@ export default function SharedBill({ id }: { id: string }) {
           <h2>{t("bill.individualTotals")}</h2>
           <Icon name="users" size={19} />
         </div>
-        {bill.participants.map((p) => {
+        {orderedPeople.map((p) => {
           const received = bill.settlements.filter((s) => s.toParticipantId === p.id);
           const incoming = received
             .reduce((sum, s) => sum.plus(s.amount), new Decimal(0));
           const { due: outgoingRemaining, receive: incomingRemaining } = personBalance(p, bill.settlements, bill.itemPayersEnabled);
           const canOpen = !cancelled && bill.status === "PUBLISHED";
-          return <div className={`participant-row${canOpen ? " is-interactive" : ""}`} key={p.id}>
+          return <div className={`participant-row${canOpen ? " is-interactive" : ""}${session?.user && p.isYou ? " is-you" : ""}`} key={p.id}>
             <div className="participant-info">
               <div className="participant-name-line">
                 <h3>{p.name}</h3>
+                {session?.user && p.isYou && <span className="participant-self-label">{t("bill.yourEntry")}</span>}
                 {p.isPaid && Number(p.totalPayable) > 0 && <span className="participant-paid-label"><Icon name="check" size={13} />{t("common.fullyPaid")}</span>}
               </div>
               {bill.itemPayersEnabled ? <dl className="receipt-person-meta">

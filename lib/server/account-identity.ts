@@ -25,8 +25,21 @@ export const resolvedProfileFields = {
 } as const;
 const ownerFields = { name: true, nickname: true, promptPayId: true } as const;
 export const resolvedOwnerFields = { ...ownerFields, mergedInto: { select: ownerFields } } as const;
+const displayProfileFields = { name: true, nickname: true, username: true } as const;
+export const participantDisplayFields = {
+  ...displayProfileFields, mergedInto: { select: displayProfileFields },
+} as const;
 
 export function primaryProfile<T extends { mergedInto?: object | null }>(user: T): Omit<T, "mergedInto"> {
   const { mergedInto, ...profile } = user;
   return (mergedInto ?? profile) as Omit<T, "mergedInto">;
+}
+
+type DisplayProfile = { name: string | null; nickname: string | null; username: string | null };
+// Keep the saved participant label for history, but display the linked primary
+// account's current nickname. Never serialize the account relation itself.
+export function participantDisplay<T extends { name: string; accountUser: (DisplayProfile & { mergedInto: DisplayProfile | null }) | null }>(participant: T) {
+  const { accountUser, ...person } = participant;
+  const account = accountUser ? primaryProfile(accountUser) : null;
+  return { ...person, name: account?.nickname || account?.name || account?.username || person.name };
 }

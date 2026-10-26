@@ -29,6 +29,7 @@ export const thai = {
   "bill.edit": "แก้ไขบิล",
   "bill.pinHint": "ใส่ PIN จากผู้สร้างบิลเพื่อดูยอดของคุณ",
   "bill.individualTotals": "ยอดของแต่ละคน",
+  "bill.yourEntry": "ของคุณ",
   "bill.item": "รายการ",
   "bill.itemsHeading": "รายการ ·",
   "share.linkCopied": "คัดลอกลิงก์แล้ว ส่งให้เพื่อนได้เลย",
@@ -549,6 +550,9 @@ export const thai = {
   "payment.claimPreviewTitle": "รายการของ {0}",
   "payment.viewOnlyHint": "ดูยอดและรายละเอียดได้ ส่วนการชำระเงินใช้บัญชีที่ผูกกับรายการนี้",
   "payment.viewOnlyNoOutgoing": "รายการนี้ไม่มียอดที่ต้องโอนให้คนอื่น",
+  "payment.alreadyLinkedTitle": "คุณมีรายการในบิลนี้แล้ว",
+  "payment.alreadyLinkedHint": "บัญชีของคุณผูกกับรายการ “{0}” แล้ว ไม่ต้องยืนยันอีก รายการที่เปิดอยู่นี้ดูยอดและรายละเอียดได้",
+  "payment.openMyEntry": "เปิดรายการของฉัน",
   "expenses.participantTotal": "ค่าใช้จ่ายรวมของ {0}",
   "explanation.participantAdvanced": "เงินที่ {0} ออกให้ก่อนทั้งหมด",
   "explanation.itemAdvancedBy": "{0} ออกเงินเต็มรายการนี้ ฿ {1} รวมส่วนของคนอื่นแล้ว",
@@ -556,7 +560,7 @@ export const thai = {
   "payment.claimTransferTo": "โอนให้ {0}",
   "payment.claimPaidNote": "ยอดเต็ม ฿ {0} · จ่ายแล้ว ฿ {1}",
   "payment.claimHint": "ในบิลใช้ชื่อ “{0}” หากเป็นรายการของคุณ ให้ผูกกับบัญชีที่เข้าสู่ระบบด้านล่างก่อนจ่าย เมื่อยืนยันแล้ว คุณกับเจ้าของบิลจะเป็นเพื่อนกันอัตโนมัติ",
-  "payment.claimPreserveHint": "ชื่อ ยอดเงิน และผู้รับเงินในบิลยังเหมือนเดิม หลังยืนยันจะผูกบัญชีของคุณกับรายการนี้",
+  "payment.claimPreserveHint": "หลังยืนยันจะแสดงชื่อเล่นจากบัญชีของคุณ โดยยอดเงินและผู้รับเงินในบิลยังเหมือนเดิม",
   "payment.claimAction": "ยืนยันว่าเป็นรายการของฉัน",
   "payment.claimRequired": "ยืนยันว่ารายการนี้เป็นของคุณก่อนแนบสลิป",
   "payment.linkedToAnotherAccount": "รายการนี้ผูกกับบัญชีอื่นแล้ว กรุณาเข้าสู่ระบบด้วยบัญชีนั้น หรือเปิดรายการของคุณจากหน้าบิล",
@@ -591,6 +595,9 @@ export const thai = {
   "myBills.noPayableBills": "ไม่มีบิลที่ต้องจ่าย",
   "myBills.payableEmptyHint": "บิลที่เพิ่มจากบัญชีของคุณ หรือที่คุณยืนยันผูกบัญชีแล้ว จะอยู่ที่นี่เมื่อยังมียอดค้าง",
   "myBills.showCreated": "ดูบิลที่สร้าง",
+  "notFound.title": "ไม่พบหน้านี้",
+  "notFound.description": "ลิงก์อาจไม่ถูกต้อง หรือบิลนี้หยุดแชร์แล้ว",
+  "notFound.myBills": "ไปที่บิลของฉัน",
 } as const;
 
 export type TranslationKey = keyof typeof thai;

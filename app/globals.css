@@ -2026,6 +2026,45 @@ small {
   height: 10px;
   background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='10'%3E%3Cpath d='M0 0h16L8 10Z' fill='white'/%3E%3C/svg%3E") repeat-x;
 }
+.not-found-page {
+  display: grid;
+  place-items: center;
+  min-height: calc(100svh - 240px);
+  padding-block: 48px;
+}
+.not-found-receipt {
+  width: 100%;
+  max-width: 560px;
+  padding: 48px 40px 40px;
+  text-align: center;
+}
+.not-found-title { font-size: 1.5rem; }
+.not-found-code {
+  display: block;
+  margin-bottom: 24px;
+  color: var(--green);
+  font-size: 6rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.not-found-description {
+  max-width: 38ch;
+  margin: 16px auto 0;
+  font-size: var(--text-body);
+  line-height: 1.8;
+}
+.not-found-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px dashed var(--line);
+}
+@media (max-width: 520px) {
+  .not-found-page { padding-block: 32px 48px; }
+  .not-found-actions { grid-template-columns: minmax(0, 1fr); }
+}
 .receipt-brand {
   text-align: center;
   color: var(--green-dark);
@@ -2106,6 +2145,14 @@ small {
 .participant-row:last-child {
   border-bottom: 0;
 }
+.participant-row.is-you {
+  --muted: var(--green-dark);
+  background: var(--green-soft);
+}
+.participant-row.is-you h3 {
+  color: var(--green-dark);
+  font-size: var(--text-title);
+}
 .participant-info {
   flex: 1;
   min-width: 0;
@@ -2129,6 +2176,13 @@ small {
   background: var(--green);
   color: #fff;
   font-size: var(--text-meta);
+  font-weight: 700;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.participant-self-label {
+  color: var(--green-dark);
+  font-size: var(--text-body);
   font-weight: 700;
   line-height: 1.5;
   white-space: nowrap;

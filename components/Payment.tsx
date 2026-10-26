@@ -1,6 +1,6 @@
 "use client";
 import { sharedBillPath, participantPaymentPath } from "@/lib/bill-paths";
-import { useI18n } from "@/components/LanguageProvider";
+import { useI18n, useLocalizedRouter } from "@/components/LanguageProvider";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import Link from "@/components/LocalizedLink";
@@ -37,10 +37,12 @@ type Data = {
   canManage: boolean;
   requiresClaim: boolean;
   readOnly?: boolean;
+  ownEntry?: { id: string; name: string; paymentUrl: string; paymentToken: string } | null;
   expenseDetails?: ExpenseDetails | null;
 };
 export default function Payment({ id, pid }: { id: string; pid: string }) {
   const { t, feedback } = useI18n();
+  const router = useLocalizedRouter();
   const { data: session } = useSession();
   const [data, setData] = useState<Data | null>(null);
   useBillTitle(data?.bill.name);
@@ -232,7 +234,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
       </div>
     );
   const [claimHintBefore, claimHintAfter] = t("payment.claimHint", ["\uFFFC"]).split("\uFFFC");
-  const claimPanel = data.requiresClaim && !data.readOnly ? <section className="payment-account-claim" aria-labelledby="payment-claim-heading">
+  const claimPanel = data.requiresClaim && !data.readOnly && !data.canManage ? <section className="payment-account-claim" aria-labelledby="payment-claim-heading">
     <h2 id="payment-claim-heading">{t("payment.claimTitle")}</h2>
     <p>{claimHintBefore}<strong className="claim-participant-name">{data.participant.name}</strong>{claimHintAfter}</p>
     <p><strong>{session?.user?.nickname}</strong> · @{session?.user?.username}</p>
@@ -251,7 +253,19 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
     <article className="share-receipt payment-receipt">
       <div className="receipt-brand" lang="th">เคลียร์โต๊ะ <span lang="en">Clear Toh</span></div>
       <div className="pay-heading"><h1>{t("payment.claimPreviewTitle", [data.participant.name])}</h1><p>{data.bill.name}</p></div>
-      {data.readOnly && <p className="field-hint">{t("payment.viewOnlyHint")}</p>}
+      {data.ownEntry ? <section className="payment-account-claim" aria-labelledby="payment-linked-heading">
+        <h2 id="payment-linked-heading">{t("payment.alreadyLinkedTitle")}</h2>
+        <p>{t("payment.alreadyLinkedHint", [data.ownEntry.name])}</p>
+        <button type="button" className="button primary full-width" onClick={() => {
+          const ownEntry = data.ownEntry;
+          if (!ownEntry) return;
+          try {
+            sessionStorage.setItem(`payment:${id}:${ownEntry.id}`, ownEntry.paymentToken);
+            router.push(ownEntry.paymentUrl);
+          } catch { setError(t("errors.paymentStorageUnavailable")); }
+        }}>{t("payment.openMyEntry")}</button>
+        {error && <p className="error" role="alert">{feedback(error)}</p>}
+      </section> : data.readOnly && <p className="field-hint">{t("payment.viewOnlyHint")}</p>}
       {claimPanel}
       <section className="payment-claim-summary" aria-labelledby="claim-amount-heading">
         <h2 id="claim-amount-heading">{t("payment.claimRemaining")}</h2>

@@ -9,7 +9,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import { participantPaymentPath } from "@/lib/bill-paths";
 import { isPendingEvidence } from "@/lib/payment-status";
-import { ownsAccount, primaryProfile, resolvedOwnerFields } from "@/lib/server/account-identity";
+import { ownsAccount, primaryProfile, resolvedOwnerFields, participantDisplayFields, participantDisplay, accountUserIds } from "@/lib/server/account-identity";
 import {
   createParticipantToken,
   billAccessRevision,
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   // Prevent service workers and CDNs from caching this dynamic endpoint
-  const headers = { "Cache-Control": "no-store, no-cache, must-revalidate" };
+  const headers = { "Cache-Control": "private, no-store, no-cache, must-revalidate" };
 
   try {
     const userId = await optionalUserId();
@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
       where: { id },
       include: {
         owner: { select: resolvedOwnerFields },
-        participants: { where: { archived: false } },
+        participants: { where: { archived: false }, include: { accountUser: { select: participantDisplayFields } } },
         settlements: { where: { archived: false }, select: {
           id: true, fromParticipantId: true, toParticipantId: true,
           amount: true, paidAmount: true, isPaid: true,
@@ -106,6 +106,10 @@ export async function GET(req: NextRequest) {
 
     const { passcode: _passcode, ...safeBill } = bill;
     const owner = primaryProfile(bill.owner);
+    const ownAccountIds = new Set(userId ? await accountUserIds(userId) : []);
+    const people = bill.participants.map(participantDisplay);
+    const names = new Map(people.map(person => [person.id, person.name]));
+    const displayName = (person: { id: string; name: string }) => ({ ...person, name: names.get(person.id) ?? person.name });
     return NextResponse.json(
       {
         bill: {
@@ -115,9 +119,11 @@ export async function GET(req: NextRequest) {
             ...owner,
             name: owner.nickname || owner.name,
           },
-          participants: bill.participants.map((p) => ({
+          items: bill.items.map(item => ({ ...item, consumers: item.consumers.map(displayName), payer: item.payer ? displayName(item.payer) : null })),
+          participants: people.map((p) => ({
             id: p.id,
             name: p.name,
+            isYou: p.accountUserId !== null && ownAccountIds.has(p.accountUserId),
             totalPayable: p.totalPayable,
             shareAmount: p.shareAmount,
             paidUpfront: p.paidUpfront,
