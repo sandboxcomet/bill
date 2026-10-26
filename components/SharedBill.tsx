@@ -296,7 +296,7 @@ export default function SharedBill({ id }: { id: string }) {
         <div className="share-items">
           <div className="receipt-items-heading"><h2>{t("bill.itemsHeading")} {bill.items.length}</h2><span>{t("common.baht")}</span></div>
           {bill.items.map((i) => (
-            <div className="share-item-line" key={i.id}>
+            <div className="share-item-line receipt-item-row" key={i.id}>
               <div className="receipt-item-name">
                 {i.name} × {i.quantity}
               </div>
