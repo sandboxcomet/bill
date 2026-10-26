@@ -21,6 +21,7 @@ type Bill = {
   id: string;
   name: string;
   userId: number;
+  canManage?: boolean;
   grandTotal: string;
   itemPayersEnabled: boolean;
   serviceCharge: string;
@@ -219,7 +220,7 @@ export default function SharedBill({ id }: { id: string }) {
         <Link href="/" className="text-link"> {t("nav.backHome")} </Link>
       </div>
     );
-  const owner = String(session?.user?.id) === String(bill.userId);
+  const owner = bill.canManage === true;
   const cancelled = bill.status === "CANCELLED";
   const progress = billProgress(bill);
   return (

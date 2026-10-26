@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { accountUserIds } from "@/lib/server/account-identity";
 
 // GET /api/bills — list the current user's bills
 export async function GET() {
@@ -10,9 +11,10 @@ export async function GET() {
   }
 
   const userId = parseInt(session.user.id);
+  const ids = await accountUserIds(userId);
 
   const bills = await prisma.bill.findMany({
-    where: { userId },
+    where: { userId: { in: ids } },
     orderBy: { createdAt: "desc" },
     select: {
       id: true,

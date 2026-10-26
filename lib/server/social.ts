@@ -2,14 +2,18 @@ import type { Prisma } from "@prisma/client";
 import { userPair } from "@/lib/social";
 import { AccessError } from "./authorization";
 import { isPromptPayId } from "@/lib/settlements";
+import { primaryProfile, resolvedProfileFields } from "./account-identity";
 
-export const personFields = { id: true, username: true, name: true, nickname: true, image: true, promptPayId: true } as const;
-export function publicPerson(user: { id: number; username: string | null; name: string | null; nickname: string | null; image: string | null; promptPayId: string | null }) {
-  return { id: user.id, username: user.username!, name: user.nickname || user.name || user.username!, image: user.image,
+export const personFields = resolvedProfileFields;
+type PersonProfile = { id: number; username: string | null; name: string | null; nickname: string | null; image: string | null; promptPayId: string | null };
+export function publicPerson(input: PersonProfile & { mergedInto?: PersonProfile | null }) {
+  const user = primaryProfile(input);
+  return { id: user.id, username: user.username ?? "", name: user.nickname || user.name || user.username || "", image: user.image,
     hasPromptPay: Boolean(user.promptPayId && isPromptPayId(user.promptPayId)) };
 }
 export async function autoFriend(tx: Prisma.TransactionClient, ownerId: number, memberIds: number[], source: "BILL" | "GROUP") {
-  for (const friendId of [...new Set(memberIds)].filter(id => id !== ownerId).sort((a, b) => a - b)) {
+  const users = await tx.user.findMany({ where: { id: { in: memberIds } }, select: { id: true, mergedIntoId: true } });
+  for (const friendId of [...new Set(users.map(user => user.mergedIntoId ?? user.id))].filter(id => id !== ownerId).sort((a, b) => a - b)) {
     const pair = userPair(ownerId, friendId);
     await tx.friendship.upsert({ where: { lowUserId_highUserId: pair },
       create: { ...pair, requesterId: ownerId, status: "ACCEPTED", source },

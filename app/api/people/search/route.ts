@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
-import { normalizeUsername, isUsername, userPair } from "@/lib/social";
+import { normalizeUsername, isUsername } from "@/lib/social";
+import { accountUserIds } from "@/lib/server/account-identity";
 import { requireUserId, AccessError } from "@/lib/server/authorization";
 import { requireQuota } from "@/lib/server/quota";
 import { personFields, publicPerson, socialResponse } from "@/lib/server/social";
@@ -18,8 +19,15 @@ export async function POST(req: Request) {
       select: personFields,
     });
     if (!person) return { person: null };
-    const relationship = await prisma.friendship.findUnique({ where: { lowUserId_highUserId: userPair(userId, person.id) } });
-    return { person: { ...publicPerson(person), relationship: relationship?.status === "ACCEPTED" ? "FRIEND"
-      : relationship?.status === "PENDING" ? relationship.requesterId === userId ? "PENDING_SENT" : "PENDING_RECEIVED" : "NONE" } };
+    const resolved = publicPerson(person);
+    if (resolved.id === userId || !resolved.username) return { person: null };
+    const [ownIds, otherIds] = await Promise.all([accountUserIds(userId), accountUserIds(resolved.id)]);
+    const relationships = await prisma.friendship.findMany({ where: { OR: [
+      { lowUserId: { in: ownIds }, highUserId: { in: otherIds } },
+      { highUserId: { in: ownIds }, lowUserId: { in: otherIds } },
+    ], status: { in: ["ACCEPTED", "PENDING"] } } });
+    const relationship = relationships.find(row => row.status === "ACCEPTED") ?? relationships[0];
+    return { person: { ...resolved, relationship: relationship?.status === "ACCEPTED" ? "FRIEND"
+      : relationship?.status === "PENDING" ? ownIds.includes(relationship.requesterId) ? "PENDING_SENT" : "PENDING_RECEIVED" : "NONE" } };
   });
 }

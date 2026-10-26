@@ -8,6 +8,8 @@
   --ink: #192d28;
   --muted: #62726b;
   --line: #dee5e0;
+  --field-border: #cad5ce;
+  --focus: #429d75;
   --green: #176246;
   --green-dark: #104b35;
   --green-soft: #e8f1eb;
@@ -1938,6 +1940,29 @@ small {
 }
 .settings-page .field {
   margin-top: 20px;
+}
+.account-connections { scroll-margin-top: 24px; }
+.account-connections > .field-hint { margin: 10px 0 20px; }
+.account-connections h3 { font-size: var(--text-body); margin: 24px 0 8px; }
+.connection-providers { list-style: none; padding: 0; margin: 0; }
+.connection-providers li { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 18px 0; border-top: 1px solid var(--line); }
+.connection-providers li > div { display: grid; gap: 4px; }
+.connection-providers li span { color: var(--muted); font-size: var(--text-support); }
+.connection-choices { margin: 24px 0 16px; padding: 0; border: 0; display: grid; gap: 12px; min-width: 0; }
+.connection-choices legend { font-weight: 600; margin-bottom: 12px; }
+.connection-choice { display: flex; align-items: flex-start; gap: 12px; padding: 16px; border: 1px solid var(--field-border); border-radius: 8px; cursor: pointer; }
+.connection-choice.selected { border-color: var(--green); background: var(--green-soft); }
+.connection-choice:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
+.connection-choice input, .connection-confirm input { width: 20px; height: 20px; min-height: 20px; flex-shrink: 0; accent-color: var(--green); margin: 3px 0; }
+.connection-choice-details { display: grid; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.connection-choice-details > span { font-size: var(--text-support); }
+.connection-selection { color: var(--green); font-weight: 600; margin: 16px 0; }
+.connection-confirm { display: flex; align-items: flex-start; gap: 12px; margin: 24px 0 16px; cursor: pointer; min-height: 44px; }
+.connection-actions { display: flex; flex-wrap: wrap; gap: 12px; }
+.account-connections [role="alert"] { margin-top: 20px; }
+@media (max-width: 520px) {
+  .connection-providers li { align-items: flex-start; flex-direction: column; gap: 12px; }
+  .connection-providers li .button, .connection-actions .button { width: 100%; }
 }
 .share-layout {
   max-width: 600px;

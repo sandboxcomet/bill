@@ -13,6 +13,8 @@ declare module "next-auth" {
 
 declare module "@auth/core/jwt" {
   interface JWT {
+    authVersion?: number;
+    authenticatedAt?: number;
     nickname?: string | null;
     username?: string | null;
     loginProvider?: "google" | "line" | null;

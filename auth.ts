@@ -3,15 +3,15 @@ import Google from "next-auth/providers/google";
 import Line from "next-auth/providers/line";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
+import { sessionCookieName } from "@/lib/server/auth-session";
+import { captureConnection } from "@/lib/server/account-connections";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   debug: false,
   trustHost: true,
   cookies: {
     sessionToken: {
-      name: process.env.AUTH_URL?.startsWith("https://")
-        ? "__Secure-wonglao-bill.session-token"
-        : "wonglao-bill.session-token",
+      name: sessionCookieName(),
       options: {
         httpOnly: true,
         sameSite: "lax",
@@ -26,7 +26,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       ...pAdapter,
       updateUser: ({ id, ...data }) =>
         pAdapter.updateUser!({ ...data, id: Number(id) as any }),
-      getUser: (id) => pAdapter.getUser!(Number(id) as any),
+      getUser: async (id) => {
+        const user = await prisma.user.findUnique({ where: { id: Number(id) } });
+        return user && !user.mergedIntoId ? user as any : null;
+      },
       linkAccount: (account) =>
         pAdapter.linkAccount!({
           ...account,
@@ -45,6 +48,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   session: { strategy: "jwt" },
   pages: { signIn: "/login", error: "/login" },
   callbacks: {
+    async signIn({ account, user }) {
+      return captureConnection(account ?? null, user);
+    },
     async jwt({ token, user, account }) {
       if (user) token.id = String(user.id);
       if (account?.provider === "google" || account?.provider === "line")
@@ -54,8 +60,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         // Read the stored nickname; never accept a client-supplied display name.
         const profile = await prisma.user.findUnique({
           where: { id: userId },
-          select: { nickname: true, username: true, accounts: { select: { provider: true } } },
+          select: { nickname: true, username: true, authVersion: true, mergedIntoId: true, accounts: { select: { provider: true } } },
         });
+        if (!profile || profile.mergedIntoId) return null;
+        if (user && account) {
+          token.authVersion = profile.authVersion;
+          token.authenticatedAt = Date.now();
+        }
+        if ((token.authVersion ?? 0) !== profile.authVersion) return null;
         token.nickname = profile?.nickname ?? null;
         token.username = profile?.username ?? null;
         // Older sessions did not store the provider. Only infer it when the

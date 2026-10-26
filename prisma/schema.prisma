@@ -13,8 +13,12 @@ model User {
  username String? @unique @db.VarChar(24)
  email String? @unique
  emailVerified DateTime? @map("email_verified")
- image String?
+ image String? @db.Text
  promptPayId String? @map("prompt_pay_id")
+ authVersion Int @default(0) @map("auth_version")
+ mergedIntoId Int? @map("merged_into_id")
+ mergedInto User? @relation("MergedAccounts", fields: [mergedIntoId], references: [id], onDelete: Restrict)
+ mergedAccounts User[] @relation("MergedAccounts")
  accounts Account[]
  sessions Session[]
  bills Bill[]
@@ -26,7 +30,26 @@ model User {
  groupMemberships FriendGroupMember[]
  createdAt DateTime @default(now()) @map("created_at")
  updatedAt DateTime @updatedAt @map("updated_at")
+ @@index([mergedIntoId])
  @@map("users")
+}
+
+model AccountConnection {
+ id String @id @db.Char(64)
+ initiatorId Int @map("initiator_id")
+ initiatorVersion Int @map("initiator_version")
+ provider String @db.VarChar(16)
+ providerAccountId String? @map("provider_account_id")
+ targetUserId Int? @map("target_user_id")
+ targetVersion Int? @map("target_version")
+ profileName String? @map("profile_name")
+ status String @default("STARTED") @db.VarChar(16)
+ primaryUserId Int? @map("primary_user_id")
+ expiresAt DateTime @map("expires_at")
+ createdAt DateTime @default(now()) @map("created_at")
+ completedAt DateTime? @map("completed_at")
+ @@index([initiatorId, status])
+ @@map("account_connections")
 }
 
 model Account {

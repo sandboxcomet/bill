@@ -7,6 +7,7 @@ import { calculateSettlements, isPromptPayId } from "@/lib/settlements";
 import { writeSettlementTransfers } from "./settlement-ledger";
 import { autoFriend } from "./social";
 import { isBillPin } from "@/lib/pin";
+import { ownsAccount, primaryProfile, resolvedProfileFields } from "./account-identity";
 
 export function money(value: unknown, field: string): Decimal {
   if (typeof value !== "number" && typeof value !== "string")
@@ -52,7 +53,7 @@ export async function saveBill(id: string, userId: number, body: any) {
       where: { id },
       include: { participants: true, settlements: true },
     });
-    if (!bill || bill.userId !== userId)
+    if (!bill || !await ownsAccount(userId, bill.userId, tx))
       throw new AccessError("Not found", 404);
     if (body.version !== bill.version)
       throw new AccessError("บิลถูกแก้ไขจากหน้าต่างอื่น กรุณาโหลดใหม่", 409);
@@ -102,17 +103,29 @@ export async function saveBill(id: string, userId: number, body: any) {
       });
       if (new Set(linkedIds).size !== linkedIds.length) throw new AccessError("social.duplicateAccount", 409);
       const accounts = await tx.user.findMany({ where: { id: { in: linkedIds }, username: { not: null } },
-        select: { id: true, nickname: true, name: true, username: true, promptPayId: true } });
+        select: { ...resolvedProfileFields, mergedIntoId: true } });
       if (accounts.length !== linkedIds.length) throw new AccessError("social.personNotFound", 404);
+      const canonicalIds = accounts.map(account => primaryProfile(account).id);
+      for (const p of body.participants) {
+        const account = accounts.find(account => account.id === p.accountUserId);
+        if (!account) continue;
+        const canonicalId = primaryProfile(account).id;
+        if (canonicalIds.filter(id => id === canonicalId).length > 1 &&
+            !bill.participants.some(existing => existing.id === p.id && existing.accountUserId === p.accountUserId))
+          throw new AccessError("social.duplicateAccount", 409);
+      }
       const participants = body.participants.map((p: any) => {
-        const account = accounts.find(a => a.id === p.accountUserId);
+        const originalAccount = accounts.find(a => a.id === p.accountUserId);
+        if (originalAccount?.mergedIntoId && !bill.participants.some(existing => existing.id === p.id && existing.accountUserId === originalAccount.id))
+          throw new AccessError("social.personNotFound", 404);
+        const account = originalAccount ? primaryProfile(originalAccount) : null;
         const promptPayId = account ? account.promptPayId : p.promptPayId == null || p.promptPayId === "" ? null : p.promptPayId;
         if (promptPayId !== null && (typeof promptPayId !== "string" || !isPromptPayId(promptPayId)))
           throw new AccessError("PromptPay ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขประจำตัว 13 หลัก", 409);
         return {
           id: identity(p.id),
           name: account ? (account.nickname || account.name || account.username!) : label(p.name, "participant"),
-          accountUserId: account?.id ?? null,
+          accountUserId: originalAccount?.id ?? null,
           isPayer: p.isPayer === true,
           totalPayable: new Decimal(0),
           promptPayId,

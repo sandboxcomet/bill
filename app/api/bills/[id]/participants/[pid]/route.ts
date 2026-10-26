@@ -18,6 +18,7 @@ import {
 } from "@/lib/server/payments";
 
 import { resolvePaymentTarget } from "@/lib/server/payment-target";
+import { primaryProfile, resolvedOwnerFields } from "@/lib/server/account-identity";
 
 type Context = { params: Promise<{ id: string; pid: string }> };
 const failure = (error: unknown) =>
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest, { params }: Context) {
         totalDiscount: true,
         serviceCharge: true,
         vat: true,
-        owner: { select: { name: true, nickname: true, promptPayId: true } },
+        owner: { select: resolvedOwnerFields },
         items: { include: { consumers: { select: { id: true, name: true } } }, orderBy: { id: "asc" } },
         participants: {
           where: { archived: false },
@@ -103,6 +104,7 @@ export async function GET(request: NextRequest, { params }: Context) {
         evidenceStatus: proof?.status ?? null,
       };
     }));
+    const owner = primaryProfile(bill.owner);
     return NextResponse.json(
       {
         bill: {
@@ -110,8 +112,8 @@ export async function GET(request: NextRequest, { params }: Context) {
           participants: [participant],
           items: bill.items.filter(item => expenseDetails.items.some(i => i.id === item.id)),
           owner: {
-            ...bill.owner,
-            name: bill.owner.nickname || bill.owner.name,
+            ...owner,
+            name: owner.nickname || owner.name,
           },
         },
         participant: {

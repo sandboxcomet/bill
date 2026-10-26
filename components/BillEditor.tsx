@@ -17,7 +17,7 @@ import PinInput from "./PinInput";
 import BillPeoplePicker from "./BillPeoplePicker";
 import type { AccountPerson } from "@/lib/social";
 import { isBillPin } from "@/lib/pin";
-type Person = { id: string; name: string; isPayer: boolean; promptPayId?: string | null; accountUserId?: number | null; username?: string; hasPromptPay?: boolean };
+type Person = { id: string; name: string; isPayer: boolean; promptPayId?: string | null; accountUserId?: number | null; canonicalAccountUserId?: number; username?: string; hasPromptPay?: boolean };
 type Item = {
   id: string;
   name: string;
@@ -446,16 +446,16 @@ export default function BillEditor({
     setPersonName("");
   };
   function addAccounts(people: AccountPerson[]) {
-    const additions = [...new Map(people.map(p => [p.id, p])).values()].filter(p => !draft.participants.some(existing => existing.accountUserId === p.id));
+    const additions = [...new Map(people.map(p => [p.id, p])).values()].filter(p => !draft.participants.some(existing => (existing.canonicalAccountUserId ?? existing.accountUserId) === p.id));
     if (draft.participants.length + additions.length > 100) { setError(t("errors.participantLimit")); return; }
     update({ participants: [...draft.participants.map(existing => {
-      const account = people.find(p => p.id === existing.accountUserId);
+      const account = people.find(p => p.id === (existing.canonicalAccountUserId ?? existing.accountUserId));
       return account ? { ...existing, name: account.name, username: account.username, hasPromptPay: account.hasPromptPay } : existing;
     }), ...additions.map(p => ({ id: uid(), name: p.name, isPayer: false,
       accountUserId: p.id, username: p.username, hasPromptPay: p.hasPromptPay }))] });
   }
   const canAddSelf = !demo && status === "authenticated" && Boolean(session?.user?.username) &&
-    !draft.participants.some(p => p.accountUserId === Number(session?.user?.id));
+    !draft.participants.some(p => (p.canonicalAccountUserId ?? p.accountUserId) === Number(session?.user?.id));
   function addSelf() {
     if (!canAddSelf || locked || saving || !session?.user?.username) return;
     addAccounts([{

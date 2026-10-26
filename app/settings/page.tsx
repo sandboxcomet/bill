@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { request, jsonBody } from "@/lib/client";
 import { Icon } from "@/components/Icons";
+import AccountConnections from "@/components/AccountConnections";
 
 type Profile = {
   name: string | null;
@@ -191,6 +192,7 @@ export default function Settings() {
           </form>
         </section>
       ) : null}
+      {profile && <AccountConnections />}
     </div>
   );
 }

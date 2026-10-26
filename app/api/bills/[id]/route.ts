@@ -3,6 +3,7 @@ import { requireUserId, accessErrorResponse } from "@/lib/server/authorization";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
+import { ownsAccount, primaryProfile, resolvedProfileFields } from "@/lib/server/account-identity";
 
 // GET /api/bills/[id] — load draft data
 export async function GET(
@@ -31,7 +32,7 @@ export async function GET(
           name: true,
           isPayer: true,
           accountUserId: true,
-          accountUser: { select: { username: true, promptPayId: true } },
+          accountUser: { select: resolvedProfileFields },
           promptPayId: true,
           paidAmount: true,
           isPaid: true,
@@ -40,7 +41,7 @@ export async function GET(
     },
   });
 
-  if (!bill || bill.userId !== userId) {
+  if (!bill || !await ownsAccount(userId, bill.userId)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
@@ -54,8 +55,11 @@ export async function GET(
     },
   });
   return NextResponse.json(
-    { bill: { ...bill, participants: bill.participants.map(({ accountUser, ...p }) => ({ ...p,
-      username: accountUser?.username ?? undefined, hasPromptPay: Boolean(accountUser?.promptPayId) })), hasPaymentEvidence: evidenceCount > 0 } },
+    { bill: { ...bill, participants: bill.participants.map(({ accountUser, ...p }) => {
+      const account = accountUser ? primaryProfile(accountUser) : null;
+      return { ...p, canonicalAccountUserId: account?.id, username: account?.username ?? undefined,
+        hasPromptPay: Boolean(account?.promptPayId) };
+    }), hasPaymentEvidence: evidenceCount > 0 } },
     { headers: { "Cache-Control": "private, no-store" } },
   );
 }

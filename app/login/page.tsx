@@ -47,7 +47,7 @@ function ProviderLogo({ provider }: { provider: "google" | "line" }) {
 export default async function Login({
   searchParams,
 }: {
-  searchParams: Promise<{ callbackUrl?: string; error?: string }>;
+  searchParams: Promise<{ callbackUrl?: string; error?: string; connected?: string }>;
 }) {
   const locale = await requestLocale();
   const t = (key: TranslationKey, values?: readonly unknown[]) => translate(locale, key, values);
@@ -80,8 +80,9 @@ export default async function Login({
         <h2>{t("auth.welcome")}</h2>
         <p>{t("auth.chooseAnAccountToContinue")}</p>
         {query.error && (
-          <p className="error" role="alert"> {t("errors.loginFailed")} </p>
+          <p className="error" role="alert"> {t(query.error === "OAuthAccountNotLinked" ? "connections.loginExisting" : "errors.loginFailed")} </p>
         )}
+        {query.connected === "1" && <p className="success" role="status">{t("connections.completed")}</p>}
         <div className="auth-providers">
           {google && (
             <form

@@ -48,7 +48,7 @@ export const proxy = auth((request) => {
 
   const userId = Number(request.auth?.user?.id);
   if (Number.isSafeInteger(userId) && userId > 0) {
-    if (!request.auth?.user?.username && pathname !== "/onboarding" && pathname !== "/api/profile") {
+    if (!request.auth?.user?.username && !["/onboarding", "/api/profile", "/settings", "/api/account-connections"].includes(pathname)) {
       if (pathname.startsWith("/api/")) return NextResponse.json({ error: "account.usernameRequired" }, { status: 403, headers: { "Cache-Control": "private, no-store" } });
       const setup = new URL("/onboarding", request.url);
       setup.searchParams.set("callbackUrl", originalPath + search);

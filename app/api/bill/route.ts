@@ -8,6 +8,7 @@ import {
 } from "@/lib/server/authorization";
 import { prisma } from "@/lib/prisma";
 import { isPendingEvidence } from "@/lib/payment-status";
+import { ownsAccount, primaryProfile, resolvedOwnerFields } from "@/lib/server/account-identity";
 import {
   createParticipantToken,
   billAccessRevision,
@@ -36,7 +37,7 @@ export async function GET(req: NextRequest) {
     const bill = await prisma.bill.findUnique({
       where: { id },
       include: {
-        owner: { select: { name: true, nickname: true, promptPayId: true } },
+        owner: { select: resolvedOwnerFields },
         participants: { where: { archived: false } },
         settlements: { where: { archived: false }, select: {
           id: true, fromParticipantId: true, toParticipantId: true,
@@ -54,7 +55,7 @@ export async function GET(req: NextRequest) {
         { status: 404, headers },
       );
 
-    const isOwner = userId === bill.userId;
+    const isOwner = await ownsAccount(userId, bill.userId);
     if (!isOwner && bill.status !== "PUBLISHED")
       return NextResponse.json(
         { error: "Not found" },
@@ -103,13 +104,15 @@ export async function GET(req: NextRequest) {
     }
 
     const { passcode: _passcode, ...safeBill } = bill;
+    const owner = primaryProfile(bill.owner);
     return NextResponse.json(
       {
         bill: {
           ...safeBill,
+          canManage: isOwner,
           owner: {
-            ...bill.owner,
-            name: bill.owner.nickname || bill.owner.name,
+            ...owner,
+            name: owner.nickname || owner.name,
           },
           participants: bill.participants.map((p) => ({
             id: p.id,
