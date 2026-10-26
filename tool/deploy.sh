@@ -9,15 +9,9 @@ if [[ -n "$existing" && "${APPROVED_REPLACE_CONTAINER:-}" != "$existing" ]]; the
   exit 1
 fi
 docker compose --profile production pull app
-database=$(docker compose ps -aq database)
-if [[ -n "$database" ]]; then
-  # Start in place; never implicitly recreate an existing database container.
-  docker compose start --wait database
-else
-  docker compose up -d --wait database
-fi
-# Migrations only create the independent billing schema on initial deployment.
-docker compose --profile production run --rm=false app node node_modules/prisma/build/index.js migrate deploy
+# DATABASE_URL/CONTAINER_DATABASE_URL select the existing host database.
+# Keep the legacy database container and its volume intact; never recreate it.
+docker compose --profile production run --no-deps --rm=false app node node_modules/prisma/build/index.js migrate deploy
 docker compose --profile production up -d --no-deps app
 running=$(docker compose ps -q app)
 actual=$(docker inspect "$running" --format '{{.Image}}')

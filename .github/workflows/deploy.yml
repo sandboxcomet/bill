@@ -91,7 +91,7 @@ jobs:
             | python3 -c '
           import os, pathlib, sys, tarfile
           workspace = pathlib.Path(os.environ["BILL_WORKSPACE"])
-          selected = {"tool/deploy-vm.sh", "tool/preserve-image.sh", "deployment/compose.vm.yml"}
+          selected = {"tool/deploy-vm.sh", "tool/preserve-image.sh", "tool/migrate-host-mysql.py", "deployment/compose.vm.yml"}
           found = set()
           with tarfile.open(fileobj=sys.stdin.buffer, mode="r|gz") as source:
               with tarfile.open(workspace / "context.tar.gz", mode="w:gz") as target:
@@ -118,6 +118,7 @@ jobs:
           '
           bash -n "$BILL_WORKSPACE/tool/deploy-vm.sh"
           bash -n "$BILL_WORKSPACE/tool/preserve-image.sh"
+          python3 -c 'import ast, os, pathlib; ast.parse((pathlib.Path(os.environ["BILL_WORKSPACE"]) / "tool/migrate-host-mysql.py").read_text())'
           docker info >/dev/null
           docker buildx version
 
@@ -155,7 +156,8 @@ jobs:
           set -euo pipefail
           release="$GITHUB_SHA-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
           compose_payload=$(base64 < "$BILL_WORKSPACE/deployment/compose.vm.yml" | tr -d '\r\n')
-          printf -v args '%q ' "$IMAGE_NAME:latest" "$release" "$DEPLOY_ROOT" "$compose_payload" "$BILL_IMAGE_DIGEST"
+          import_payload=$(base64 < "$BILL_WORKSPACE/tool/migrate-host-mysql.py" | tr -d '\r\n')
+          printf -v args '%q ' "$IMAGE_NAME:latest" "$release" "$DEPLOY_ROOT" "$compose_payload" "$BILL_IMAGE_DIGEST" "$import_payload"
           ssh -p "$DEPLOY_PORT" -o BatchMode=yes -o IdentityFile=none \
             -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$BILL_KNOWN_HOSTS" \
             -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \

@@ -1,6 +1,7 @@
 name: wonglao-bill
 services:
   database:
+    profiles: [legacy-database]
     image: mysql:8.4
     container_name: wonglao-bill-database
     restart: unless-stopped
@@ -9,8 +10,8 @@ services:
     environment:
       MYSQL_DATABASE: wonglao_bill
       MYSQL_USER: bill
-      MYSQL_PASSWORD: ${BILL_DB_PASSWORD:?Set BILL_DB_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${BILL_DB_ROOT_PASSWORD:?Set BILL_DB_ROOT_PASSWORD}
+      MYSQL_PASSWORD: ${BILL_DB_PASSWORD:-}
+      MYSQL_ROOT_PASSWORD: ${BILL_DB_ROOT_PASSWORD:-}
     volumes:
       - database:/var/lib/mysql
     networks: [backend]
@@ -36,10 +37,12 @@ services:
     environment:
       NODE_ENV: production
       AUTH_URL: https://bill.wonglao.com
-      DATABASE_URL: mysql://bill:${BILL_DB_PASSWORD:?Set BILL_DB_PASSWORD}@database:3306/wonglao_bill
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to the host MySQL wonglao_bill database}
       PORT: 3000
       HOSTNAME: 0.0.0.0
     networks: [backend, production]
+    extra_hosts:
+      - host.docker.internal:host-gateway
     labels:
       traefik.enable: 'true'
       traefik.docker.network: production

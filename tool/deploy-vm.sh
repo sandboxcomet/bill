@@ -7,6 +7,7 @@ release=${2:?release required}
 root=${3:?runtime root required}
 compose_base64=${4:?compose payload required}
 digest=${5:?published digest required}
+import_base64=${6:?host database import helper required}
 [[ "$image" =~ ^[a-z0-9._-]+/[a-z0-9._-]+:latest$ ]] || exit 1
 [[ "$digest" =~ ^sha256:[a-f0-9]{64}$ ]] || exit 1
 [[ "$release" =~ ^[a-f0-9]{40}-[0-9]+-[0-9]+$ ]] || exit 1
@@ -39,16 +40,22 @@ shared="$root/shared"
 python3 - "$shared/.env" <<'PYENV'
 from pathlib import Path
 import re, sys
+from urllib.parse import urlsplit
 values={}
 for line in Path(sys.argv[1]).read_text().splitlines():
     if '=' in line and not line.lstrip().startswith('#'):
         key,value=line.split('=',1); values[key.strip()]=value.strip().strip("\"'")
-for key in ['AUTH_SECRET','PAYMENT_LINK_SECRET','EASY_SLIP_KEY','R2_ENDPOINT','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','PAYMENT_R2_BUCKET_NAME','BILL_DB_PASSWORD','BILL_DB_ROOT_PASSWORD']:
+for key in ['AUTH_SECRET','PAYMENT_LINK_SECRET','EASY_SLIP_KEY','R2_ENDPOINT','R2_ACCESS_KEY_ID','R2_SECRET_ACCESS_KEY','PAYMENT_R2_BUCKET_NAME','DATABASE_URL']:
     if not values.get(key): raise SystemExit('Missing runtime setting: '+key)
 for key in ['AUTH_SECRET','PAYMENT_LINK_SECRET']:
     if len(values[key]) < 32: raise SystemExit('Runtime secret must have at least 32 characters: '+key)
-for key in ['BILL_DB_PASSWORD','BILL_DB_ROOT_PASSWORD']:
-    if not re.fullmatch(r'[A-Za-z0-9_-]{24,}',values[key]): raise SystemExit('Use a URL-safe password of at least 24 characters: '+key)
+try:
+    database=urlsplit(values['DATABASE_URL'])
+    valid=database.scheme == 'mysql' and database.hostname == 'host.docker.internal' and database.path == '/wonglao_bill' and database.port in (None,3306) and database.username and database.password and not database.fragment
+except ValueError:
+    valid=False
+if not valid: raise SystemExit('DATABASE_URL must select host MySQL/wonglao_bill with URL-encoded credentials')
+if values.get('BILL_DB_IMPORT_FROM_CONTAINER','') not in ('','wonglao-bill-database'): raise SystemExit('Unexpected database import source')
 if values.get('AUTH_URL') != 'https://bill.wonglao.com': raise SystemExit('Unexpected AUTH_URL')
 providers=[bool(values.get('AUTH_'+p+'_ID') and values.get('AUTH_'+p+'_SECRET')) for p in ['GOOGLE','LINE']]
 if not any(providers): raise SystemExit('Configure at least one OAuth provider with production callback URLs')
@@ -59,6 +66,7 @@ docker network inspect production >/dev/null
 mkdir -p "$root/releases/$release"
 release_dir="$root/releases/$release"
 printf '%s' "$compose_base64" | base64 --decode > "$release_dir/compose.yml"
+printf '%s' "$import_base64" | base64 --decode > "$release_dir/migrate-host-mysql.py"
 export BILL_IMAGE="$image" BILL_RUNTIME_DIR="$shared"
 compose=(docker compose --env-file "$shared/.env" --project-name wonglao-bill --file "$release_dir/compose.yml")
 "${compose[@]}" config --quiet
@@ -68,13 +76,17 @@ docker image inspect "$image" --format '{{json .RepoDigests}}' |
     python3 -c 'import json,sys; refs=json.load(sys.stdin) or []; expected=sys.argv[1]+"@"+sys.argv[2];
 if expected not in refs: raise SystemExit("Refreshed latest does not match this workflow build")' "${image%:latest}" "$digest"
 
-# Start an existing database in place. Never recreate it, remove data, or reset schema.
-database=$("${compose[@]}" ps -aq database)
-if [[ -n "$database" ]]; then
-    "${compose[@]}" start --wait database
-else
-    "${compose[@]}" up --detach --wait database
-fi
+# Retain the old database container/volume. Import once into an empty host schema
+# only when explicitly requested; verify every row before starting the new app.
+previous_app=$(docker ps --all --filter 'name=^/wonglao-bill$' --no-trunc --format '{{.ID}}')
+previous_running=$(docker inspect "$previous_app" --format '{{.State.Running}}' 2>/dev/null || true)
+resume_previous_on_error() {
+    if [[ "$previous_running" == true && "$(docker ps --all --filter 'name=^/wonglao-bill$' --no-trunc --format '{{.ID}}')" == "$previous_app" ]]; then
+        docker start "$previous_app" >/dev/null || true
+    fi
+}
+trap resume_previous_on_error ERR
+python3 "$release_dir/migrate-host-mysql.py" "$shared/.env"
 # All current migrations are additive. Retain the migration container for review.
 "${compose[@]}" run --no-deps --rm=false --name "wonglao-bill-migrate-$release" -T app \
     node node_modules/prisma/build/index.js migrate deploy </dev/null
@@ -82,6 +94,7 @@ fi
 actual_id=$(docker container inspect wonglao-bill --format '{{.Image}}')
 actual_ref=$(docker container inspect wonglao-bill --format '{{.Config.Image}}')
 [[ "$actual_id" == "$expected_id" && "$actual_ref" == "$image" ]] || { echo 'Running image verification failed.' >&2; exit 1; }
+trap - ERR
 printf 'BILL_IMAGE=%s\nBILL_IMAGE_DIGEST=%s\nBILL_RUNTIME_DIR=%s\n' "$image" "$digest" "$shared" > "$release_dir/release.env"
 printf '%s\n' "$release" > "$root/current-release"
 docker inspect wonglao-bill --format 'Image={{.Config.Image}} ID={{.Image}} Health={{.State.Health.Status}}'
