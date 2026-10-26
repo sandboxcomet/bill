@@ -233,9 +233,13 @@ export default function SharedBill({ id }: { id: string }) {
   const owner = bill.canManage === true;
   const cancelled = bill.status === "CANCELLED";
   const progress = billProgress(bill);
-  const orderedPeople = session?.user
-    ? [...bill.participants].sort((a, b) => Number(Boolean(b.isYou)) - Number(Boolean(a.isYou)))
-    : bill.participants;
+  const itemPayers = new Set(bill.items.flatMap(item => item.payer ? [item.payer.id] : []));
+  const onePayerForWholeBill = itemPayers.size === 1 && bill.items.every(item => item.payer);
+  const showItemPayers = bill.itemPayersEnabled && !onePayerForWholeBill;
+  const wholeBillPayerId = bill.itemPayersEnabled && onePayerForWholeBill ? bill.items[0].payer?.id : undefined;
+  const personOrder = (person: Bill["participants"][number]) =>
+    session?.user && person.isYou ? 0 : person.id === wholeBillPayerId ? 2 : 1;
+  const orderedPeople = [...bill.participants].sort((a, b) => personOrder(a) - personOrder(b));
   return (
     <div id="content" className="share-layout">
       <div className="share-toolbar">
@@ -295,7 +299,17 @@ export default function SharedBill({ id }: { id: string }) {
         {bill.status === "PUBLISHED" && bill.participants.length > 0 && <TableProgress progress={progress} />}
         <div className="share-items">
           <div className="receipt-items-heading"><h2>{t("bill.itemsHeading")} {bill.items.length}</h2><span>{t("common.baht")}</span></div>
-          {bill.items.map((i) => (
+          {bill.items.map((i) => {
+            const customShares = i.consumerQuantities && Object.values(i.consumerQuantities).some(quantity => quantity > 0);
+            const consumers = customShares
+              ? bill.participants.filter(person => (i.consumerQuantities?.[person.id] ?? 0) > 0)
+              : i.isShared ? bill.participants : i.consumers;
+            const allocationLabel = consumers.length === 1
+              ? t("bill.onlyPerson", [consumers[0].name])
+              : consumers.length === 0 ? t("bill.noConsumers")
+                : i.isShared && !customShares ? t("common.splitWithEveryone")
+                  : t("bill.splitWith", [consumers.map(person => person.name).join(", ")]);
+            return (
             <div className="share-item-line receipt-item-row" key={i.id}>
               <div className="receipt-item-name">
                 {i.name} × {i.quantity}
@@ -312,14 +326,15 @@ export default function SharedBill({ id }: { id: string }) {
                 )}
               </b><small>{t("bill.unitPrice", [baht(i.price)])}</small></div>
               <small className="receipt-item-sharing">
-                {t("bill.splitWith", [i.isShared ? t("common.everyone") : i.consumers.map(person => person.name).join(", ")])}
+                {allocationLabel}
                 {Number(i.discountRate) > 0 ? t("expenses.discountNote", [i.discountRate]) : ""}
               </small>
-              {bill.itemPayersEnabled && i.payer && <small className="receipt-item-payer" title={`${i.payer.name} ${t("bill.payerAction")}`}>
+              {showItemPayers && i.payer && <small className="receipt-item-payer" title={`${i.payer.name} ${t("bill.payerAction")}`}>
                 <span className="receipt-item-payer-name">{i.payer.name}</span><span> {t("bill.payerAction")}</span>
               </small>}
             </div>
-          ))}
+            );
+          })}
           {!new Decimal(bill.serviceCharge).isZero() && <div className="share-item-line">
             <span>Service charge</span>
             <b>{baht(bill.serviceCharge)}</b>
