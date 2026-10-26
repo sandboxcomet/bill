@@ -2395,8 +2395,9 @@ small {
 }
 .share-item-line {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 20px;
+  gap: 0 20px;
   font-size: var(--text-support);
   padding: 8px 0;
 }
@@ -2405,6 +2406,15 @@ small {
   color: var(--muted);
   font-size: var(--text-meta);
 }
+.share-item-line > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.receipt-item-name { flex: 1; }
+.receipt-item-sharing, .receipt-item-payer { flex-basis: 100%; min-width: 0; }
+.receipt-item-sharing { overflow-wrap: anywhere; }
+.share-item-line .receipt-item-payer { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.receipt-item-payer-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.receipt-item-payer > span:last-child { flex-shrink: 0; }
+.receipt-item-amount { flex-shrink: 0; text-align: end; font-variant-numeric: tabular-nums; }
+.receipt-item-amount small { white-space: nowrap; }
 .share-item-line b {
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -3436,6 +3446,17 @@ small {
 @media (prefers-reduced-motion: reduce) { .cleared-stamp { animation: none; } }
 
 .account-setup { max-width: 480px; }
+.account-setup-benefits {
+  display: grid;
+  gap: 6px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--text-support);
+}
+.account-setup-benefits li { display: flex; align-items: baseline; gap: 8px; }
+.account-setup-benefits svg { flex-shrink: 0; align-self: flex-start; margin-top: 4px; color: var(--green); }
+.account-setup .panel > .field:first-child { margin-top: 0; }
 .friends-page { max-width: 760px; margin: 32px auto 64px; }
 .friends-page > .panel { margin-top: 20px; }
 .friends-page h2 { font-size: var(--text-support); margin-bottom: 12px; }

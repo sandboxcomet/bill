@@ -73,14 +73,15 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
           {!people.length && <span className="field-hint">{t("payer.addParticipantsBeforeChoosingWhoPaid")}</span>}
         </div>
       </div>
-      {payer?.accountUserId ? <div className="field-hint account-payer-note"><Icon name="shield" size={16} /><span>{t(payer.hasPromptPay || payer.promptPayId ? "social.accountPromptPay" : "social.accountPromptPayMissing", [payer.name])}</span>{String(payer.accountUserId) === session?.user?.id && <Link href="/settings">{t("nav.accountSettings")}</Link>}</div> : payer ? (
+      {payer?.accountUserId && <div className="field-hint account-payer-note"><Icon name="shield" size={16} /><span>{t(payer.hasPromptPay ? "social.accountPromptPay" : "social.accountPromptPayMissing", [payer.name])}</span>{String(payer.accountUserId) === session?.user?.id && <Link href="/settings">{t("nav.accountSettings")}</Link>}</div>}
+      {payer && !(payer.accountUserId && payer.hasPromptPay) ? (
         <button type="button" className="payer-promptpay-button"
           aria-haspopup="dialog" aria-label={t("payer.promptPayActionLabel", [payer.promptPayId ? t("common.edit") : t("common.add"), payer.name])}
           onClick={openPromptPay}>
           <Icon name={payer.promptPayId ? "check" : "wallet"} size={16} />
           {payer.promptPayId ? t("payer.editPromptPay") : t("payer.addPromptPay")}
         </button>
-      ) : people.length > 0 && <p className="field-hint">{t("payer.itemPayerHint")}</p>}
+      ) : !payer && people.length > 0 && <p className="field-hint">{t("payer.itemPayerHint")}</p>}
       <dialog ref={dialogRef} className="promptpay-dialog"
         aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`}
         onClose={() => { setEditingId(null); setError(""); }}

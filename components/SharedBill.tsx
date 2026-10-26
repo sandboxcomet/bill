@@ -297,17 +297,10 @@ export default function SharedBill({ id }: { id: string }) {
           <div className="receipt-items-heading"><h2>{t("bill.itemsHeading")} {bill.items.length}</h2><span>{t("common.baht")}</span></div>
           {bill.items.map((i) => (
             <div className="share-item-line" key={i.id}>
-              <div>
+              <div className="receipt-item-name">
                 {i.name} × {i.quantity}
-                <small>
-                  {i.isShared
-                    ? t("common.splitWithEveryone")
-                    : i.consumers.map((p) => p.name).join(", ")}
-                  {Number(i.discountRate) > 0 ? t("expenses.discountNote", [i.discountRate]) : ""}
-                  {bill.itemPayersEnabled && i.payer ? t("expenses.payerNote", [i.payer.name]) : ""}
-                </small>
               </div>
-              <b>
+              <div className="receipt-item-amount"><b>
                 {baht(
                   new Decimal(i.price)
                     .mul(i.quantity)
@@ -317,7 +310,14 @@ export default function SharedBill({ id }: { id: string }) {
                       ),
                     ),
                 )}
-              </b>
+              </b><small>{t("bill.unitPrice", [baht(i.price)])}</small></div>
+              <small className="receipt-item-sharing">
+                {t("bill.splitWith", [i.isShared ? t("common.everyone") : i.consumers.map(person => person.name).join(", ")])}
+                {Number(i.discountRate) > 0 ? t("expenses.discountNote", [i.discountRate]) : ""}
+              </small>
+              {bill.itemPayersEnabled && i.payer && <small className="receipt-item-payer" title={`${i.payer.name} ${t("bill.payerAction")}`}>
+                <span className="receipt-item-payer-name">{i.payer.name}</span><span> {t("bill.payerAction")}</span>
+              </small>}
             </div>
           ))}
           {!new Decimal(bill.serviceCharge).isZero() && <div className="share-item-line">

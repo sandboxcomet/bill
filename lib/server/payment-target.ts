@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { AccessError } from "./authorization";
 import type { PaymentTarget } from "./payments";
+import { participantPromptPay, participantPromptPayFields } from "./participant-promptpay";
 
 // A participant token covers only that debtor's transfers, never another person's.
 export async function resolvePaymentTarget(
@@ -16,8 +17,8 @@ export async function resolvePaymentTarget(
     throw new AccessError("เลือกผู้รับเงินก่อนโอน", 409);
   const settlement = await prisma.billSettlement.findFirst({
     where: { id: settlementId, billId: bill.id, fromParticipantId: participantId, archived: false },
-    include: { toParticipant: { select: { promptPayId: true, archived: true } } },
+    include: { toParticipant: { select: { ...participantPromptPayFields, archived: true } } },
   });
   if (!settlement || settlement.toParticipant.archived) throw new AccessError("Not found", 404);
-  return { target: { type: "settlement", id: settlement.id, version: bill.version }, receiver: settlement.toParticipant.promptPayId };
+  return { target: { type: "settlement", id: settlement.id, version: bill.version }, receiver: participantPromptPay(settlement.toParticipant) };
 }

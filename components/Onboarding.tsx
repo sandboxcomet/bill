@@ -4,9 +4,10 @@ import { useI18n } from "./LanguageProvider";
 import { isUsername, normalizeUsername } from "@/lib/social";
 import { jsonBody, request } from "@/lib/client";
 import { isNickname } from "@/lib/profile";
-export default function Onboarding({ destination, initialUsername = "", initialNickname = "" }: { destination: string; initialUsername?: string; initialNickname?: string }) {
+import { Icon } from "./Icons";
+export default function Onboarding({ destination, initialUsername = "", initialNickname = "", suggestedUsername = "" }: { destination: string; initialUsername?: string; initialNickname?: string; suggestedUsername?: string }) {
   const { t, feedback } = useI18n();
-  const [username, setUsername] = useState(initialUsername);
+  const [username, setUsername] = useState(initialUsername || suggestedUsername);
   const [nickname, setNickname] = useState(initialNickname);
   const [usernameError, setUsernameError] = useState("");
   const [nicknameError, setNicknameError] = useState("");
@@ -30,11 +31,16 @@ export default function Onboarding({ destination, initialUsername = "", initialN
   }
   return <div id="content" className="settings-page account-setup">
     <h1>{t("account.setupTitle")}</h1><p>{t("account.setupHint")}</p>
+    <ul className="account-setup-benefits">
+      {(["account.benefitFind", "account.benefitRecognize", "account.benefitBills"] as const).map(key =>
+        <li key={key}><Icon name="check" size={16} /><span>{t(key)}</span></li>)}
+    </ul>
     <form className="panel" onSubmit={submit} aria-busy={busy} noValidate>
       <label className="field"><span>{t("account.username")}</span><input autoFocus={!initialUsername} autoComplete="username" autoCapitalize="none" spellCheck={false}
         value={username} onChange={e => { setUsername(e.target.value); setUsernameError(""); setError(""); }} maxLength={25} placeholder="ponnn" disabled={busy} readOnly={Boolean(initialUsername)} required
         aria-invalid={Boolean(usernameError)} aria-describedby={usernameError ? "username-hint username-error" : "username-hint"} /></label>
       <p id="username-hint" className="field-hint">{t(initialUsername ? "account.usernameImmutableHint" : "account.usernameHint")}</p>
+      {!initialUsername && suggestedUsername && <p className="field-hint">{t("account.suggestedUsernameHint")}</p>}
       {usernameError && <p id="username-error" className="error" role="alert">{feedback(usernameError)}</p>}
       <label className="field"><span>{t("settings.yourNickname")}</span><input autoFocus={Boolean(initialUsername)} autoComplete="nickname" required maxLength={40}
         value={nickname} onChange={e => { setNickname(e.target.value); setNicknameError(""); setError(""); }} disabled={busy}

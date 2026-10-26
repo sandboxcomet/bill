@@ -17,7 +17,8 @@ import {
 } from "@/lib/server/payments";
 
 import { resolvePaymentTarget } from "@/lib/server/payment-target";
-import { primaryProfile, resolvedOwnerFields, participantDisplayFields, participantDisplay, accountUserIds } from "@/lib/server/account-identity";
+import { primaryProfile, resolvedOwnerFields, resolvedProfileFields, participantDisplayFields, participantDisplay, accountUserIds } from "@/lib/server/account-identity";
+import { participantPromptPay } from "@/lib/server/participant-promptpay";
 
 type Context = { params: Promise<{ id: string; pid: string }> };
 const failure = (error: unknown) =>
@@ -76,20 +77,23 @@ export async function GET(request: NextRequest, { params }: Context) {
     if (!participant) throw new AccessError("Not found", 404);
     const outgoing = bill.itemPayersEnabled ? await prisma.billSettlement.findMany({
       where: { billId: id, fromParticipantId: pid, archived: false },
-      include: { toParticipant: { select: { name: true, promptPayId: true, accountUser: { select: participantDisplayFields } } } },
+      include: { toParticipant: { select: { name: true, promptPayId: true, accountUser: { select: resolvedProfileFields } } } },
       orderBy: { id: "asc" },
-    }).then(rows => rows.map(row => ({ ...row, toParticipant: participantDisplay(row.toParticipant) }))) : [];
+    }).then(rows => rows.map(row => ({ ...row, toParticipant: {
+      ...participantDisplay(row.toParticipant), promptPayId: participantPromptPay(row.toParticipant),
+    } }))) : [];
     const incoming = bill.itemPayersEnabled ? await prisma.billSettlement.findMany({
       where: { billId: id, toParticipantId: pid, archived: false }, select: { amount: true, paidAmount: true },
     }) : [];
     const { expenseDetails, settlements: transfers } = participantExpenses(bill, pid, outgoing, incoming);
     const owner = primaryProfile(bill.owner);
-    if (readOnly || ownEntry) return NextResponse.json({
+    const requiresClaim = !isOwner && accessParticipant.accountUserId === null;
+    if (readOnly || ownEntry || requiresClaim) return NextResponse.json({
       bill: { name: bill.name, itemPayersEnabled: bill.itemPayersEnabled,
         owner: { name: owner.nickname || owner.name, promptPayId: null } },
       participant: { ...participant, payslipUrl: null, evidenceStatus: null },
       settlements: transfers.map(transfer => ({ ...transfer, promptPayId: null, payslipUrl: null, evidenceStatus: null })),
-      expenseDetails, canManage: false, requiresClaim: false, readOnly: true,
+      expenseDetails, canManage: false, requiresClaim: requiresClaim && !readOnly && !ownEntry, readOnly: readOnly || Boolean(ownEntry),
       ownEntry: ownEntry ? {
         id: ownEntry.id, name: participantDisplay(ownEntry).name,
         paymentUrl: participantPaymentPath(id, ownEntry.id),
@@ -124,7 +128,7 @@ export async function GET(request: NextRequest, { params }: Context) {
         settlements,
         expenseDetails,
         canManage: isOwner,
-        requiresClaim: !isOwner && accessParticipant.accountUserId === null,
+        requiresClaim: false,
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );

@@ -8,6 +8,7 @@ import { writeSettlementTransfers } from "./settlement-ledger";
 import { autoFriend } from "./social";
 import { isBillPin } from "@/lib/pin";
 import { ownsAccount, primaryProfile, resolvedProfileFields } from "./account-identity";
+import { participantPromptPay } from "./participant-promptpay";
 
 export function money(value: unknown, field: string): Decimal {
   if (typeof value !== "number" && typeof value !== "string")
@@ -125,7 +126,7 @@ export async function saveBill(id: string, userId: number, body: any) {
         if (originalAccount?.mergedIntoId && !bill.participants.some(existing => existing.id === p.id && existing.accountUserId === originalAccount.id))
           throw new AccessError("social.personNotFound", 404);
         const account = originalAccount ? primaryProfile(originalAccount) : null;
-        const promptPayId = account ? account.promptPayId : p.promptPayId == null || p.promptPayId === "" ? null : p.promptPayId;
+        const promptPayId = p.promptPayId == null || p.promptPayId === "" ? null : p.promptPayId;
         if (promptPayId !== null && (typeof promptPayId !== "string" || !isPromptPayId(promptPayId)))
           throw new AccessError("PromptPay ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขประจำตัว 13 หลัก", 409);
         return {
@@ -135,6 +136,7 @@ export async function saveBill(id: string, userId: number, body: any) {
           isPayer: p.isPayer === true,
           totalPayable: new Decimal(0),
           promptPayId,
+          accountPromptPayId: participantPromptPay({ accountUser: originalAccount }),
         };
       });
       const ids = new Set<string>(participants.map((p: any) => p.id));
@@ -239,7 +241,7 @@ export async function saveBill(id: string, userId: number, body: any) {
       if (status === "PUBLISHED" && settlement) {
         for (const p of settlement.participants.filter((p) => p.amountToReceive.gt(0))) {
           const person = participants.find((person: typeof participants[number]) => person.id === p.id);
-          if (!person?.promptPayId) {
+          if (!person?.accountPromptPayId && !person?.promptPayId) {
             if (person?.accountUserId) throw new AccessError("social.accountPromptPayRequired", 409);
             throw new AccessError(`ใส่ PromptPay ของ ${p.name} เพื่อรับเงินคืน`, 409);
           }
