@@ -724,7 +724,11 @@ export default function BillEditor({
               {canAddSelf && <button type="button" className="button secondary button-small" onClick={addSelf}>
                 <Icon name="plus" size={17} /> {t("editor.addMyself")}
               </button>}
-              {!demo && <BillPeoplePicker onAdd={addAccounts} disabled={locked || saving} />}
+              {!demo && <BillPeoplePicker onAdd={addAccounts} disabled={locked || saving}
+                selectedAccountIds={draft.participants.flatMap(person => {
+                  const id = person.canonicalAccountUserId ?? person.accountUserId;
+                  return id == null ? [] : [id];
+                })} />}
               <form
                 className="inline-form"
                 onSubmit={(e) => {

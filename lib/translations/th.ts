@@ -548,6 +548,12 @@ export const thai = {
   "payment.claimRequired": "ยืนยันว่ารายการนี้เป็นของคุณก่อนแนบสลิป",
   "payment.linkedToAnotherAccount": "รายการนี้ผูกกับบัญชีอื่นแล้ว กรุณาเข้าสู่ระบบด้วยบัญชีนั้น หรือเปิดรายการของคุณจากหน้าบิล",
   "payment.accountAlreadyInBill": "บัญชีของคุณผูกกับผู้ร่วมบิลคนอื่นในบิลนี้แล้ว กรุณากลับไปเลือกรายการของคุณ",
+  "social.chooseFriend": "เพิ่มจากเพื่อนของฉัน",
+  "social.chooseFriendHint": "เลือกเพื่อนเพื่อเพิ่มเข้าบิล",
+  "social.loadingFriends": "กำลังโหลดรายชื่อเพื่อน…",
+  "social.allFriendsAdded": "เพื่อนทั้งหมดอยู่ในบิลแล้ว",
+  "social.noAcceptedFriends": "ยังไม่มีเพื่อนที่ตอบรับ",
+  "social.loadingGroups": "กำลังโหลดกลุ่ม…",
 } as const;
 
 export type TranslationKey = keyof typeof thai;

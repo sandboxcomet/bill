@@ -60,7 +60,7 @@ export default function MyBills() {
   );
   return (
     <div id="content">
-      <div className="page-heading">
+      <div className="page-heading my-bills-heading">
         <div>
           <h1>{t("nav.myBills")}</h1>
           <p>

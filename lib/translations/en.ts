@@ -550,4 +550,10 @@ export const english = {
   "payment.claimRequired": "Confirm that this entry is yours before uploading a slip.",
   "payment.linkedToAnotherAccount": "This entry is connected to another account. Sign in with that account or open your own entry from the bill.",
   "payment.accountAlreadyInBill": "Your account is already connected to another participant in this bill. Return to the bill and choose your entry.",
+  "social.chooseFriend": "Add from my friends",
+  "social.chooseFriendHint": "Choose a friend to add to this bill",
+  "social.loadingFriends": "Loading your friends…",
+  "social.allFriendsAdded": "All your friends are already in this bill",
+  "social.noAcceptedFriends": "No accepted friends yet.",
+  "social.loadingGroups": "Loading groups…",
 } satisfies Record<TranslationKey, string>;

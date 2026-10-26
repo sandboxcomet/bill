@@ -907,6 +907,9 @@ small {
   font-size: var(--text-body);
   margin-top: 6px;
 }
+.my-bills-heading { gap: 20px; }
+.my-bills-heading > div { flex: 1; min-width: 0; }
+.my-bills-heading > .button { flex-shrink: 0; white-space: nowrap; }
 .editor-layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 340px;
@@ -1315,10 +1318,22 @@ small {
 }
 @media (max-width: 520px) {
   .details-fields {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(80px, 0.35fr) minmax(0, 1fr);
+    gap: 7px 8px;
   }
-  .details-fields > .discount-field {
-    width: 124px;
+  .details-fields > .field {
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: span 2;
+  }
+  .item-tax-toggles {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: stretch;
+  }
+  .item-tax-toggles > .allocation-chip {
+    padding-inline: 8px;
+    overflow-wrap: normal;
   }
 }
 .custom-quantities {
@@ -2753,6 +2768,8 @@ small {
   }
 }
 @media (max-width: 760px) {
+  .my-bills-heading { flex-direction: column; align-items: stretch; gap: 16px; }
+  .my-bills-heading > .button { width: 100%; }
   .header-inner {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;
@@ -3353,6 +3370,9 @@ small {
 .social-member-options input { width: 18px; height: 18px; }
 .social-group-form > form { margin-top: 16px; }
 .bill-people-picker { margin: 12px 0; border-block: 1px dashed var(--line); padding: 4px 0; }
+.bill-account-picker { margin-block-start: 16px; }
+.friend-dropdown { gap: 8px; }
+.friend-dropdown select { min-height: 46px; max-width: 100%; }
 .bill-people-picker > .text-link { display: inline-flex; margin: 12px 0; }
 .social-picker-section { margin-top: 14px; }
 .social-picker-section > strong { display: block; margin-bottom: 8px; font-size: var(--text-meta); }
