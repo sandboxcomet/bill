@@ -4,6 +4,8 @@ Uses the ESS pattern: GitHub-hosted `ubuntu-latest` runner, exact GitHub revisio
 
 Application image: `sandboxcomet/wonglao-bill:latest`. The previous deployed digest (or registry latest if no service exists) is backed up under a unique digest/run/attempt tag before publishing. Initial publication is allowed only when the VM has no app and the registry explicitly reports no previous image. Registry/network/auth errors stop publication. Build runs production compilation, ESLint and TypeScript checks. No runtime secrets enter the build context.
 
+If the deployed digest no longer exists in the registry, the workflow streams the exact running image from the VM to the CI runner, pushes a unique backup, then pulls it and verifies its image ID before publishing `latest`. This recovery does not remove the running image or its container. Create the destination repository with the desired visibility before running the workflow.
+
 ## Repository setup
 
 The dedicated repository is `https://github.com/sandboxcomet/bill.git`. The standard GitHub runner is used; set these secrets. Values may use the same deployment host as ESS, but keep the secret names below separate.
