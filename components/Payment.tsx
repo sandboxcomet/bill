@@ -210,12 +210,23 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
       setWorking(false);
     }
   }
-  function downloadQr() {
+  async function downloadQr() {
     if (readyQr !== qr) return;
     const canvas = qrRef.current?.querySelector("canvas");
     if (!canvas || canvas.dataset.qrValue !== qr) return;
+    const image = canvas.toDataURL("image/png");
+    const bytes = Uint8Array.from(atob(image.split(",")[1]), character => character.charCodeAt(0));
+    const file = new File([bytes], `PromptPay-${id}.png`, { type: "image/png" });
+    if (navigator.share && navigator.canShare?.({ files: [file] })) {
+      try {
+        await navigator.share({ files: [file] });
+        return;
+      } catch (error) {
+        if ((error as Error).name === "AbortError") return;
+      }
+    }
     const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
+    link.href = image;
     link.download = `PromptPay-${id}.png`;
     link.click();
   }
