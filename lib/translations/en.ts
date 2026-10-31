@@ -258,6 +258,8 @@ export const english = {
   "editor.includeServiceChargeInVAT": "Include service charge in VAT",
   "editor.itemsAfterDiscounts": "Items after discounts",
   "editor.itemsSubtotal": "Items subtotal",
+  "editor.itemTotal": "Total",
+  "editor.splitWithWhom": "Split with whom",
   "editor.itemDiscountLabel": "Item {0} discount percentage",
   "editor.itemNameLabel": "Item {0} name",
   "editor.itemPriceLabel": "Item {0} price",

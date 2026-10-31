@@ -403,9 +403,8 @@ export default function BillEditor({
   }
   function allParticipantsSelected(item: Item) {
     return (
-      item.isShared ||
-      (draft.participants.length > 0 &&
-        draft.participants.every((p) => item.consumers.includes(p.id)))
+      draft.participants.length > 0 &&
+      (item.isShared || draft.participants.every((p) => item.consumers.includes(p.id)))
     );
   }
   function toggleParticipant(item: Item, participantId: string) {
@@ -999,6 +998,10 @@ export default function BillEditor({
                           }
                         />
                       </label>
+                      <div className="field item-net">
+                        <span>{t("editor.itemTotal")}</span>
+                        <strong>฿ {baht(net(calcItems[index]))}</strong>
+                      </div>
                       <button
                         className="icon-button remove-item"
                         aria-label={t("editor.removeItem", [index + 1])}
@@ -1027,7 +1030,7 @@ export default function BillEditor({
                             consumers: [],
                           })
                         }
-                      > {t("common.splitWithEveryone")} </button>
+                      > {t(allParticipantsSelected(item) ? "common.splitWithEveryone" : "editor.splitWithWhom")} </button>
                       <div className="allocation-chips">
                         {draft.participants.length ? (
                           draft.participants.map((p) => (
@@ -1047,9 +1050,6 @@ export default function BillEditor({
                           <span className="field-hint"> {t("editor.addFriendsToSelectParticipants")} </span>
                         )}
                       </div>
-                      <span className="item-net">
-                        ฿ {baht(net(calcItems[index]))}
-                      </span>
                     </div>
                     {(draft.itemPayersEnabled || draft.restaurants.length > 0) && <div className={styles.itemMeta}>
                     {draft.itemPayersEnabled && (

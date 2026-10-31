@@ -256,6 +256,8 @@ export const thai = {
   "editor.includeServiceChargeInVAT": "คิด VAT รวม Service charge",
   "editor.itemsAfterDiscounts": "รวมรายการหลังส่วนลด",
   "editor.itemsSubtotal": "ยอดรวมรายการ",
+  "editor.itemTotal": "รวม",
+  "editor.splitWithWhom": "หารใครบ้าง",
   "editor.itemDiscountLabel": "ส่วนลดรายการ {0} เปอร์เซ็นต์",
   "editor.itemNameLabel": "ชื่อรายการ {0}",
   "editor.itemPriceLabel": "ราคารายการ {0}",
