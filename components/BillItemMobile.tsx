@@ -4,6 +4,7 @@ import { useI18n } from "./LanguageProvider";
 import { baht } from "@/lib/client";
 import { Icon } from "./Icons";
 import { BillItemAdvanced, BillItemFields, BillItemPayer, BillItemSplit, BillItemTaxes } from "./BillItemSections";
+import RestaurantPicker from "./RestaurantPicker";
 import type { BillItemProps } from "./bill-item-types";
 import styles from "./BillItemMobile.module.css";
 
@@ -26,7 +27,7 @@ export default function BillItemMobile(props: BillItemProps & { open: boolean; o
         {itemPayersEnabled && <div className={styles.payer}><BillItemPayer {...props} /></div>}
         <div className={styles.options}>
           <div className={styles.optionGroup}><span>{t("editor.serviceChargeAndVAT")}</span><BillItemTaxes {...props} /></div>
-          {restaurants.length > 0 && <label className={`field ${styles.restaurant}`}><span>{t("editor.restaurantShort")}</span><select value={item.restaurantId ?? ""} aria-label={t("editor.itemRestaurantLabel", [index + 1, restaurants.find(r => r.id === item.restaurantId)?.name ?? t("editor.noRestaurant")])} onChange={e => onUpdate({ restaurantId: e.target.value || null })}><option value="">{t("editor.noRestaurant")}</option>{restaurants.map(restaurant => <option key={restaurant.id} value={restaurant.id}>{restaurant.name}</option>)}</select></label>}
+          {restaurants.length > 0 && <RestaurantPicker mobile restaurants={restaurants} value={item.restaurantId} index={index} disabled={locked || saving} onChange={restaurantId => onUpdate({ restaurantId })} />}
         </div>
         <BillItemAdvanced {...props} />
       </fieldset></div>

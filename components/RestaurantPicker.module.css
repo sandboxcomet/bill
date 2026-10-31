@@ -10,4 +10,9 @@
 .option[aria-pressed="true"] { background: var(--green-soft); color: var(--green-dark); font-weight: 600; }
 .option:hover { background: var(--green-soft); }
 .option svg { flex-shrink: 0; }
+.mobile { display: grid; align-items: start; gap: 7px; width: 100%; }
+.mobile .label { font-weight: 500; }
+.mobile .control { width: 100%; }
+.mobile .trigger { width: 100%; max-width: none; }
+.mobile .menu { position: static; width: 100%; max-width: none; max-height: 220px; margin-top: 6px; box-shadow: none; }
 @media (max-width: 520px) { .menu { left: 0; right: auto; } }

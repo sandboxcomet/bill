@@ -29,6 +29,5 @@
 .optionGroup > span { color: var(--muted); font-size: var(--text-support); font-weight: 500; }
 .optionGroup :global(.item-tax-toggles) { display: flex; flex-wrap: wrap; }
 .optionGroup :global(.allocation-chip) { min-height: 44px; }
-.restaurant select { min-height: 44px; }
 .actions { display: flex; gap: 10px; padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
 .actions button { flex: 1; min-height: 44px; }

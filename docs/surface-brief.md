@@ -47,7 +47,7 @@ Participant picker: use one editable combobox for friends, saved groups, exact a
 
 Item detail controls: place Service charge and VAT to the right of participant allocation on wide layouts. In the compact editor, put allocation and payer labels above their full-width name choices and align charge and restaurant controls with the content. Keep discount in the expandable item details and retain 44px targets.
 
-On mobile, show a compact list of items with name, quantity, unit price and total. Tapping an item opens its full editing controls in a dialog; adding an item opens the new item. Group Service charge and VAT under a shared label, with a separate full-width restaurant selector below. Closing retains automatic saves, and existing payment locks apply inside the dialog. Desktop keeps the inline editor.
+On mobile, show a compact list of items with name, quantity, unit price and total. Tapping an item opens its full editing controls in a dialog; adding an item opens the new item. Group Service charge and VAT under a shared label, with a separate full-width restaurant selector below using an in-flow menu. Closing retains automatic saves, and existing payment locks apply inside the dialog. Desktop keeps the inline editor.
 
 Bill payers: select the people who may pay upfront below the participant picker. Show everyone when no filter is selected; otherwise show the selected people and retain existing item payers. Allow resetting the filter to everyone, and require reassignment before removing an assigned payer from an active filter. Keep the selection across saves and refreshes.
 
