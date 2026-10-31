@@ -11,7 +11,7 @@ import {
 } from "@/lib/server/authorization";
 import {
   submitPaymentEvidence,
-  latestEvidence,
+  paymentEvidence,
   reviewPayment,
   paymentErrorResponse,
 } from "@/lib/server/payments";
@@ -100,14 +100,20 @@ export async function GET(request: NextRequest, { params }: Context) {
         paymentToken: createParticipantToken(id, ownEntry.id, billAccessRevision(accessParticipant.bill)),
       } : null,
     }, { headers: { "Cache-Control": "private, no-store" } });
-    const evidence = bill.itemPayersEnabled ? null : await latestEvidence(target(pid));
+    const evidence = bill.itemPayersEnabled ? [] : await paymentEvidence(target(pid));
+    const evidenceList = (records: Awaited<ReturnType<typeof paymentEvidence>>) => records.filter(record => record.objectKey).map(record => ({
+      id: record.id, url: evidenceUrl(record.id, request), amount: record.amount.toString(), status: record.status,
+      transactedAt: record.transactedAt?.toISOString() ?? null,
+    }));
     const settlements = await Promise.all(transfers.map(async (transfer) => {
-      const proof = await latestEvidence({ type: "settlement", id: transfer.id });
+      const records = await paymentEvidence({ type: "settlement", id: transfer.id });
+      const proof = records[0];
       return { ...transfer,
         promptPayId: outgoing.find(row => row.id === transfer.id)!.toParticipant.promptPayId,
         payslipUrl: proof?.objectKey ? evidenceUrl(proof.id, request) : null,
         evidenceStatus: proof?.status ?? null,
         evidenceTransactedAt: proof?.transactedAt?.toISOString() ?? null,
+        evidence: evidenceList(records),
       };
     }));
     return NextResponse.json(
@@ -123,9 +129,10 @@ export async function GET(request: NextRequest, { params }: Context) {
         },
         participant: {
           ...participant,
-          payslipUrl: evidence?.objectKey ? evidenceUrl(evidence.id, request) : null,
-          evidenceStatus: evidence?.status ?? null,
-          evidenceTransactedAt: evidence?.transactedAt?.toISOString() ?? null,
+          payslipUrl: evidence[0]?.objectKey ? evidenceUrl(evidence[0].id, request) : null,
+          evidenceStatus: evidence[0]?.status ?? null,
+          evidenceTransactedAt: evidence[0]?.transactedAt?.toISOString() ?? null,
+          evidence: evidenceList(evidence),
         },
         settlements,
         expenseDetails,

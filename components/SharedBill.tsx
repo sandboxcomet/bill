@@ -25,6 +25,7 @@ import styles from "./SharedBill.module.css";
 type Bill = {
   id: string;
   name: string;
+  sharePath?: string | null;
   restaurants: { id: string; name: string }[] | null;
   userId: number;
   canManage?: boolean;
@@ -152,7 +153,7 @@ export default function SharedBill({ id }: { id: string }) {
   }, [id]);
   const liveStatus = useLiveRefresh(refresh, Boolean(bill?.status === "PUBLISHED" && !loading && !pinRequired && !sharing));
   async function share() {
-    const url = new URL(sharedBillPath(id), window.location.origin).href;
+    const url = new URL(bill?.sharePath ?? sharedBillPath(id), window.location.origin).href;
     setSharing(true);
     setMessage("");
     try {
@@ -266,7 +267,7 @@ export default function SharedBill({ id }: { id: string }) {
         {!cancelled && bill.status === "PUBLISHED" && <ShareReceiptImage data={() => ({
           name: bill.name || t("bill.ourBill"), total: bill.grandTotal,
           date: new Date(bill.createdAt).toLocaleDateString(formatLocale, { day: "numeric", month: "long", year: "numeric" }),
-          url: `${window.location.origin}${sharedBillPath(bill.id)}`,
+          url: `${window.location.origin}${bill.sharePath ?? sharedBillPath(bill.id)}`,
           complete: progress.complete, privateBill: !bill.isPublic,
           people: bill.participants.map(p => {
             const balance = personBalance(p, bill.settlements, bill.itemPayersEnabled);

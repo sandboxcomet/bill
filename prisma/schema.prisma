@@ -151,6 +151,7 @@ model VerificationToken {
 model Bill {
   version Int @default(0)
   id     String @id @default(cuid())
+  shareCode String? @map("share_code") @db.VarChar(8)
   userId Int    @map("user_id")
   owner  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -182,6 +183,7 @@ model Bill {
   createdAt DateTime @default(now()) @map("created_at")
 
   @@index([userId])
+  @@unique([userId, shareCode])
   @@map("bills")
 }
 

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { isLocale, localeFromPath, localizedPath, stripLocale } from "@/lib/locale";
-import { isSharedBillPath, legacyBillRedirect, billIdFromPagePath } from "@/lib/bill-paths";
+import { isSharedBillPath, isShortBillPath, legacyBillRedirect, billIdFromPagePath } from "@/lib/bill-paths";
 import { hasCompleteProfile } from "@/lib/profile";
 import { prisma } from "@/lib/prisma";
 import { ownsAccount } from "@/lib/server/account-identity";
@@ -37,6 +37,17 @@ export const proxy = auth(async (request) => {
   }
   // Resolve missing/stopped bills before HTML streaming commits a 200 response.
   const billId = billIdFromPagePath(pathname);
+  if (isShortBillPath(pathname)) {
+    const [, owner, code] = pathname.split("/");
+    const bill = await prisma.bill.findFirst({ where: { shareCode: code, owner: { username: owner.slice(1) }, status: "PUBLISHED" }, select: { id: true } });
+    if (!bill) {
+      const headers = new Headers(request.headers);
+      headers.set("x-clear-toh-locale", locale);
+      const missing = request.nextUrl.clone();
+      missing.pathname = "/404";
+      return NextResponse.rewrite(missing, { status: 404, headers: { "Cache-Control": "private, no-store" }, request: { headers } });
+    }
+  }
   if (billId) {
     const bill = await prisma.bill.findUnique({ where: { id: billId }, select: { status: true, userId: true } });
     const userId = Number(request.auth?.user?.id);

@@ -161,14 +161,14 @@ export async function reviewPayment(
   });
 }
 
-export async function latestEvidence(target: PaymentTarget) {
-  return prisma.paymentEvidence.findFirst({
+export async function paymentEvidence(target: PaymentTarget) {
+  return prisma.paymentEvidence.findMany({
     where: {
       targetType: target.type,
       targetId: target.id,
       status: { in: ["VERIFIED", "NEEDS_REVIEW", "PENDING", "PENDING_UPLOAD", "REJECTED"] },
     },
-    orderBy: { createdAt: "desc" },
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: { id: true, status: true, amount: true, objectKey: true, transactedAt: true },
   });
 }

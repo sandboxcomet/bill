@@ -7,7 +7,8 @@ import {
   accessErrorResponse,
 } from "@/lib/server/authorization";
 import { prisma } from "@/lib/prisma";
-import { participantPaymentPath } from "@/lib/bill-paths";
+import { participantPaymentPath, shortBillPath } from "@/lib/bill-paths";
+import { ensureBillShareCode } from "@/lib/server/bill-share-code";
 import { isPendingEvidence } from "@/lib/payment-status";
 import { ownsAccount, primaryProfile, resolvedOwnerFields, participantDisplayFields, participantDisplay, accountUserIds } from "@/lib/server/account-identity";
 import {
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
     const bill = await prisma.bill.findUnique({
       where: { id },
       include: {
-        owner: { select: resolvedOwnerFields },
+        owner: { select: { ...resolvedOwnerFields, username: true } },
         participants: { where: { archived: false }, include: { accountUser: { select: participantDisplayFields } } },
         settlements: { where: { archived: false }, select: {
           id: true, fromParticipantId: true, toParticipantId: true,
@@ -105,6 +106,8 @@ export async function GET(req: NextRequest) {
     }
 
     const { passcode: _passcode, ...safeBill } = bill;
+    const shareCode = bill.owner.username && bill.status === "PUBLISHED"
+      ? await ensureBillShareCode(bill.id, bill.shareCode) : null;
     const owner = primaryProfile(bill.owner);
     const ownAccountIds = new Set(userId ? await accountUserIds(userId) : []);
     const people = bill.participants.map(participantDisplay);
@@ -114,6 +117,7 @@ export async function GET(req: NextRequest) {
       {
         bill: {
           ...safeBill,
+          sharePath: bill.owner.username && shareCode ? shortBillPath(bill.owner.username, shareCode) : null,
           canManage: isOwner,
           owner: {
             ...owner,

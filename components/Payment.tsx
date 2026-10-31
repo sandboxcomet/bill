@@ -15,6 +15,7 @@ import ExpenseBreakdown, { type ExpenseDetails } from "./ExpenseBreakdown";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import LiveStatus from "./LiveStatus";
 import { useBillTitle } from "@/lib/use-bill-title";
+type SlipEvidence = { id: string; url: string; amount: string; status: string; transactedAt: string | null };
 type Payable = {
   name: string;
   totalPayable: string;
@@ -23,6 +24,7 @@ type Payable = {
   payslipUrl: string | null;
   evidenceStatus: string | null;
   evidenceTransactedAt?: string | null;
+  evidence?: SlipEvidence[];
   beforeOffset?: string | null;
   offsetAmount?: string | null;
   offsetItems?: ExpenseItem[];
@@ -53,7 +55,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
   const [checkingSlip, setCheckingSlip] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [preview, setPreview] = useState("");
+  const [previews, setPreviews] = useState<Record<string, string>>({});
   const [reason, setReason] = useState("");
   const [selectedId, setSelectedId] = useState("");
   const selected = data?.bill.itemPayersEnabled && data.settlements.length === 1
@@ -61,6 +63,9 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
     : data?.settlements.find((s) => s.id === selectedId);
   const proofUrl = data?.readOnly || (data?.requiresClaim && !data.canManage) ? null
     : selected?.payslipUrl ?? (!data?.bill.itemPayersEnabled ? data?.participant.payslipUrl : null);
+  const proofs = data?.readOnly || (data?.requiresClaim && !data.canManage) ? []
+    : (selected ?? (!data?.bill.itemPayersEnabled ? data?.participant : undefined))?.evidence ?? [];
+  const proofUrls = JSON.stringify(proofs.length ? proofs.map(proof => proof.url) : proofUrl ? [proofUrl] : []);
   const qrRef = useRef<HTMLDivElement>(null);
   const [readyQr, setReadyQr] = useState("");
   const endpoint = `/api/bills/${id}/participants/${pid}`;
@@ -111,33 +116,30 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
   }, [readEndpoint, headers, redirectAccount]);
   const liveStatus = useLiveRefresh(refresh, Boolean(data && !working && !loading));
   useEffect(() => {
-    const url = proofUrl;
-    setPreview("");
-    if (!url) {
-      setPreview("");
-      return;
-    }
+    const urls: string[] = JSON.parse(proofUrls);
+    setPreviews({});
     let active = true;
-    let blob = "";
-    fetch(url, { headers: headers(), cache: "no-store" })
+    const blobs: string[] = [];
+    urls.forEach(url => fetch(url, { headers: headers(), cache: "no-store" })
       .then((r) => {
         if (!r.ok) throw new Error(t("errors.slipOpenFailed"));
         return r.blob();
       })
       .then((b) => {
         if (active) {
-          blob = URL.createObjectURL(b);
-          setPreview(blob);
+          const blob = URL.createObjectURL(b);
+          blobs.push(blob);
+          setPreviews(current => ({ ...current, [url]: blob }));
         }
       })
       .catch((e) => {
         if (active) setError(e.message);
-      });
+      }));
     return () => {
       active = false;
-      if (blob) URL.revokeObjectURL(blob);
+      blobs.forEach(blob => URL.revokeObjectURL(blob));
     };
-  }, [proofUrl, headers]);
+  }, [proofUrls, headers, t]);
   async function claim() {
     if (working) return;
     setWorking(true); setError(""); setMessage("");
@@ -361,7 +363,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
               </div>}
               <button type="button" className="recipient-option"
               aria-pressed={s.id === selected?.id} disabled={working || loading}
-              onClick={() => { setSelectedId(s.id); setPreview(""); setReason(""); setError(""); setMessage(""); }}>
+              onClick={() => { setSelectedId(s.id); setReason(""); setError(""); setMessage(""); }}>
               <span>{s.name}</span><b>฿ {baht(s.totalPayable)}</b>
               <span className="recipient-option-meta"><span className={`status ${paid ? "status-published" : status === "UNPAID" ? "" : "status-draft"}`}>{t(recipientStatusLabels[status])}</span>
                 {!paid && new Decimal(s.paidAmount).gt(0) && <small>{t("payment.remainingAmount", [baht(due)])}</small>}</span>
@@ -409,7 +411,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
       {canSelectPayment && <section className="payment-proof">
         <div className="panel-heading">
           <h2>{t("payment.paymentEvidence")}</h2>
-          {p.evidenceTransactedAt && p.payslipUrl ? (
+          {!proofs.length && p.evidenceTransactedAt && p.payslipUrl ? (
             <time dateTime={p.evidenceTransactedAt} className="payment-proof-date">
               {t("payment.transferredAt")} {" "}
               {new Intl.DateTimeFormat(formatLocale, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(p.evidenceTransactedAt))}
@@ -432,13 +434,14 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
                   : t("payment.pendingReviewHint")}
           </p>
         )}
-        {preview && (
-          <img
-            className="slip-preview"
-            src={preview}
-            alt={t("payment.paymentSlipForThisTransfer")}
-          />
-        )}
+        {proofs.length ? proofs.map(proof => <div className="payment-slip" key={proof.id}>
+          <div className="payment-slip-details">
+            <strong>฿ {baht(proof.amount)}</strong>
+            <span>{t(proof.status === "VERIFIED" ? "payment.slipVerified" : proof.status === "NEEDS_REVIEW" ? "payment.slipReview" : proof.status === "REJECTED" ? "payment.slipRejected" : "payment.slipChecking")}</span>
+            {proof.transactedAt && <time dateTime={proof.transactedAt}>{t("payment.transferredAt")} {new Intl.DateTimeFormat(formatLocale, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(proof.transactedAt))}</time>}
+          </div>
+          {previews[proof.url] && <img className="slip-preview" src={previews[proof.url]} alt={t("payment.paymentSlipForThisTransfer")} />}
+        </div>) : proofUrl && previews[proofUrl] && <img className="slip-preview" src={previews[proofUrl]} alt={t("payment.paymentSlipForThisTransfer")} />}
         {!p.isPaid && !bankPending && (
           <label className={`file-label receipt-upload${working || loading ? " is-disabled" : ""}${checkingSlip ? " is-checking" : ""}`}>
             {checkingSlip ? <span className="spinner" aria-hidden="true" /> : <Icon name="upload" size={26} />}

@@ -2344,6 +2344,8 @@ small {
   min-height: 38px;
 }
 .table-progress {
+  position: relative;
+  isolation: isolate;
   padding: 16px 0;
   border-top: 1px dashed var(--line);
 }
@@ -2626,6 +2628,11 @@ small {
   font-size: var(--text-body);
 }
 .payment-proof-date { color: var(--muted); font-size: var(--text-meta); text-align: right; }
+.payment-slip { margin-top: 16px; }
+.payment-slip + .payment-slip { padding-top: 16px; border-top: 1px solid var(--line); }
+.payment-slip-details { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 12px; color: var(--muted); font-size: var(--text-meta); }
+.payment-slip-details strong { color: var(--ink); font-size: var(--text-support); font-variant-numeric: tabular-nums; }
+.payment-slip-details time { margin-inline-start: auto; }
 .payment-receipt .receipt-upload {
   position: relative;
   padding: 18px 12px;
@@ -3543,14 +3550,11 @@ small {
 /* Shared receipt: personal view and exported receipt preview. */
 .cleared-stamp {
   display: flex; align-items: center; justify-content: center; gap: 8px;
-  width: fit-content; margin: 8px auto 20px; padding: 10px 18px;
+  position: absolute; top: 50%; left: 50%; z-index: -1;
+  width: max-content; max-width: 100%; padding: 10px 18px;
   border: 2px solid var(--green); color: var(--green-dark);
-  transform: rotate(-5deg); font-size: 1.375rem;
-  animation: cleared-stamp-press 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-@keyframes cleared-stamp-press {
-  from { transform: rotate(-8deg) scale(1.15); opacity: 0.6; }
-  to { transform: rotate(-5deg) scale(1); opacity: 1; }
+  transform: translate(-50%, -50%) rotate(-5deg); font-size: 1.375rem;
+  opacity: 0.12; pointer-events: none;
 }
 .receipt-image-dialog {
   width: min(560px, calc(100vw - 32px)); max-height: calc(100dvh - 32px);
@@ -3564,7 +3568,6 @@ small {
 .receipt-image-heading button { min-width: 44px; min-height: 44px; display: grid; place-items: center; }
 .receipt-image-preview { display: block; width: 100%; max-width: 100%; min-width: 0; height: auto; object-fit: contain; border: 1px solid var(--line); }
 .receipt-image-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 16px; }
-@media (prefers-reduced-motion: reduce) { .cleared-stamp { animation: none; } }
 
 .account-setup { max-width: 480px; }
 .account-setup-benefits {
