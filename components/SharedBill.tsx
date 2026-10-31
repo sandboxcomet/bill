@@ -300,6 +300,7 @@ export default function SharedBill({ id }: { id: string }) {
       <section className="share-receipt">
         <div className="receipt-brand" lang="th">เคลียร์โต๊ะ <span lang="en">Clear Toh</span></div>
         <div className="share-title">
+          {bill.status === "PUBLISHED" && progress.complete && <div className="cleared-stamp" role="status"><Icon name="check" size={24} /><strong>{t("bill.status.settled")}</strong></div>}
           <h1>{bill.name || t("bill.ourBill")}</h1>
           <p>
             {new Date(bill.createdAt).toLocaleDateString(formatLocale, {
