@@ -15,28 +15,14 @@ import { Icon } from "./Icons";
 import SettlementSummary from "./SettlementSummary";
 import ItemPayer from "./ItemPayer";
 import { calculatePayerUpfront, calculateSettlements, isPromptPayId } from "@/lib/settlements";
-import PartsHelp from "./PartsHelp";
 import PinInput from "./PinInput";
 import BillPeoplePicker from "./BillPeoplePicker";
-import RestaurantPicker from "./RestaurantPicker";
+import BillItemDesktop from "./BillItemDesktop";
+import BillItemMobile from "./BillItemMobile";
+import type { BillEditorItem as Item, BillEditorPerson as Person, BillItemProps } from "./bill-item-types";
 import type { AccountPerson } from "@/lib/social";
 import { isBillPin } from "@/lib/pin";
 import styles from "./BillEditor.module.css";
-type Person = { id: string; name: string; isPayer: boolean; ownerAlias?: string | null; accountName?: string; image?: string | null; promptPayId?: string | null; accountUserId?: number | null; canonicalAccountUserId?: number; username?: string; hasPromptPay?: boolean };
-type Item = {
-  id: string;
-  name: string;
-  price: string;
-  quantity: number;
-  discountRate: string;
-  isShared: boolean;
-  includeSC: boolean;
-  includeVat: boolean;
-  consumers: string[];
-  consumerQuantities?: Record<string, number>;
-  payerId?: string | null;
-  restaurantId?: string | null;
-};
 type Draft = {
   name: string;
   restaurants: { id: string; name: string }[];
@@ -145,6 +131,15 @@ export default function BillEditor({
   const [autoSaving, setAutoSaving] = useState(false);
   const [autoSaveError, setAutoSaveError] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [compactItems, setCompactItems] = useState(false);
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
+  useEffect(() => {
+    const media = window.matchMedia("(max-width: 760px)");
+    const sync = () => { setCompactItems(media.matches); if (!media.matches) setEditingItemId(null); };
+    sync();
+    media.addEventListener("change", sync);
+    return () => media.removeEventListener("change", sync);
+  }, []);
   const [scrollPosition, setScrollPosition] = useState({ canGoUp: false, canGoDown: false });
   useEffect(() => {
     if (!loaded) return;
@@ -1035,212 +1030,40 @@ export default function BillEditor({
               </h2>
               <span className="muted">{t("editor.unitPrice")}</span>
             </div>
-            <fieldset disabled={locked || saving}>
+            <fieldset disabled={saving || (locked && !compactItems)}>
               {!draft.itemPayersEnabled && (
                 <div className="legacy-payer-note">
                   <p className="field-hint">{t("editor.reimburseTheBillCreator")}</p>
-                  <button type="button" className="text-link" onClick={() => update({ itemPayersEnabled: true })}> {t("editor.chooseWhoPaidForEachItem")} </button>
+                  <button type="button" className="text-link" disabled={locked || saving} onClick={() => update({ itemPayersEnabled: true })}> {t("editor.chooseWhoPaidForEachItem")} </button>
                 </div>
               )}
-              <div className="editor-items">
-                {draft.items.map((item, index) => (
-                  <div className={`editor-item ${styles.itemContainer}`} key={item.id}>
-                    <div className="item-index">{index + 1}</div>
-                    <div className="item-fields">
-                      <label className="field item-name">
-                        <span>{t("bill.item")}</span>
-                        <input
-                          aria-label={t("editor.itemNameLabel", [index + 1])}
-                          maxLength={191}
-                          placeholder={t("editor.itemNamePlaceholder")}
-                          value={item.name}
-                          onChange={(e) =>
-                            updateItem(item.id, { name: e.target.value }, false)
-                          }
-                        />
-                      </label>
-                      <label className="field item-price">
-                        <span>{t("editor.price")}</span>
-                        <input
-                          type="number"
-                          inputMode="decimal"
-                          min="0"
-                          step="0.01"
-                          value={item.price}
-                          placeholder="0.00"
-                          aria-label={t("editor.itemPriceLabel", [index + 1])}
-                          onChange={(e) =>
-                            updateItem(item.id, { price: e.target.value }, false)
-                          }
-                        />
-                      </label>
-                      <label className="field item-quantity">
-                        <span>{t("bill.quantity")}</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min="1"
-                          max="999"
-                          value={item.quantity || ""}
-                          aria-label={t("editor.itemQuantityLabel", [index + 1])}
-                          onChange={(e) =>
-                            updateItem(item.id, {
-                              quantity: Number(e.target.value),
-                            }, false)
-                          }
-                        />
-                      </label>
-                      <div className="field item-net">
-                        <span>{t("editor.itemTotal")}</span>
-                        <strong>฿ {baht(net(calcItems[index]))}</strong>
-                      </div>
-                      <button
-                        className="icon-button remove-item"
-                        aria-label={t("editor.removeItem", [index + 1])}
-                        onClick={() =>
-                          update({
-                            items: draft.items.filter((i) => i.id !== item.id),
-                          })
-                        }
-                      >
-                        <Icon name="close" size={17} />
-                      </button>
-                    </div>
-                    <div className={styles.allocationRow}>
-                    <div
-                      className="item-allocation"
-                      role="group"
-                      aria-label={t("editor.itemParticipantsLabel", [index + 1])}
-                    >
-                      <button
-                        type="button"
-                        className="allocation-all"
-                        aria-pressed={allParticipantsSelected(item)}
-                        onClick={() =>
-                          updateItem(item.id, {
-                            isShared: !allParticipantsSelected(item),
-                            consumerQuantities: undefined,
-                            consumers: [],
-                          })
-                        }
-                      > {t(allParticipantsSelected(item) ? "common.splitWithEveryone" : "editor.splitWithWhom")} </button>
-                      <div className="allocation-chips">
-                        {draft.participants.length ? (
-                          draft.participants.map((p) => (
-                            <button
-                              type="button"
-                              className="allocation-chip"
-                              aria-pressed={
-                                item.isShared || item.consumers.includes(p.id)
-                              }
-                              key={p.id}
-                              onClick={() => toggleParticipant(item, p.id)}
-                            >
-                              {p.name}
-                            </button>
-                          ))
-                        ) : (
-                          <span className="field-hint"> {t("editor.addFriendsToSelectParticipants")} </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="item-tax-toggles" role="group" aria-label={t("editor.itemChargesLabel", [index + 1])}>
-                      <button type="button" className="allocation-chip" aria-pressed={item.includeSC}
-                        aria-label={t("editor.itemServiceChargeLabel", [index + 1])}
-                        onClick={() => updateItem(item.id, { includeSC: !item.includeSC })}>Service charge</button>
-                      <button type="button" className="allocation-chip" aria-pressed={item.includeVat}
-                        aria-label={t("editor.itemVatLabel", [index + 1])}
-                        onClick={() => updateItem(item.id, { includeVat: !item.includeVat })}>VAT</button>
-                    </div>
-                    </div>
-                    {(draft.itemPayersEnabled || draft.restaurants.length > 0) && <div className={styles.itemMeta}>
-                    {draft.itemPayersEnabled && (
-                      <ItemPayer people={payerCandidates} payerId={item.payerId} index={index}
-                        onSelect={(payerId) => updateItem(item.id, { payerId })}
-                        onPromptPay={(id, promptPayId) => update({ participants: draft.participants.map((p) => p.id === id ? { ...p, promptPayId } : p) })} />
-                    )}
-                    {draft.restaurants.length > 0 && <div className={styles.restaurantSlot}><RestaurantPicker restaurants={draft.restaurants} value={item.restaurantId}
-                      index={index} disabled={locked || saving} onChange={restaurantId => updateItem(item.id, { restaurantId })} /></div>}
-                    </div>}
-                    <details className="item-details">
-                      <summary>{t("editor.discountAndSplitOptions")}</summary>
-                      <div className="details-fields">
-                        <label className="field discount-field">
-                          <span>{t("bill.discount")}</span>
-                          <span className="number-field">
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              maxLength={6}
-                              autoComplete="off"
-                              aria-label={t("editor.itemDiscountLabel", [index + 1])}
-                              value={item.discountRate}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                if (
-                                  /^\d{0,3}(?:\.\d{0,2})?$/.test(value) &&
-                                  (value === "." || Number(value) <= 100)
-                                ) {
-                                  updateItem(item.id, { discountRate: value }, false);
-                                }
-                              }}
-                            />
-                            <span className="number-unit" aria-hidden="true">
-                              %
-                            </span>
-                          </span>
-                        </label>
-                      </div>
-                      {draft.participants.length > 0 && (
-                        <div className="custom-quantities">
-                          <PartsHelp id={item.id} />
-                          <p id={`parts-help-${item.id}`} className="field-hint">
-                            {Object.keys(item.consumerQuantities ?? {}).length
-                              ? t("editor.excludedPersonHint")
-                              : t("editor.equalSplitHint")}
-                          </p>
-                          <div className="parts-fields">
-                            {draft.participants.map((p) => (
-                              <label className="field" key={p.id}>
-                                <span>{p.name}</span>
-                                <span className="number-field">
-                                  <input
-                                    type="text"
-                                    inputMode="numeric"
-                                    pattern="[0-9]*"
-                                    maxLength={3}
-                                    autoComplete="off"
-                                    aria-label={t("editor.personSharesLabel", [p.name, index + 1])}
-                                    aria-describedby={`parts-help-${item.id}`}
-                                    value={item.consumerQuantities?.[p.id] || ""}
-                                    onChange={(e) =>
-                                      updateParticipantParts(
-                                        item,
-                                        p.id,
-                                        e.target.value,
-                                      )
-                                    }
-                                  />
-                                  <span className="number-unit" aria-hidden="true"> {t("editor.shares")} </span>
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </details>
-                  </div>
-                ))}
+              <div className={`editor-items ${styles.itemList}`}>
+                {draft.items.map((item, index) => {
+                  const props: BillItemProps = {
+                    item, index, total: net(calcItems[index]).toFixed(2), participants: draft.participants,
+                    payerCandidates, restaurants: draft.restaurants, itemPayersEnabled: draft.itemPayersEnabled,
+                    locked, saving, allSelected: allParticipantsSelected(item),
+                    onUpdate: (changes, immediate) => updateItem(item.id, changes, immediate),
+                    onToggleParticipant: id => toggleParticipant(item, id),
+                    onUpdateParts: (id, value) => updateParticipantParts(item, id, value),
+                    onPromptPay: (id, promptPayId) => update({ participants: draft.participants.map(p => p.id === id ? { ...p, promptPayId } : p) }),
+                    onRemove: () => update({ items: draft.items.filter(i => i.id !== item.id) }),
+                  };
+                  return compactItems
+                    ? <BillItemMobile key={item.id} {...props} open={editingItemId === item.id} onOpen={() => setEditingItemId(item.id)} onClose={() => setEditingItemId(null)} />
+                    : <BillItemDesktop key={item.id} {...props} />;
+                })}
               </div>
               <button
                 className="add-item-button"
-                disabled={draft.items.length >= 300}
-                onClick={() => update({ items: [...draft.items, { ...emptyItem(), payerId: draft.creatorParticipantId && payerCandidates.some(p => p.id === draft.creatorParticipantId) ? draft.creatorParticipantId : payerCandidates.length === 1 ? payerCandidates[0].id : null }] })}
+                disabled={locked || saving || draft.items.length >= 300}
+                onClick={() => { const item = { ...emptyItem(), payerId: draft.creatorParticipantId && payerCandidates.some(p => p.id === draft.creatorParticipantId) ? draft.creatorParticipantId : payerCandidates.length === 1 ? payerCandidates[0].id : null }; update({ items: [...draft.items, item] }); if (compactItems) setEditingItemId(item.id); }}
               >
                 <Icon name="plus" size={18} /> {t("common.addItem")} </button>
               {draft.itemPayersEnabled && (selectedPayers.length > 0 || hasMissingPayer) && <div className={styles.payerRecipients}>
                 <h3>{t("payer.receiversHeading")}</h3>
                 <p className="field-hint">{t("payer.receiversHint")}</p>
+                <fieldset disabled={locked || saving}>
                 {selectedPayers.map((payer, index) => <ItemPayer key={payer.id} mode="recipient" people={draft.participants} payerId={payer.id} index={index}
                   paidUpfront={upfrontTotals.find(person => person.id === payer.id)?.paidUpfront.toFixed(2)}
                   onSelect={() => {}} onPromptPay={(id, promptPayId) => update({ participants: draft.participants.map(p => p.id === id ? { ...p, promptPayId } : p) })} />)}
@@ -1248,6 +1071,7 @@ export default function BillEditor({
                   <span>{t("payer.unassignedCount", [missingPayerCount])}</span>
                   <b>฿ {baht(unassignedUpfront)}</b>
                 </div>}
+                </fieldset>
               </div>}
             </fieldset>
             <div className="subtotal-line">

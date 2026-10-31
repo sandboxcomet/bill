@@ -20,6 +20,21 @@
   .allocationRow, .itemMeta { grid-template-columns: minmax(0, 1fr); }
   .allocationRow :global(.item-tax-toggles), .restaurantSlot { grid-column: 1; justify-self: end; }
 }
+@container (max-width: 520px) {
+  .itemContainer :global(.item-fields) { grid-template-columns: minmax(0, 1fr) minmax(52px, 65px) minmax(84px, auto); gap: 8px; }
+  .itemContainer :global(.item-name) { grid-column: 1 / 3; grid-row: 1; }
+  .itemContainer :global(.remove-item) { grid-column: 3; grid-row: 1; justify-self: end; min-width: 44px; min-height: 44px; }
+  .itemContainer :global(.item-price) { grid-column: 1; grid-row: 2; }
+  .itemContainer :global(.item-quantity) { grid-column: 2; grid-row: 2; }
+  .itemContainer :global(.item-net) { grid-column: 3; grid-row: 2; }
+  .allocationRow :global(.item-allocation), .itemMeta :global(.payer-choice) { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .allocationRow :global(.allocation-all) { justify-self: start; min-height: 44px; }
+  .itemMeta :global(.payer-label) { min-height: 0; }
+  .allocationRow :global(.allocation-chips), .itemMeta :global(.allocation-chips) { padding: 0; border: 0; }
+  .allocationRow :global(.allocation-chip), .itemMeta :global(.allocation-chip) { min-height: 44px; }
+  .allocationRow :global(.item-tax-toggles), .restaurantSlot { justify-self: start; }
+  .itemMeta { margin-top: 12px; padding-top: 12px; }
+}
 .payerRecipients { margin: 20px 0; padding-top: 16px; border-top: 1px solid var(--line); container-type: inline-size; }
 .payerRecipients h3 { font-size: var(--text-body); margin: 0 0 4px; }
 .payerRecipients > p { margin: 0; }
@@ -56,3 +71,4 @@
 .scrollControls button:hover:not(:disabled) { border-color: var(--green); background: var(--green-soft); }
 .scrollControls button:disabled { opacity: 0.45; cursor: default; }
 @media (max-width: 760px) { .scrollControls { bottom: calc(105px + env(safe-area-inset-bottom, 0px)); } }
+@media (max-width: 760px) { .itemList > :global(.editor-item) { display: none; } }
