@@ -56,7 +56,9 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
   const [preview, setPreview] = useState("");
   const [reason, setReason] = useState("");
   const [selectedId, setSelectedId] = useState("");
-  const selected = data?.settlements.find((s) => s.id === selectedId);
+  const selected = data?.bill.itemPayersEnabled && data.settlements.length === 1
+    ? data.settlements[0]
+    : data?.settlements.find((s) => s.id === selectedId);
   const proofUrl = data?.readOnly || (data?.requiresClaim && !data.canManage) ? null
     : selected?.payslipUrl ?? (!data?.bill.itemPayersEnabled ? data?.participant.payslipUrl : null);
   const qrRef = useRef<HTMLDivElement>(null);
@@ -344,7 +346,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
         <LiveStatus status={liveStatus} />
       </div>
       {claimPanel}
-      {data.bill.itemPayersEnabled && data.settlements.length > 0 && (
+      {data.bill.itemPayersEnabled && data.settlements.length > 1 && (
         <div className="payment-recipients" role="group" aria-label={t("payment.chooseRecipient")} aria-describedby={!canSelectPayment && guidedRecipientId ? "recipient-selection-guide" : undefined}>
           <p>{t("payment.recipientCountHint", [data.settlements.length])}</p>
           <div className="recipient-options">

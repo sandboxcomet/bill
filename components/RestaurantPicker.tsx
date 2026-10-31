@@ -1,5 +1,5 @@
 "use client";
-import { useId, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import { useI18n } from "./LanguageProvider";
 import { Icon } from "./Icons";
 import styles from "./RestaurantPicker.module.css";
@@ -15,7 +15,11 @@ export default function RestaurantPicker({ restaurants, value, index, disabled, 
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
+  const menu = useRef<HTMLDivElement>(null);
   const menuId = useId();
+  useLayoutEffect(() => {
+    if (mobile && open && !disabled) menu.current?.scrollIntoView({ block: "nearest" });
+  }, [mobile, open, disabled]);
   const selected = restaurants.find(restaurant => restaurant.id === value);
   const choices = [{ id: null, name: t("editor.noRestaurant") }, ...restaurants];
   return <div className={`${styles.picker}${mobile ? ` ${styles.mobile}` : ""}`} onBlur={event => {
@@ -31,7 +35,7 @@ export default function RestaurantPicker({ restaurants, value, index, disabled, 
         onClick={() => setOpen(current => !current)}>
         <span>{selected?.name ?? t("editor.noRestaurant")}</span><Icon name="chevron" size={16} />
       </button>
-      {open && !disabled && <div id={menuId} className={styles.menu} role="group" aria-label={t("editor.itemRestaurant")}>
+      {open && !disabled && <div ref={menu} id={menuId} className={styles.menu} role="group" aria-label={t("editor.itemRestaurant")}>
         {choices.map(choice => <button key={choice.id ?? "none"} type="button" className={styles.option}
           aria-pressed={(value ?? null) === choice.id} onClick={() => { onChange(choice.id); setOpen(false); trigger.current?.focus(); }}>
           <span>{choice.name}</span>{(value ?? null) === choice.id && <Icon name="check" size={16} />}
