@@ -59,8 +59,8 @@ const emptyItem = (): Item => ({
   quantity: 1,
   discountRate: "",
   isShared: true,
-  includeSC: true,
-  includeVat: true,
+  includeSC: false,
+  includeVat: false,
   consumers: [],
 });
 const initial: Draft = {
