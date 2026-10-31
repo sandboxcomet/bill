@@ -1522,7 +1522,6 @@ small {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
-  margin-bottom: 16px;
 }
 .unit-field {
   display: flex;
@@ -1591,7 +1590,26 @@ small {
 }
 @media (max-width: 520px) {
   .extras-grid {
-    grid-template-columns: 1fr;
+    grid-template-rows: auto 1fr;
+  }
+  .extras-grid > .field {
+    display: grid;
+    grid-template-rows: subgrid;
+    grid-row: span 2;
+  }
+  .extras-grid .unit-field {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+  .extras-grid .unit-field input {
+    flex: none;
+    min-height: 44px;
+  }
+  .extras-grid .unit-switch > button {
+    flex: 1;
+    min-width: 44px;
+    min-height: 44px;
   }
 }
 .summary-sidebar {

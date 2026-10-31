@@ -8,7 +8,9 @@ import { writeSettlementTransfers } from "./settlement-ledger";
 import { autoFriend } from "./social";
 import { isBillPin } from "@/lib/pin";
 import { ownsAccount, primaryProfile, resolvedProfileFields } from "./account-identity";
-import { participantPromptPay } from "./participant-promptpay";
+import { participantPromptPay, participantPromptPayFields } from "./participant-promptpay";
+
+const editorPayers = { participants: { where: { archived: false }, select: { id: true, accountUserId: true, ...participantPromptPayFields } } } as const;
 import { roundBillTotal, type BillRounding } from "@/lib/bill-rounding";
 
 export function money(value: unknown, field: string): Decimal {
@@ -70,7 +72,7 @@ export async function saveBill(id: string, userId: number, body: any) {
     // Closing a published link must not rewrite or revalidate its saved contents.
     if (bill.status === "PUBLISHED" && status === "UNSHARED" &&
       Object.keys(body).every(key => key === "version" || key === "status")) {
-      return tx.bill.update({ where: { id }, data: { status, version: { increment: 1 } } });
+      return tx.bill.update({ where: { id }, data: { status, version: { increment: 1 } }, include: editorPayers });
     }
     const editing =
       Array.isArray(body.items) || Array.isArray(body.participants);
@@ -225,10 +227,7 @@ export async function saveBill(id: string, userId: number, body: any) {
       if (requestedPayers !== null && requestedPayers !== undefined &&
           (!Array.isArray(requestedPayers) || requestedPayers.some(id => typeof id !== "string" || !ids.has(id)) || new Set(requestedPayers).size !== requestedPayers.length))
         throw new AccessError("Invalid bill payers", 409);
-      const payerCandidateIds = requestedPayers.length === 0 ? [] : [...new Set<string>([
-        ...((requestedPayers ?? []) as string[]),
-        ...items.flatMap((item: (typeof items)[number]) => item.payerId ? [item.payerId] : []),
-      ])];
+      const payerCandidateIds = requestedPayers as string[];
       const subtotal = items
         .reduce(
           (sum: Decimal, item: (typeof items)[number]) =>
@@ -347,6 +346,7 @@ export async function saveBill(id: string, userId: number, body: any) {
       throw new AccessError("Publish with complete bill data", 409);
     return tx.bill.update({
       where: { id },
+      include: editorPayers,
       data: {
         version: { increment: 1 },
         status,

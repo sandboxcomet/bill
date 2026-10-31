@@ -9,7 +9,7 @@ import { baht } from "@/lib/client";
 
 type Person = { id: string; name: string; promptPayId?: string | null; accountUserId?: number | null; username?: string; hasPromptPay?: boolean };
 
-export default function ItemPayer({ people, payerId, index, onSelect, onPromptPay, mode = "choice", paidUpfront }: {
+export default function ItemPayer({ people, payerId, index, onSelect, onPromptPay, mode = "choice", paidUpfront, accountPromptPayId }: {
   people: Person[];
   payerId?: string | null;
   index: number;
@@ -17,6 +17,7 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
   onPromptPay: (id: string, value: string) => void;
   mode?: "choice" | "recipient";
   paidUpfront?: string;
+  accountPromptPayId?: string | null;
 }) {
   const { t, feedback } = useI18n();
   const { data: session } = useSession();
@@ -86,18 +87,32 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
     </div>
   );
   if (!payer) return null;
+  const accountPending = Boolean(payer.accountUserId && payer.hasPromptPay && accountPromptPayId === undefined);
+  const accountNumber = payer.accountUserId ? accountPromptPayId : null;
+  const fallbackNumber = isPromptPayId(payer.promptPayId ?? "") ? payer.promptPayId : null;
   return (
     <div className="item-payer payer-recipient">
-      <div className="payer-recipient-name"><strong>{payer.name}</strong>{paidUpfront !== undefined && <span>{t("bill.paidUpfront")} <b>฿ {baht(paidUpfront)}</b></span>}</div>
-      {payer?.accountUserId && (payer.hasPromptPay || String(payer.accountUserId) === session?.user?.id) && <div className="field-hint account-payer-note">{payer.hasPromptPay && <><Icon name="shield" size={16} /><span>{t("social.accountPromptPay", [payer.name])}</span></>}{String(payer.accountUserId) === session?.user?.id && <Link href="/settings">{t("nav.accountSettings")}</Link>}</div>}
-      {payer && !(payer.accountUserId && payer.hasPromptPay) ? (
-        <button type="button" className="payer-promptpay-button"
-          aria-haspopup="dialog" aria-label={t("payer.promptPayActionLabel", [payer.promptPayId ? t("common.edit") : t("common.add"), payer.name])}
-          onClick={openPromptPay}>
-          <Icon name={payer.promptPayId ? "check" : "wallet"} size={16} />
-          {payer.promptPayId ? t("payer.editPromptPay") : t("payer.addPromptPay")}
-        </button>
-      ) : null}
+      <div className="payer-recipient-name">
+        <strong>{payer.name}</strong>
+        <div className="payer-recipient-details">
+          {paidUpfront !== undefined && <span className="payer-recipient-amount">{t("bill.paidUpfront")} <b>฿ {baht(paidUpfront)}</b></span>}
+          {accountPending ? <span className="payer-promptpay-number">{t("payer.loadingPromptPay")}</span> : accountNumber ? (
+            String(payer.accountUserId) === session?.user?.id
+              ? <Link className="payer-promptpay-number" href="/settings" aria-label={t("nav.accountSettings")}>PromptPay <bdi>{accountNumber}</bdi></Link>
+              : <span className="payer-promptpay-number">PromptPay <bdi>{accountNumber}</bdi></span>
+          ) : fallbackNumber ? (
+            <button type="button" className="payer-promptpay-number payer-promptpay-edit" aria-haspopup="dialog"
+              aria-label={t("payer.promptPayActionLabel", [t("common.edit"), payer.name])} onClick={openPromptPay}>
+              PromptPay <bdi>{fallbackNumber}</bdi> <Icon name="edit" size={14} />
+            </button>
+          ) : (
+            <button type="button" className="payer-promptpay-button" aria-haspopup="dialog"
+              aria-label={t("payer.promptPayActionLabel", [t("common.add"), payer.name])} onClick={openPromptPay}>
+              <Icon name="wallet" size={16} /> {t("payer.addPromptPay")}
+            </button>
+          )}
+        </div>
+      </div>
       <dialog ref={dialogRef} className="promptpay-dialog"
         aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`}
         onCancel={(event) => { event.preventDefault(); closePromptPay(); }}

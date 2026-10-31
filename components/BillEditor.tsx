@@ -41,6 +41,7 @@ type Draft = {
   isPublic: boolean;
   passcode: string;
 };
+type AccountPromptPay = { id: string; accountUserId: number; value: string | null };
 const uid = () => crypto.randomUUID();
 const emptyItem = (): Item => ({
   id: uid(),
@@ -117,10 +118,10 @@ export default function BillEditor({
   ).slice(0, 191);
   const router = useLocalizedRouter();
   const [draft, setDraft] = useState<Draft>(initial);
+  const [accountPromptPays, setAccountPromptPays] = useState<AccountPromptPay[]>([]);
   const latestDraft = useRef(draft);
   latestDraft.current = draft;
   const [restaurantName, setRestaurantName] = useState("");
-  const [payerChoiceError, setPayerChoiceError] = useState("");
   const [editingPerson, setEditingPerson] = useState<{ id: string; name: string } | null>(null);
   const [personEditDirty, setPersonEditDirty] = useState(false);
   const personEditRevision = useRef(0);
@@ -312,6 +313,7 @@ export default function BillEditor({
     request<any>(`/api/bills/${billId}`)
       .then(({ bill }) => {
         if (!active) return;
+        setAccountPromptPays(bill.participants.filter((p: Person) => p.accountUserId != null).map((p: Person & { accountPromptPayId?: string | null }) => ({ id: p.id, accountUserId: p.accountUserId!, value: p.accountPromptPayId ?? null })));
         version.current = bill.version;
         setBillStatus(bill.status);
         if (bill.status === "CANCELLED") {
@@ -326,7 +328,7 @@ export default function BillEditor({
           name: bill.name,
           restaurants: Array.isArray(bill.restaurants) ? bill.restaurants : [],
           itemPayersEnabled: bill.itemPayersEnabled,
-          participants: bill.participants.map((p: Person) => ({ ...p, accountName: p.accountUserId ? p.name : undefined, name: p.ownerAlias || p.name })),
+          participants: bill.participants.map(({ accountPromptPayId: _accountPromptPayId, ...p }: Person & { accountPromptPayId?: string | null }) => ({ ...p, accountName: p.accountUserId ? p.name : undefined, name: p.ownerAlias || p.name })),
           payerCandidateIds: Array.isArray(bill.payerCandidateIds) ? bill.payerCandidateIds : [],
           items: bill.items.map((i: any) => ({
             ...i,
@@ -630,14 +632,9 @@ export default function BillEditor({
     });
   }
   function togglePayerCandidate(id: string) {
-    if (draft.payerCandidateIds.length > 1 && draft.payerCandidateIds.includes(id) && draft.items.some(item => item.payerId === id)) {
-      setPayerChoiceError(t("editor.payerInUse"));
-      return;
-    }
-    setPayerChoiceError("");
     update({ payerCandidateIds: draft.payerCandidateIds.includes(id)
       ? draft.payerCandidateIds.filter(candidate => candidate !== id)
-      : [...new Set([...draft.payerCandidateIds, ...draft.items.flatMap(item => item.payerId ? [item.payerId] : []), id])] });
+      : [...draft.payerCandidateIds, id] });
   }
   async function savePersonName(close = false) {
     if (!editingPerson || aliasSaving) return;
@@ -762,7 +759,7 @@ export default function BillEditor({
           discountRate: i.discountRate.toString(),
         })),
       };
-      const saved = await request<{ version: number }>(`/api/bills/${id}`, {
+      const saved = await request<{ version: number; accountPromptPays: AccountPromptPay[] }>(`/api/bills/${id}`, {
         method: "PATCH",
         ...jsonBody(
           locked
@@ -777,6 +774,7 @@ export default function BillEditor({
         ),
       });
       version.current = saved.version;
+      setAccountPromptPays(saved.accountPromptPays);
       const unchanged = editRevision.current === revision;
       dirty.current = !unchanged;
       setSavedDirty(!unchanged);
@@ -1014,12 +1012,9 @@ export default function BillEditor({
                 <h3>{t("editor.whoCanPay")}</h3>
                 <p className="field-hint">{t("editor.whoCanPayHint")}</p>
                 <div className={styles.payerCandidateList} role="group" aria-label={t("editor.whoCanPay")}>
-                  <button type="button" className="allocation-chip" aria-pressed={draft.payerCandidateIds.length === 0}
-                    onClick={() => { setPayerChoiceError(""); update({ payerCandidateIds: [] }); }}>{t("editor.showAllPayers")}</button>
                   {draft.participants.map(person => <button key={person.id} type="button" className="allocation-chip"
                     aria-pressed={draft.payerCandidateIds.includes(person.id)} onClick={() => togglePayerCandidate(person.id)}>{person.name}</button>)}
                 </div>
-                {payerChoiceError && <p className="error" role="alert">{payerChoiceError}</p>}
               </div>}
             </fieldset>
           </section>
@@ -1041,7 +1036,10 @@ export default function BillEditor({
                 {draft.items.map((item, index) => {
                   const props: BillItemProps = {
                     item, index, total: net(calcItems[index]).toFixed(2), participants: draft.participants,
-                    payerCandidates, restaurants: draft.restaurants, itemPayersEnabled: draft.itemPayersEnabled,
+                    payerCandidates: draft.payerCandidateIds.length
+                      ? draft.participants.filter(person => draft.payerCandidateIds.includes(person.id) || person.id === item.payerId)
+                      : draft.participants,
+                    restaurants: draft.restaurants, itemPayersEnabled: draft.itemPayersEnabled,
                     locked, saving, allSelected: allParticipantsSelected(item),
                     onUpdate: (changes, immediate) => updateItem(item.id, changes, immediate),
                     onToggleParticipant: id => toggleParticipant(item, id),
@@ -1066,6 +1064,7 @@ export default function BillEditor({
                 <fieldset disabled={locked || saving}>
                 {selectedPayers.map((payer, index) => <ItemPayer key={payer.id} mode="recipient" people={draft.participants} payerId={payer.id} index={index}
                   paidUpfront={upfrontTotals.find(person => person.id === payer.id)?.paidUpfront.toFixed(2)}
+                  accountPromptPayId={accountPromptPays.find(p => p.id === payer.id && p.accountUserId === payer.accountUserId)?.value}
                   onSelect={() => {}} onPromptPay={(id, promptPayId) => update({ participants: draft.participants.map(p => p.id === id ? { ...p, promptPayId } : p) })} />)}
                 {hasMissingPayer && <div className={styles.unassignedPayer}>
                   <span>{t("payer.unassignedCount", [missingPayerCount])}</span>
@@ -1080,9 +1079,13 @@ export default function BillEditor({
             </div>
           </section>
           <section className="panel">
-            <div className="panel-heading">
+            <div className={`panel-heading ${styles.chargeHeading}`}>
               <h2>{t("editor.additionalCharges")}</h2>
-              <span className="muted">{t("common.optional")}</span>
+              <button type="button" className={`allocation-chip ${styles.vatIncludesSc}`}
+                disabled={locked || saving} aria-pressed={draft.vatIncludesSc}
+                onClick={() => update({ vatIncludesSc: !draft.vatIncludesSc })}>
+                {t("editor.includeServiceChargeInVAT")}
+              </button>
             </div>
             <fieldset disabled={locked || saving}>
               <div className="extras-grid">
@@ -1126,12 +1129,6 @@ export default function BillEditor({
                   </div>
                 ))}
               </div>
-              <label className="check-label">
-                <input
-                  type="checkbox"
-                  checked={draft.vatIncludesSc}
-                  onChange={(e) => update({ vatIncludesSc: e.target.checked })}
-                /> {t("editor.includeServiceChargeInVAT")} </label>
             </fieldset>
           </section>
         </div>

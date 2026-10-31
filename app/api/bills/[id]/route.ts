@@ -5,6 +5,7 @@ import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 import { ownsAccount, primaryProfile, participantDisplay } from "@/lib/server/account-identity";
 import { personFields, publicPerson } from "@/lib/server/social";
+import { accountPromptPay } from "@/lib/server/participant-promptpay";
 
 // GET /api/bills/[id] — load draft data
 export async function GET(
@@ -61,7 +62,7 @@ export async function GET(
       const account = person.accountUser ? primaryProfile(person.accountUser) : null;
       // Owner editor uses the account's current image, including merged profiles.
       return { ...p, canonicalAccountUserId: account?.id, username: account?.username ?? undefined, image: person.accountUser ? publicPerson(person.accountUser).image : null,
-        hasPromptPay: Boolean(account?.promptPayId) };
+        hasPromptPay: Boolean(accountPromptPay(person)), accountPromptPayId: accountPromptPay(person) };
     }), hasPaymentEvidence: evidenceCount > 0 } },
     { headers: { "Cache-Control": "private, no-store" } },
   );
@@ -80,7 +81,10 @@ export async function PATCH(
       billId: id,
       version: bill.version,
       status: bill.status,
-    });
+      accountPromptPays: bill.participants.filter(person => person.accountUserId !== null).map(person => ({
+        id: person.id, accountUserId: person.accountUserId, value: accountPromptPay(person),
+      })),
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     return accessErrorResponse(error);
   }

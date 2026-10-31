@@ -13,8 +13,14 @@ type Receiver = {
 
 // The linked recipient controls their number. Keep the creator's saved number
 // as a fallback so linking an account without PromptPay never clears it.
-export function participantPromptPay(person: Receiver): string | null {
+export function accountPromptPay(person: Receiver): string | null {
   const accountNumber = person.accountUser ? primaryProfile(person.accountUser).promptPayId : null;
   if (typeof accountNumber === "string" && isPromptPayId(accountNumber)) return accountNumber;
+  return null;
+}
+
+export function participantPromptPay(person: Receiver): string | null {
+  const accountNumber = accountPromptPay(person);
+  if (accountNumber) return accountNumber;
   return typeof person.promptPayId === "string" && isPromptPayId(person.promptPayId) ? person.promptPayId : null;
 }
