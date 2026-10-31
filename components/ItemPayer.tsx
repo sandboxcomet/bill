@@ -8,12 +8,13 @@ import { useSession } from "next-auth/react";
 
 type Person = { id: string; name: string; promptPayId?: string | null; accountUserId?: number | null; username?: string; hasPromptPay?: boolean };
 
-export default function ItemPayer({ people, payerId, index, onSelect, onPromptPay }: {
+export default function ItemPayer({ people, payerId, index, onSelect, onPromptPay, mode = "choice" }: {
   people: Person[];
   payerId?: string | null;
   index: number;
   onSelect: (id: string) => void;
   onPromptPay: (id: string, value: string) => void;
+  mode?: "choice" | "recipient";
 }) {
   const { t, feedback } = useI18n();
   const { data: session } = useSession();
@@ -37,6 +38,11 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
       inputRef.current?.select();
     }
   }, [editingPerson]);
+  useEffect(() => {
+    if (!editingPerson || (value && !isPromptPayId(value)) || value === (editingPerson.promptPayId ?? "")) return;
+    const timer = setTimeout(() => onPromptPay(editingPerson.id, value), 1000);
+    return () => clearTimeout(timer);
+  }, [editingPerson, value, onPromptPay]);
   function openPromptPay() {
     if (!payer) return;
     setValue(payer.promptPayId ?? "");
@@ -44,6 +50,12 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
     setEditingId(payer.id);
   }
   function closePromptPay() {
+    if (editingPerson && value && !isPromptPayId(value)) {
+      setError(t("errors.promptPayFormat"));
+      inputRef.current?.focus();
+      return;
+    }
+    if (editingPerson && value !== (editingPerson.promptPayId ?? "")) onPromptPay(editingPerson.id, value);
     dialogRef.current?.close();
     setEditingId(null);
     setError("");
@@ -56,23 +68,25 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
       inputRef.current?.focus();
       return;
     }
-    onPromptPay(editingPerson.id, value);
     closePromptPay();
   }
-  return (
+  if (mode === "choice") return (
     <div className="item-payer">
       <div className="payer-choice" role="group" aria-label={t("payer.itemPayerLabel", [index + 1])}>
         <span className="payer-label">{t("bill.paidBy")}</span>
         <div className="allocation-chips">
-          {people.map((p) => (
-            <button key={p.id} type="button" className="allocation-chip"
-              aria-pressed={p.id === payerId} onClick={() => onSelect(p.id)}>
-              {p.name}
-            </button>
-          ))}
+          {people.map((p) => <button key={p.id} type="button" className="allocation-chip"
+            aria-pressed={p.id === payerId} onClick={() => onSelect(p.id)}>{p.name}</button>)}
           {!people.length && <span className="field-hint">{t("payer.addParticipantsBeforeChoosingWhoPaid")}</span>}
         </div>
       </div>
+      {!payer && people.length > 0 && <p className="field-hint">{t("payer.itemPayerHint")}</p>}
+    </div>
+  );
+  if (!payer) return null;
+  return (
+    <div className="item-payer payer-recipient">
+      <strong>{payer.name}</strong>
       {payer?.accountUserId && <div className="field-hint account-payer-note"><Icon name="shield" size={16} /><span>{t(payer.hasPromptPay ? "social.accountPromptPay" : "social.accountPromptPayMissing", [payer.name])}</span>{String(payer.accountUserId) === session?.user?.id && <Link href="/settings">{t("nav.accountSettings")}</Link>}</div>}
       {payer && !(payer.accountUserId && payer.hasPromptPay) ? (
         <button type="button" className="payer-promptpay-button"
@@ -81,9 +95,10 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
           <Icon name={payer.promptPayId ? "check" : "wallet"} size={16} />
           {payer.promptPayId ? t("payer.editPromptPay") : t("payer.addPromptPay")}
         </button>
-      ) : !payer && people.length > 0 && <p className="field-hint">{t("payer.itemPayerHint")}</p>}
+      ) : null}
       <dialog ref={dialogRef} className="promptpay-dialog"
         aria-labelledby={`${id}-title`} aria-describedby={`${id}-description`}
+        onCancel={(event) => { event.preventDefault(); closePromptPay(); }}
         onClose={() => { setEditingId(null); setError(""); }}
         onClick={(event) => { if (event.target === event.currentTarget) closePromptPay(); }}>
         <form className="promptpay-dialog-content" onSubmit={savePromptPay}>
@@ -104,8 +119,7 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
           </label>
           {error && <p id={`${id}-error`} className="error" role="alert">{feedback(error)}</p>}
           <div className="promptpay-dialog-actions">
-            <button type="button" className="button secondary" onClick={closePromptPay}>{t("common.cancel")}</button>
-            <button type="submit" className="button primary">{t("payer.savePromptPay")}</button>
+            <button type="submit" className="button primary">{t("common.done")}</button>
           </div>
         </form>
       </dialog>

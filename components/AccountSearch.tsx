@@ -44,7 +44,7 @@ export default function AccountSearch({ onSelect, onChanged, disabled = false }:
     {searched && !result && <p className="field-hint" role="status">{t("social.personNotFound")}</p>}
     {result && <div className="social-person-row">
       <span className="avatar small social-avatar" aria-hidden="true">{nameInitial(result.name)}{result.image && <img src={result.image} alt="" referrerPolicy="no-referrer" onError={e => { e.currentTarget.hidden = true; }} />}</span>
-      <div className="social-person-info"><strong>{result.name}</strong><small>@{result.username}</small>
+      <div className="social-person-info"><strong>{result.ownerAlias || result.name}</strong><small>{result.ownerAlias && result.ownerAlias !== result.name ? `${result.name} · ` : ""}@{result.username}</small>
         <span className="field-hint">{result.relationship === "FRIEND" ? t("social.friendsStatus") : result.relationship === "PENDING_SENT" ? t("social.pendingSent") : result.relationship === "PENDING_RECEIVED" ? t("social.pendingReceived") : t("social.notFriends")}</span>
       </div>
       {onSelect ? <button type="button" className="button secondary" disabled={busy || disabled} onClick={() => { onSelect(result); setResult(null); setQuery(""); setSearched(false); }}>{t("social.selectPerson")}</button>

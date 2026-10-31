@@ -4,11 +4,13 @@ import { AccessError } from "./authorization";
 import { isPromptPayId } from "@/lib/settlements";
 import { primaryProfile, resolvedProfileFields } from "./account-identity";
 
-export const personFields = resolvedProfileFields;
-type PersonProfile = { id: number; username: string | null; name: string | null; nickname: string | null; image: string | null; promptPayId: string | null };
+const providerFields = { accounts: { where: { provider: "google" }, select: { provider: true } } } as const;
+export const personFields = { ...resolvedProfileFields, ...providerFields,
+  mergedInto: { select: { ...resolvedProfileFields.mergedInto.select, ...providerFields } } } as const;
+type PersonProfile = { id: number; username: string | null; name: string | null; nickname: string | null; image: string | null; promptPayId: string | null; accounts: { provider: string }[] };
 export function publicPerson(input: PersonProfile & { mergedInto?: PersonProfile | null }) {
   const user = primaryProfile(input);
-  return { id: user.id, username: user.username ?? "", name: user.nickname || user.name || user.username || "", image: user.image,
+  return { id: user.id, username: user.username ?? "", name: user.nickname || user.name || user.username || "", image: user.image || (user.accounts.some(account => account.provider === "google") ? "/google-avatar.svg" : null),
     hasPromptPay: Boolean(user.promptPayId && isPromptPayId(user.promptPayId)) };
 }
 export async function autoFriend(tx: Prisma.TransactionClient, ownerId: number, memberIds: number[], source: "BILL" | "GROUP") {

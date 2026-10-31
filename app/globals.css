@@ -1017,6 +1017,13 @@ small {
 .chip-remove:hover {
   color: var(--danger);
 }
+.person-edit { border: 0; background: none; color: var(--ink); font: inherit; text-align: start; min-width: 0; min-height: 44px; padding: 0 2px; overflow-wrap: anywhere; }
+.person-edit-hint { margin: -8px 0 12px; }
+.person-chip-editing { border-color: var(--green); background: var(--green-soft); }
+.person-name-editor { margin: 0 0 16px; max-width: 480px; padding: 16px; border-radius: var(--radius); background: var(--green-soft); }
+.person-name-editor .field > span { color: var(--ink); font-size: var(--text-body); font-weight: 700; overflow-wrap: anywhere; }
+.person-name-editor .field > span small { color: var(--muted); font-size: var(--text-support); font-weight: 400; }
+.person-name-actions { display: flex; gap: 12px; align-items: center; margin-top: 8px; }
 .editor-item {
   position: relative;
   padding: 0 0 19px 28px;
@@ -1045,6 +1052,15 @@ small {
   font-size: var(--text-body);
   padding: 9px;
 }
+.restaurant-add { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; }
+.restaurant-add .field { flex: 1 1 200px; }
+.restaurant-options { margin-top: 16px; }
+.restaurant-options summary { min-height: 44px; display: flex; align-items: center; color: var(--green); font-weight: 600; cursor: pointer; }
+.restaurant-options summary::before { content: "+"; margin-inline-end: 8px; font-size: 1.25em; }
+.restaurant-options details[open] summary::before { content: "−"; }
+.restaurant-options .field-hint { margin: 0 0 12px; }
+.item-restaurant { margin-top: 12px; max-width: 320px; }
+.receipt-item-restaurant { display: block; color: var(--muted); font-weight: 400; overflow-wrap: anywhere; }
 .remove-item {
   min-width: 27px;
   min-height: 44px;

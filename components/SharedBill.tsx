@@ -23,6 +23,7 @@ import InstagramBrowserNotice from "./InstagramBrowserNotice";
 type Bill = {
   id: string;
   name: string;
+  restaurants: { id: string; name: string }[] | null;
   userId: number;
   canManage?: boolean;
   grandTotal: string;
@@ -51,6 +52,7 @@ type Bill = {
   items: {
     id: string;
     name: string;
+    restaurantId: string | null;
     price: string;
     quantity: number;
     discountRate: string;
@@ -316,6 +318,7 @@ export default function SharedBill({ id }: { id: string }) {
             <div className="share-item-line receipt-item-row" key={i.id}>
               <div className="receipt-item-name">
                 {i.name} × {i.quantity}
+                {i.restaurantId && <small className="receipt-item-restaurant">{bill.restaurants?.find(restaurant => restaurant.id === i.restaurantId)?.name}</small>}
               </div>
               <div className="receipt-item-amount"><b>
                 {baht(

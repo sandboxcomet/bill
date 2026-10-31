@@ -27,7 +27,9 @@ export async function POST(req: Request) {
       { highUserId: { in: ownIds }, lowUserId: { in: otherIds } },
     ], status: { in: ["ACCEPTED", "PENDING"] } } });
     const relationship = relationships.find(row => row.status === "ACCEPTED") ?? relationships[0];
-    return { person: { ...resolved, relationship: relationship?.status === "ACCEPTED" ? "FRIEND"
+    const aliases = await prisma.$queryRaw<{ name: string | null }[]>`
+      SELECT name FROM personal_aliases WHERE owner_id = ${userId} AND target_id = ${resolved.id}`;
+    return { person: { ...resolved, ownerAlias: aliases[0]?.name ?? null, relationship: relationship?.status === "ACCEPTED" ? "FRIEND"
       : relationship?.status === "PENDING" ? ownIds.includes(relationship.requesterId) ? "PENDING_SENT" : "PENDING_RECEIVED" : "NONE" } };
   });
 }

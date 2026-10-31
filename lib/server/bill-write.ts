@@ -103,6 +103,15 @@ export async function saveBill(id: string, userId: number, body: any) {
         body.participants.length > 100
       )
         throw new AccessError("Invalid bill contents", 409);
+      const restaurants = body.restaurants ?? [];
+      if (!Array.isArray(restaurants) || restaurants.length > 100)
+        throw new AccessError("Invalid restaurants", 409);
+      const normalizedRestaurants = restaurants.map((r: any) => ({
+        id: identity(r.id), name: label(r.name, "restaurant"),
+      }));
+      const restaurantIds = new Set<string>(normalizedRestaurants.map((r: { id: string }) => r.id));
+      if (restaurantIds.size !== normalizedRestaurants.length)
+        throw new AccessError("Duplicate restaurant ID", 409);
       const linkedIds: number[] = body.participants.flatMap((p: any) => {
         if (p.accountUserId == null) return [];
         if (!Number.isSafeInteger(p.accountUserId) || p.accountUserId <= 0) throw new AccessError("social.invalidMembers", 409);
@@ -147,6 +156,9 @@ export async function saveBill(id: string, userId: number, body: any) {
       });
       if (foreign) throw new AccessError("Participant belongs to another bill");
       const items = body.items.map((i: any) => {
+        const restaurantId = i.restaurantId || null;
+        if (restaurantId !== null && !restaurantIds.has(restaurantId))
+          throw new AccessError("Invalid item restaurant", 409);
         const price = money(i.price ?? 0, "price");
         const discountRate = new Decimal(i.discountRate ?? 0);
         if (
@@ -193,6 +205,7 @@ export async function saveBill(id: string, userId: number, body: any) {
         if (itemPayersEnabled && status === "PUBLISHED" && !payerId)
           throw new AccessError("เลือกคนออกเงินให้ครบทุกรายการ", 409);
         return {
+          restaurantId,
           payerId,
           id: typeof i.id === "string" ? i.id : "",
           name: label(i.name, "item", status === "DRAFT"),
@@ -277,6 +290,7 @@ export async function saveBill(id: string, userId: number, body: any) {
         await tx.billItem.create({
           data: {
             billId: id,
+            restaurantId: item.restaurantId,
             payerId: item.payerId,
             name: item.name,
             price: item.price.toFixed(2),
@@ -295,6 +309,7 @@ export async function saveBill(id: string, userId: number, body: any) {
         where: { id },
         data: {
           itemPayersEnabled,
+          restaurants: normalizedRestaurants,
           receiptSubtotal: subtotal.toFixed(2),
           grandTotal: total.toFixed(2),
           totalDiscount: 0,

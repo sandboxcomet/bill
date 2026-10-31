@@ -16,6 +16,7 @@ const paths = {
   ),
   chevron: <path d="m6 9 6 6 6-6" />,
   plus: <path d="M12 5v14M5 12h14" />,
+  edit: <><path d="m4 20 4.2-.8L19 8.4a2.1 2.1 0 0 0-3-3L5.2 16.2 4 20Z" /><path d="m14.5 6.9 2.6 2.6" /></>,
   arrow: <path d="m9 5 7 7-7 7M4 12h12" />,
   back: <path d="m14 5-7 7 7 7M7 12h13" />,
   check: <path d="m5 12 4 4L19 6" />,
@@ -31,6 +32,7 @@ const paths = {
       <path d="M3 21v-3a6 6 0 0 1 12 0v3M16 5a3 3 0 0 1 0 6M18 15a5 5 0 0 1 3 5" />
     </>
   ),
+  account: <><circle cx="9" cy="8" r="3" /><path d="M3 20v-2a6 6 0 0 1 9-5.2M15 17l2 2 4-4" /></>,
   link: (
     <>
       <path

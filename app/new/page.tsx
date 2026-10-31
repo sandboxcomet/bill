@@ -37,7 +37,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<Que
     const person = publicPerson(p.accountUser);
     if (seen.has(person.id)) return [];
     seen.add(person.id);
-    return [{ name: person.name, accountUserId: person.id, username: person.username, hasPromptPay: person.hasPromptPay }];
+    return [{ name: person.name, accountUserId: person.id, image: person.image, username: person.username, hasPromptPay: person.hasPromptPay }];
   });
   return <BillEditor key={sourceId} repeatGroup={{ sourceId, names: [], people }} />;
 }

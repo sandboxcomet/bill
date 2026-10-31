@@ -8,12 +8,13 @@ import Link from "./LocalizedLink";
 import { Icon } from "./Icons";
 
 type Choice = { key: string; label: string; detail?: string; run: () => void };
-export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedAccountIds, allowAccounts = true }: {
+export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedAccountIds, allowAccounts = true, aliases = [] }: {
   onAdd: (people: AccountPerson[]) => boolean;
   onAddName: (name: string) => boolean;
   disabled: boolean;
   selectedAccountIds: number[];
   allowAccounts?: boolean;
+  aliases?: AccountPerson[];
 }) {
   const { t, feedback } = useI18n();
   const listId = useId();
@@ -71,7 +72,8 @@ export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedA
   const matches = (name: string) => name.toLocaleLowerCase().includes(filter);
   const canSearch = allowAccounts && (isUsername(normalizeUsername(value)) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
   const accountQuery = value.includes("@");
-  const availableFriends = friends.filter(friend => !selectedAccountIds.includes(friend.id) && (matches(friend.name) || matches(`@${friend.username}`)));
+  const knownPeople = [...new Map([...friends, ...aliases].map(person => [person.id, person])).values()];
+  const availableFriends = knownPeople.filter(friend => !selectedAccountIds.includes(friend.id) && (matches(friend.name) || matches(friend.ownerAlias || "") || matches(`@${friend.username}`)));
   const availableGroups = groups.filter(group => group.members.some(member => !selectedAccountIds.includes(member.id)) && matches(group.name));
   const knownFriend = friends.find(friend => friend.username === normalizeUsername(value));
   const expanded = open && !disabled;
@@ -104,7 +106,7 @@ export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedA
     return () => { clearTimeout(timer); controller.abort(); };
   }, [expanded, canSearch, composing, knownFriend, query, value, searchAttempt]);
   const choices: Choice[] = [
-    ...availableFriends.map(friend => ({ key: `friend-${friend.id}`, label: friend.name, detail: `@${friend.username}`, run: () => addAccounts([friend]) })),
+    ...availableFriends.map(friend => ({ key: `friend-${friend.id}`, label: friend.ownerAlias || friend.name, detail: `@${friend.username}`, run: () => addAccounts([friend]) })),
     ...availableGroups.map(group => ({ key: `group-${group.id}`, label: group.name, detail: t("social.groupPeople", [group.members.filter(member => !selectedAccountIds.includes(member.id)).length]), run: () => addAccounts(group.members) })),
   ];
   if (person && !selectedAccountIds.includes(person.id) && !availableFriends.some(friend => friend.id === person.id))

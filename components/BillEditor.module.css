@@ -1,0 +1,10 @@
+.personAvatar { display: inline-flex; position: relative; flex-shrink: 0; }
+.personChip { position: relative; }
+.restaurantLegend { color: var(--muted); font-size: var(--text-support); font-weight: 600; margin-bottom: 8px; padding: 0; }
+.itemMeta { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.itemMeta :global(.item-payer) { flex: 1 1 300px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.payerRecipients { margin: 20px 0; padding-top: 16px; border-top: 1px solid var(--line); }
+.payerRecipients h3 { font-size: var(--text-body); margin: 0 0 4px; }
+.payerRecipients > p { margin: 0; }
+.payerRecipients :global(.payer-recipient) { margin-top: 8px; padding: 8px 0; border-top: 0; }
+.payerRecipients :global(.account-payer-note) { flex: 1 1 260px; margin: 0; }

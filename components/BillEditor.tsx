@@ -16,9 +16,11 @@ import { calculateSettlements, isPromptPayId } from "@/lib/settlements";
 import PartsHelp from "./PartsHelp";
 import PinInput from "./PinInput";
 import BillPeoplePicker from "./BillPeoplePicker";
+import RestaurantPicker from "./RestaurantPicker";
 import type { AccountPerson } from "@/lib/social";
 import { isBillPin } from "@/lib/pin";
-type Person = { id: string; name: string; isPayer: boolean; promptPayId?: string | null; accountUserId?: number | null; canonicalAccountUserId?: number; username?: string; hasPromptPay?: boolean };
+import styles from "./BillEditor.module.css";
+type Person = { id: string; name: string; isPayer: boolean; ownerAlias?: string | null; accountName?: string; image?: string | null; promptPayId?: string | null; accountUserId?: number | null; canonicalAccountUserId?: number; username?: string; hasPromptPay?: boolean };
 type Item = {
   id: string;
   name: string;
@@ -31,9 +33,11 @@ type Item = {
   consumers: string[];
   consumerQuantities?: Record<string, number>;
   payerId?: string | null;
+  restaurantId?: string | null;
 };
 type Draft = {
   name: string;
+  restaurants: { id: string; name: string }[];
   participants: Person[];
   creatorInitialized?: boolean;
   creatorParticipantId?: string;
@@ -61,6 +65,7 @@ const emptyItem = (): Item => ({
 });
 const initial: Draft = {
   name: "",
+  restaurants: [],
   itemPayersEnabled: true,
   participants: [],
   items: [],
@@ -119,7 +124,49 @@ export default function BillEditor({
   ).slice(0, 191);
   const router = useLocalizedRouter();
   const [draft, setDraft] = useState<Draft>(initial);
+  const latestDraft = useRef(draft);
+  latestDraft.current = draft;
+  const [restaurantName, setRestaurantName] = useState("");
+  const [editingPerson, setEditingPerson] = useState<{ id: string; name: string } | null>(null);
+  const [personEditDirty, setPersonEditDirty] = useState(false);
+  const personEditRevision = useRef(0);
+  const [personalAliases, setPersonalAliases] = useState<AccountPerson[]>([]);
+  const [aliasesLoaded, setAliasesLoaded] = useState(false);
+  const [aliasSaving, setAliasSaving] = useState(false);
+  const [aliasError, setAliasError] = useState("");
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [autoSaveError, setAutoSaveError] = useState("");
   const [loaded, setLoaded] = useState(false);
+  useEffect(() => {
+    if (demo || status !== "authenticated") return;
+    let active = true;
+    request<{ aliases: AccountPerson[] }>("/api/people/aliases").then(result => {
+      if (active) { setPersonalAliases(result.aliases); setAliasesLoaded(true); }
+    }).catch(() => { if (active) setError(t("editor.aliasLoadFailed")); });
+    return () => { active = false; };
+  }, [demo, status, t]);
+  useEffect(() => {
+    if (!loaded || !aliasesLoaded) return;
+    setDraft(current => ({ ...current, participants: current.participants.map(person => {
+      const alias = personalAliases.find(a => a.id === (person.canonicalAccountUserId ?? person.accountUserId));
+      if (!alias) return person.accountUserId && person.accountName ? { ...person, name: person.accountName, ownerAlias: null } : person;
+      return { ...person, accountName: person.accountName ?? person.name, ownerAlias: alias.ownerAlias, name: alias.ownerAlias || person.name };
+    }) }));
+  }, [loaded, personalAliases, aliasesLoaded]);
+  useEffect(() => {
+    if (!loaded || demo || status !== "authenticated") return;
+    let active = true;
+    request<{ friends: { person: AccountPerson }[] }>("/api/friends").then(({ friends }) => {
+      if (!active) return;
+      const profiles = new Map(friends.map(({ person }) => [person.id, person]));
+      setDraft(current => ({ ...current, participants: current.participants.map(person => {
+        const profile = profiles.get(person.canonicalAccountUserId ?? person.accountUserId ?? 0);
+        const image = profile ? profile.image : person.accountUserId === Number(session?.user?.id) ? session?.user?.image || (session?.user?.loginProvider === "google" ? "/google-avatar.svg" : null) : person.image;
+        return image === person.image ? person : { ...person, image };
+      }) }));
+    }).catch(() => {});
+    return () => { active = false; };
+  }, [loaded, demo, status, session?.user?.id, session?.user?.image, session?.user?.loginProvider]);
   const [loadedDraftKey, setLoadedDraftKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(Boolean(billId));
   const [error, setError] = useState("");
@@ -135,6 +182,9 @@ export default function BillEditor({
   const idRef = useRef(billId);
   const saveGuard = useRef(false);
   const dirty = useRef(false);
+  const editRevision = useRef(0);
+  const pendingPersonEdit = useRef(false);
+  pendingPersonEdit.current = personEditDirty || aliasSaving;
   const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     if (demo) {
@@ -153,11 +203,12 @@ export default function BillEditor({
       id: uid(),
       name: creatorName,
       isPayer: false,
+      image: session?.user?.image || (session?.user?.loginProvider === "google" ? "/google-avatar.svg" : null),
       accountUserId: Number(session?.user?.id),
       username: session?.user?.username ?? undefined,
     });
     const freshDraft = (): Draft => {
-      const people: Person[] = repeatGroup?.people?.map(p => ({ ...p, id: uid(), isPayer: false })) ?? repeatGroup?.members?.map(p => ({ id: uid(), name: p.name, isPayer: false, accountUserId: p.id, username: p.username, hasPromptPay: p.hasPromptPay }))
+      const people: Person[] = repeatGroup?.people?.map(p => ({ ...p, id: uid(), isPayer: false })) ?? repeatGroup?.members?.map(p => ({ id: uid(), name: p.name, isPayer: false, accountUserId: p.id, image: p.image, username: p.username, hasPromptPay: p.hasPromptPay }))
         ?? repeatGroup?.names.map(name => ({ id: uid(), name, isPayer: false })) ?? [];
       let person = people.find(p => p.accountUserId === Number(session?.user?.id)) ?? people.find(p => !p.accountUserId && p.name === creatorName);
       if (person) { person.accountUserId = Number(session?.user?.id); person.username = session?.user?.username ?? undefined; }
@@ -168,12 +219,20 @@ export default function BillEditor({
     try {
       const stored = localStorage.getItem(draftKey);
       const parsed = stored ? JSON.parse(stored) : null;
+      if (parsed?.serverBillId && !parsed?.synced) {
+        idRef.current = parsed.serverBillId;
+        version.current = parsed.serverVersion ?? 0;
+        dirty.current = true;
+        editRevision.current++;
+        setSavedDirty(true);
+      }
       const restored: Draft =
-        parsed &&
+        parsed && !parsed.synced &&
         Array.isArray(parsed.items) &&
         Array.isArray(parsed.participants)
           ? {
               ...parsed,
+              restaurants: Array.isArray(parsed.restaurants) ? parsed.restaurants : [],
               itemPayersEnabled: parsed.itemPayersEnabled === true,
               serviceChargeValue: optionalNumberInput(parsed.serviceChargeValue),
               vatValue: optionalNumberInput(parsed.vatValue),
@@ -246,8 +305,9 @@ export default function BillEditor({
         );
         setDraft({
           name: bill.name,
+          restaurants: Array.isArray(bill.restaurants) ? bill.restaurants : [],
           itemPayersEnabled: bill.itemPayersEnabled,
-          participants: bill.participants,
+          participants: bill.participants.map((p: Person) => ({ ...p, accountName: p.accountUserId ? p.name : undefined, name: p.ownerAlias || p.name })),
           items: bill.items.map((i: any) => ({
             ...i,
             id: i.id,
@@ -311,7 +371,7 @@ export default function BillEditor({
     )
       return;
     try {
-      localStorage.setItem(draftKey, JSON.stringify(draft));
+      localStorage.setItem(draftKey, JSON.stringify({ ...draft, serverBillId: idRef.current, serverVersion: version.current, synced: false }));
     } catch {
       setNotice(
         t("errors.draftStorageUnavailable"),
@@ -320,7 +380,7 @@ export default function BillEditor({
   }, [draft, loaded, billId, demo, draftKey, loadedDraftKey, status]);
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
-      if (dirty.current && idRef.current) {
+      if (dirty.current || pendingPersonEdit.current) {
         e.preventDefault();
         e.returnValue = "";
       }
@@ -330,7 +390,9 @@ export default function BillEditor({
   }, []);
   function update(data: Partial<Draft>) {
     dirty.current = true;
+    editRevision.current++;
     setSavedDirty(true);
+    setAutoSaveError("");
     setNotice("");
     setDraft((d) => ({ ...d, ...data }));
   }
@@ -424,6 +486,7 @@ export default function BillEditor({
     serviceCharge: sc, vat, grandTotal: total,
   }) : null;
   const hasMissingPayer = draft.itemPayersEnabled && draft.items.some((i) => !draft.participants.some((p) => p.id === i.payerId));
+  const selectedPayers = draft.participants.filter(p => draft.items.some(item => item.payerId === p.id));
   const hasUnassigned = draft.items.some(
     (i) =>
       !i.isShared &&
@@ -431,6 +494,7 @@ export default function BillEditor({
         ? Object.values(i.consumerQuantities).some((q) => q > 0)
         : i.consumers.length),
   );
+  const editingTarget = editingPerson ? draft.participants.find(p => p.id === editingPerson.id) : undefined;
   const addPerson = (value: string) => {
     const name = value.trim();
     if (!name) return false;
@@ -447,13 +511,14 @@ export default function BillEditor({
     return true;
   };
   function addAccounts(people: AccountPerson[]) {
+    people = people.map(person => ({ ...person, ownerAlias: personalAliases.find(alias => alias.id === person.id)?.ownerAlias ?? person.ownerAlias }));
     const additions = [...new Map(people.map(p => [p.id, p])).values()].filter(p => !draft.participants.some(existing => (existing.canonicalAccountUserId ?? existing.accountUserId) === p.id));
     if (draft.participants.length + additions.length > 100) { setError(t("errors.participantLimit")); return false; }
     update({ participants: [...draft.participants.map(existing => {
       const account = people.find(p => p.id === (existing.canonicalAccountUserId ?? existing.accountUserId));
-      return account ? { ...existing, name: account.name, username: account.username, hasPromptPay: account.hasPromptPay } : existing;
-    }), ...additions.map(p => ({ id: uid(), name: p.name, isPayer: false,
-      accountUserId: p.id, username: p.username, hasPromptPay: p.hasPromptPay }))] });
+      return account ? { ...existing, accountName: account.name, ownerAlias: account.ownerAlias ?? existing.ownerAlias, name: account.ownerAlias || existing.ownerAlias || account.name, image: account.image, username: account.username, hasPromptPay: account.hasPromptPay } : existing;
+    }), ...additions.map(p => ({ id: uid(), name: p.ownerAlias || p.name, isPayer: false,
+      accountUserId: p.id, accountName: p.name, ownerAlias: p.ownerAlias, image: p.image, username: p.username, hasPromptPay: p.hasPromptPay }))] });
     return true;
   }
   const canAddSelf = !demo && status === "authenticated" && Boolean(session?.user?.username) &&
@@ -464,7 +529,7 @@ export default function BillEditor({
       id: Number(session.user.id),
       name: creatorName,
       username: session.user.username,
-      image: session.user.image ?? null,
+      image: session.user.image || (session.user.loginProvider === "google" ? "/google-avatar.svg" : null),
       hasPromptPay: profilePromptPay?.userId === session.user.id && Boolean(profilePromptPay.value),
     }]);
   }
@@ -483,15 +548,46 @@ export default function BillEditor({
       })),
     });
   }
-  async function save(publish = false) {
+  async function savePersonName(close = false) {
+    if (!editingPerson || aliasSaving) return;
+    const person = latestDraft.current.participants.find(p => p.id === editingPerson.id);
+    const name = editingPerson.name.trim();
+    if (!person || (!person.accountUserId && !name)) return;
+    const revision = personEditRevision.current;
+    setAliasSaving(true);
+    try {
+      if (person.accountUserId && !demo) {
+        const targetId = person.canonicalAccountUserId ?? person.accountUserId;
+        await request("/api/people/aliases", { method: "PUT", ...jsonBody({ targetId, name }) });
+        setPersonalAliases(previous => [...previous.filter(a => a.id !== targetId), ...(name ? [{ id: targetId, name: person.accountName ?? person.name, username: person.username ?? "", image: person.image ?? null, hasPromptPay: !!person.hasPromptPay, ownerAlias: name }] : [])]);
+      }
+      if (person.accountUserId) {
+        setDraft(current => ({ ...current, participants: current.participants.map(p => p.id !== person.id ? p :
+          { ...p, accountName: p.accountName ?? p.name, ownerAlias: name || null, name: name || p.accountName || p.name }) }));
+      } else {
+        update({ participants: latestDraft.current.participants.map(p => p.id === person.id ? { ...p, name } : p) });
+      }
+      if (personEditRevision.current === revision) {
+        setPersonEditDirty(false);
+        if (close) setEditingPerson(null);
+      }
+      setAliasError("");
+    } catch (e) { setAliasError((e as Error).message); }
+    finally { setAliasSaving(false); }
+  }
+  async function save(publish = false, automatic = false) {
     if (saveGuard.current || demo) return;
     setError("");
     setNotice("");
+    if (editingPerson && (personEditDirty || aliasSaving)) {
+      setError(t("editor.finishEditingPerson"));
+      return;
+    }
     if (!loaded) {
       setError(t("errors.billNotLoaded"));
       return;
     }
-    if (!draft.name.trim()) {
+    if (!draft.name.trim() && (publish || billStatus !== "DRAFT")) {
       setError(t("errors.billNameRequired"));
       return;
     }
@@ -546,10 +642,14 @@ export default function BillEditor({
       return;
     }
     saveGuard.current = true;
-    setSaving(true);
+    const revision = editRevision.current;
+    if (automatic) setAutoSaving(true); else setSaving(true);
     try {
       const id = idRef.current ?? (await createDraftBill());
       idRef.current = id;
+      if (!billId && draftKey) {
+        try { localStorage.setItem(draftKey, JSON.stringify({ ...latestDraft.current, serverBillId: id, serverVersion: version.current, synced: false })); } catch {}
+      }
       if (!draft.itemPayersEnabled && promptPay)
         await request("/api/profile", {
           method: "PATCH",
@@ -586,26 +686,31 @@ export default function BillEditor({
         ),
       });
       version.current = saved.version;
-      dirty.current = false;
-      setSavedDirty(false);
+      const unchanged = editRevision.current === revision;
+      dirty.current = !unchanged;
+      setSavedDirty(!unchanged);
       if (!billId && draftKey)
         try {
           localStorage.setItem(
             draftKey,
-            JSON.stringify({ ...initial, items: [] }),
+            JSON.stringify({ ...latestDraft.current, serverBillId: id, serverVersion: saved.version, synced: unchanged }),
           );
         } catch {}
       if (publish) {
         router.push(sharedBillPath(id));
-      } else {
-        setNotice(t("editor.draftSaved"));
-        if (!billId) router.replace(manageBillPath(id));
+      } else if (unchanged) {
+        if (!automatic) setNotice(t("editor.draftSaved"));
+        if (!billId) {
+          setSaving(true);
+          router.replace(manageBillPath(id));
+        }
       }
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("errors.saveFailed"));
+      const message = e instanceof Error ? e.message : t("errors.saveFailed");
+      if (automatic) setAutoSaveError(message); else setError(message);
     } finally {
-      setSaving(false);
       saveGuard.current = false;
+      if (automatic) setAutoSaving(false); else setSaving(false);
     }
   }
   async function stopSharing() {
@@ -621,6 +726,23 @@ export default function BillEditor({
     } catch (error) { setSharingError((error as Error).message); }
     finally { setSaving(false); saveGuard.current = false; }
   }
+  const autoSaveReady = loaded && status === "authenticated" && !demo && savedDirty && !saving && !autoSaving && !autoSaveError && !personEditDirty && !aliasSaving &&
+    (billStatus === "DRAFT" || Boolean(draft.name.trim())) &&
+    (draft.isPublic || isBillPin(draft.passcode)) &&
+    draft.items.every(i => /^\d+(\.\d{1,2})?$/.test(i.price || "0") && Number.isInteger(i.quantity) && i.quantity >= 1 && i.quantity <= 999 && dec(i.discountRate).lte(100)) &&
+    draft.participants.every(p => !p.promptPayId || isPromptPayId(p.promptPayId)) &&
+    (draft.itemPayersEnabled || !promptPay || isPromptPayId(promptPay)) &&
+    (billStatus !== "PUBLISHED" || locked || (draft.participants.length > 0 && draft.items.length > 0 && total.gt(0) && !hasUnassigned && !hasMissingPayer && draft.items.every(i => i.name.trim() && i.price)));
+  useEffect(() => {
+    if (!autoSaveReady) return;
+    const timer = setTimeout(() => { void save(false, true); }, 1000);
+    return () => clearTimeout(timer);
+  }, [draft, promptPay, autoSaveReady]);
+  useEffect(() => {
+    if (!editingPerson || !personEditDirty || aliasSaving || aliasError || (!editingTarget?.accountUserId && !editingPerson.name.trim())) return;
+    const timer = setTimeout(() => { void savePersonName(); }, 1000);
+    return () => clearTimeout(timer);
+  }, [editingPerson, personEditDirty, aliasSaving, aliasError]);
   if (loading || !loaded)
     return (
       <div id="content" className="empty-state">
@@ -648,8 +770,7 @@ export default function BillEditor({
           href="/bills"
           onClick={(e) => {
             if (
-              dirty.current &&
-              idRef.current &&
+              (dirty.current || pendingPersonEdit.current) &&
               !window.confirm(
                 t("editor.leaveConfirmation"),
               )
@@ -662,11 +783,10 @@ export default function BillEditor({
           <span className="live-dot" />
           {demo
             ? t("editor.sampleBillTryEditing")
-            : savedDirty
-              ? billId
-                ? t("editor.unsavedChanges")
-                : t("editor.draftSavedOnThisDevice")
-              : t("editor.readyToEdit")}
+            : autoSaving ? t("editor.autoSaving")
+              : autoSaveError ? t("editor.autoSaveFailed")
+              : savedDirty ? t("editor.autoSavePending")
+              : t("editor.autoSaved")}
         </span>
       </div>
       <div className="page-heading bill-editor-heading">
@@ -684,7 +804,7 @@ export default function BillEditor({
           <span className={`status status-${billStatus.toLowerCase()}`}>
             {t(billStatus === "PUBLISHED" ? "bill.status.published" : billStatus === "UNSHARED" ? "bill.status.unshared" : "bill.status.draft")}
           </span>
-          {!demo && billId && billStatus === "PUBLISHED" && <button type="button" className="button secondary" disabled={saving} onClick={stopSharing}>
+          {!demo && billId && billStatus === "PUBLISHED" && <button type="button" className="button secondary" disabled={saving || autoSaving || savedDirty || personEditDirty || aliasSaving} onClick={stopSharing}>
             {t("editor.stopSharing")}
           </button>}
         </div>
@@ -716,6 +836,28 @@ export default function BillEditor({
                 placeholder={t("editor.billNamePlaceholder")}
               />
             </label>
+            <div className="restaurant-options">
+              {draft.restaurants.length > 0 && <fieldset disabled={locked || saving}>
+                <legend className={styles.restaurantLegend}>{t("editor.restaurants")}</legend>
+                <div className="people-list">
+                {draft.restaurants.map(restaurant => <span className="person-chip" key={restaurant.id}>
+                  {restaurant.name}
+                  <button type="button" className="chip-remove" aria-label={t("editor.removeRestaurant", [restaurant.name])}
+                    onClick={() => update({ restaurants: draft.restaurants.filter(r => r.id !== restaurant.id), items: draft.items.map(item => item.restaurantId === restaurant.id ? { ...item, restaurantId: null } : item) })}>
+                    <Icon name="close" size={13} />
+                  </button>
+                </span>)}
+                </div>
+              </fieldset>}
+              <details>
+                <summary>{draft.restaurants.length ? t("editor.manageRestaurants") : t("editor.addRestaurantOptional")}</summary>
+                <p className="field-hint">{t("editor.restaurantsHint")}</p>
+                <fieldset disabled={locked || saving} className="restaurant-add">
+                <label className="field"><span>{t("editor.restaurantName")}</span><input value={restaurantName} maxLength={191} onChange={e => setRestaurantName(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); if (restaurantName.trim() && draft.restaurants.length < 100) { update({ restaurants: [...draft.restaurants, { id: uid(), name: restaurantName.trim() }] }); setRestaurantName(""); } } }} /></label>
+                <button type="button" className="button secondary" disabled={!restaurantName.trim() || draft.restaurants.length >= 100} onClick={() => { update({ restaurants: [...draft.restaurants, { id: uid(), name: restaurantName.trim() }] }); setRestaurantName(""); }}><Icon name="plus" size={18} /> {t("editor.addRestaurant")}</button>
+                </fieldset>
+              </details>
+            </div>
           </section>
           <section className="panel">
             <div className="panel-heading">
@@ -729,25 +871,44 @@ export default function BillEditor({
             <fieldset disabled={locked || saving}>
               <div className="people-list">
                 {draft.participants.map((p, index) => (
-                  <span className="person-chip" key={p.id}>
-                    <span className={`avatar small tone-${index % 4}`}>
-                      {nameInitial(p.name)}
+                  <span className={`person-chip ${styles.personChip}${editingPerson?.id === p.id ? " person-chip-editing" : ""}`} key={p.id}>
+                    <span className={styles.personAvatar}>
+                      <span className={`avatar small social-avatar tone-${index % 4}`} aria-hidden="true">
+                        {nameInitial(p.name)}
+                        {p.accountUserId && p.image && <img key={p.image} src={p.image} alt="" referrerPolicy="no-referrer" onError={e => { e.currentTarget.hidden = true; }} />}
+                      </span>
                     </span>
-                    {p.name}{p.username && <small>@{p.username}</small>}
+                    <button type="button" className="person-edit" disabled={Boolean(editingPerson)} aria-label={t("editor.editPerson", [p.name])}
+                      title={t("editor.editPerson", [p.name])} onClick={() => { setAliasError(""); setPersonEditDirty(false); setEditingPerson({ id: p.id, name: p.accountUserId ? p.ownerAlias ?? "" : p.name }); }}>{p.name}</button>
                     <button
+                      type="button"
                       className="chip-remove"
                       aria-label={t("editor.removePerson", [p.name])}
-                      onClick={() => removePerson(p.id)}
+                      onClick={() => { if (editingPerson?.id === p.id) setEditingPerson(null); removePerson(p.id); }}
                     >
                       <Icon name="close" size={13} />
                     </button>
                   </span>
                 ))}
               </div>
+              {draft.participants.length > 0 && !editingPerson && <p className="field-hint person-edit-hint">{t("editor.tapNameToEdit")}</p>}
+              {editingPerson && editingTarget && <div className="person-name-editor">
+                <label className="field"><span>{t("editor.editPerson", [editingTarget.accountName || editingTarget.name])}{editingTarget.username && <small> @{editingTarget.username}</small>}</span>
+                  <input autoFocus maxLength={191} value={editingPerson.name} placeholder={editingTarget.accountUserId ? editingTarget.accountName || editingTarget.name : undefined} onChange={e => { personEditRevision.current++; setPersonEditDirty(true); setAliasError(""); setEditingPerson({ ...editingPerson, name: e.target.value }); }}
+                    onKeyDown={e => { if (e.key === "Escape" && !aliasSaving) { e.preventDefault(); if (personEditDirty) void savePersonName(true); else setEditingPerson(null); } }} />
+                </label>
+                {editingTarget.accountUserId && <p className="field-hint">{t("editor.accountAliasHint")}</p>}
+                {aliasError && <p className="error" role="alert">{feedback(aliasError)}</p>}
+                <div className="person-name-actions">
+                  <button type="button" className="button primary button-small" disabled={aliasSaving || (!editingPerson.name.trim() && !editingTarget.accountUserId)} onClick={() => { if (personEditDirty) void savePersonName(true); else setEditingPerson(null); }}>{t("common.done")}</button>
+                  {aliasSaving && <span className="field-hint" role="status">{t("editor.autoSaving")}</span>}
+                  {aliasError && <button type="button" className="text-link" onClick={() => setAliasError("")}>{t("common.retry")}</button>}
+                </div>
+              </div>}
               {canAddSelf && <button type="button" className="button secondary button-small" onClick={addSelf}>
                 <Icon name="plus" size={17} /> {t("editor.addMyself")}
               </button>}
-              <BillPeoplePicker onAdd={addAccounts} onAddName={addPerson} disabled={locked || saving} allowAccounts={!demo}
+              <BillPeoplePicker onAdd={addAccounts} onAddName={addPerson} disabled={locked || saving} allowAccounts={!demo} aliases={personalAliases}
                 selectedAccountIds={draft.participants.flatMap(person => {
                   const id = person.canonicalAccountUserId ?? person.accountUserId;
                   return id == null ? [] : [id];
@@ -871,11 +1032,15 @@ export default function BillEditor({
                         ฿ {baht(net(calcItems[index]))}
                       </span>
                     </div>
+                    {(draft.itemPayersEnabled || draft.restaurants.length > 0) && <div className={styles.itemMeta}>
                     {draft.itemPayersEnabled && (
                       <ItemPayer people={draft.participants} payerId={item.payerId} index={index}
                         onSelect={(payerId) => updateItem(item.id, { payerId })}
                         onPromptPay={(id, promptPayId) => update({ participants: draft.participants.map((p) => p.id === id ? { ...p, promptPayId } : p) })} />
                     )}
+                    {draft.restaurants.length > 0 && <RestaurantPicker restaurants={draft.restaurants} value={item.restaurantId}
+                      index={index} disabled={locked || saving} onChange={restaurantId => updateItem(item.id, { restaurantId })} />}
+                    </div>}
                     <details className="item-details">
                       <summary>{t("editor.discountAndSplitOptions")}</summary>
                       <div className="details-fields">
@@ -983,6 +1148,12 @@ export default function BillEditor({
                 onClick={() => update({ items: [...draft.items, { ...emptyItem(), payerId: draft.participants.some((p) => p.id === draft.creatorParticipantId) ? draft.creatorParticipantId : null }] })}
               >
                 <Icon name="plus" size={18} /> {t("common.addItem")} </button>
+              {draft.itemPayersEnabled && selectedPayers.length > 0 && <div className={styles.payerRecipients}>
+                <h3>{t("payer.receiversHeading")}</h3>
+                <p className="field-hint">{t("payer.receiversHint")}</p>
+                {selectedPayers.map((payer, index) => <ItemPayer key={payer.id} mode="recipient" people={draft.participants} payerId={payer.id} index={index}
+                  onSelect={() => {}} onPromptPay={(id, promptPayId) => update({ participants: draft.participants.map(p => p.id === id ? { ...p, promptPayId } : p) })} />)}
+              </div>}
             </fieldset>
             <div className="subtotal-line">
               <span>{t("editor.itemsAfterDiscounts")}</span>
@@ -1101,7 +1272,7 @@ export default function BillEditor({
                   value={promptPay}
                   maxLength={13}
                   onChange={(e) =>
-                    setPromptPay(e.target.value.replace(/\D/g, ""))
+                    { setPromptPay(e.target.value.replace(/\D/g, "")); dirty.current = true; editRevision.current++; setSavedDirty(true); setAutoSaveError(""); }
                   }
                   disabled={saving}
                 />
@@ -1128,6 +1299,7 @@ export default function BillEditor({
                 {feedback(error)}
               </p>
             )}
+            {autoSaveError && <p className="error" role="alert">{feedback(autoSaveError)} <button type="button" className="text-link" onClick={() => setAutoSaveError("")}>{t("common.retry")}</button></p>}
             {notice && (
               <p className="success" role="status">
                 {feedback(notice)}
@@ -1141,19 +1313,13 @@ export default function BillEditor({
                 <button
                   className="button primary full-width"
                   onClick={() => save(true)}
-                  disabled={saving}
+                  disabled={saving || autoSaving || savedDirty || personEditDirty || aliasSaving}
                 >
                   {saving ? (
                     <span className="spinner" />
                   ) : (
                     <Icon name="link" size={18} />
                   )} {t(billStatus === "UNSHARED" ? "editor.shareAgain" : "editor.saveAndCreateShareLink")} </button>
-                <button
-                  className="button secondary full-width"
-                  onClick={() => save(false)}
-                  disabled={saving}
-                > {t("common.save")}{billStatus === "DRAFT" ? t("bill.status.draft") : t("editor.changes")}
-                </button>
               </>
             )}
             <p className="summary-footnote"> {t("editor.recalculationHint")} </p>

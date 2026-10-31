@@ -20,7 +20,10 @@ export async function GET() {
       friends.set(person.id, { id: row.id, status: row.status, source: row.source,
         incoming: row.status === "PENDING" && !ids.includes(row.requesterId), person });
     }
-    return { friends: [...friends.values()] };
+    const aliases = await prisma.$queryRaw<{ targetId: number; name: string }[]>`
+      SELECT target_id AS targetId, name FROM personal_aliases WHERE owner_id = ${userId} AND name IS NOT NULL`;
+    const names = new Map(aliases.map(alias => [alias.targetId, alias.name]));
+    return { friends: [...friends.values()].map(row => ({ ...row, person: { ...row.person, ownerAlias: names.get(row.person.id) ?? null } })) };
   });
 }
 export async function POST(req: Request) {

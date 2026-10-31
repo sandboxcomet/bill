@@ -3,7 +3,8 @@ import { requireUserId, accessErrorResponse } from "@/lib/server/authorization";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-import { ownsAccount, primaryProfile, resolvedProfileFields, participantDisplay } from "@/lib/server/account-identity";
+import { ownsAccount, primaryProfile, participantDisplay } from "@/lib/server/account-identity";
+import { personFields, publicPerson } from "@/lib/server/social";
 
 // GET /api/bills/[id] — load draft data
 export async function GET(
@@ -32,7 +33,7 @@ export async function GET(
           name: true,
           isPayer: true,
           accountUserId: true,
-          accountUser: { select: resolvedProfileFields },
+          accountUser: { select: personFields },
           promptPayId: true,
           paidAmount: true,
           isPaid: true,
@@ -58,7 +59,8 @@ export async function GET(
     { bill: { ...bill, participants: bill.participants.map(person => {
       const p = participantDisplay(person);
       const account = person.accountUser ? primaryProfile(person.accountUser) : null;
-      return { ...p, canonicalAccountUserId: account?.id, username: account?.username ?? undefined,
+      // Owner editor uses the account's current image, including merged profiles.
+      return { ...p, canonicalAccountUserId: account?.id, username: account?.username ?? undefined, image: person.accountUser ? publicPerson(person.accountUser).image : null,
         hasPromptPay: Boolean(account?.promptPayId) };
     }), hasPaymentEvidence: evidenceCount > 0 } },
     { headers: { "Cache-Control": "private, no-store" } },
