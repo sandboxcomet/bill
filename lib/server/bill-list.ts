@@ -5,12 +5,13 @@ import { billProgress } from "@/lib/bill-progress";
 import { isPendingEvidence } from "@/lib/payment-status";
 import type { BillListItem, BillPaymentStatus } from "@/lib/bill-list";
 import { accountUserIds } from "./account-identity";
+import { receivableSummary, spendingSummary } from "../bill-dashboard";
 
 const select = {
   id: true, name: true, userId: true, grandTotal: true, status: true, version: true, isPublic: true, createdAt: true, itemPayersEnabled: true,
   _count: { select: { participants: { where: { archived: false } }, items: true } },
-  participants: { where: { archived: false }, select: { id: true, accountUserId: true, totalPayable: true, paidAmount: true } },
-  settlements: { where: { archived: false }, select: { id: true, fromParticipantId: true, amount: true, paidAmount: true } },
+  participants: { where: { archived: false }, select: { id: true, accountUserId: true, totalPayable: true, paidAmount: true, shareAmount: true, paidUpfront: true } },
+  settlements: { where: { archived: false }, select: { id: true, fromParticipantId: true, toParticipantId: true, amount: true, paidAmount: true } },
 } as const satisfies Prisma.BillSelect;
 type Bill = Prisma.BillGetPayload<{ select: typeof select }>;
 type Person = Bill["participants"][number];
@@ -63,6 +64,8 @@ export async function listAccountBills(userId: number) {
     if (!latest.has(key)) latest.set(key, proof.status);
   }
   return {
+    receivable: receivableSummary(bills, ids),
+    spending: spendingSummary(bills, ids),
     bills: bills.filter(bill => ownIds.has(bill.userId)).map(bill => row(bill, bill.participants, latest)),
     payableBills: bills.filter(bill => bill.status === "PUBLISHED" && mine(bill).length).map(bill => row(bill, mine(bill), latest))
       .filter(bill => bill.payment && new Decimal(bill.payment.remaining).gt(0)),

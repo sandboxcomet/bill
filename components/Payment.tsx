@@ -7,7 +7,7 @@ import Link from "@/components/LocalizedLink";
 import BrandedQr from "./BrandedQr";
 import generatePayload from "promptpay-qr";
 import Decimal from "decimal.js";
-import { isPendingEvidence } from "@/lib/payment-status";
+import { isPendingEvidence, recipientPaymentStatus } from "@/lib/payment-status";
 import { baht, request, jsonBody, RequestError } from "@/lib/client";
 import { Icon } from "./Icons";
 import type { ExpenseItem } from "@/lib/expense-details";
@@ -22,6 +22,7 @@ type Payable = {
   isPaid: boolean;
   payslipUrl: string | null;
   evidenceStatus: string | null;
+  evidenceTransactedAt?: string | null;
   beforeOffset?: string | null;
   offsetAmount?: string | null;
   offsetItems?: ExpenseItem[];
@@ -40,20 +41,22 @@ type Data = {
   ownEntry?: { id: string; name: string; paymentUrl: string; paymentToken: string } | null;
   expenseDetails?: ExpenseDetails | null;
 };
+const recipientStatusLabels = { PAID: "myBills.paymentPaid", REVIEW: "myBills.paymentReview", BANK_PENDING: "payment.bankPendingShort", PARTIAL: "myBills.paymentPartial", UNPAID: "myBills.paymentUnpaid" } as const;
 export default function Payment({ id, pid }: { id: string; pid: string }) {
-  const { t, feedback } = useI18n();
+  const { t, feedback, formatLocale } = useI18n();
   const router = useLocalizedRouter();
   const { data: session } = useSession();
   const [data, setData] = useState<Data | null>(null);
   useBillTitle(data?.bill.name);
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState(false);
+  const [checkingSlip, setCheckingSlip] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [preview, setPreview] = useState("");
   const [reason, setReason] = useState("");
   const [selectedId, setSelectedId] = useState("");
-  const selected = data?.settlements.find((s) => s.id === selectedId) ?? data?.settlements[0];
+  const selected = data?.settlements.find((s) => s.id === selectedId);
   const proofUrl = data?.readOnly || (data?.requiresClaim && !data.canManage) ? null
     : selected?.payslipUrl ?? (!data?.bill.itemPayersEnabled ? data?.participant.payslipUrl : null);
   const qrRef = useRef<HTMLDivElement>(null);
@@ -88,6 +91,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
     }
   }, [readEndpoint, headers, redirectAccount]);
   useEffect(() => {
+    setSelectedId("");
     void load();
   }, [load]);
   const refresh = useCallback(async (signal: AbortSignal) => {
@@ -145,13 +149,14 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
   async function upload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file) return;
+    if (!file || (data?.bill.itemPayersEnabled && !selected)) return;
     setError("");
     setMessage("");
     if (file.size > 4 * 1024 * 1024) {
       setError(t("errors.slipFileTooLarge"));
       return;
     }
+    setCheckingSlip(true);
     setWorking(true);
     try {
       const fd = new FormData();
@@ -163,18 +168,16 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
         body: fd,
       });
       await load();
-      setMessage(
-        result.status === "pending" ? "" : result.status === "needs_review"
-          ? t("payment.slipPendingNotice")
-          : t("payment.slipVerifiedNotice"),
-      );
+      setMessage(result.status === "needs_review" ? t("payment.slipPendingNotice") : "");
     } catch (e) {
       if (!redirectAccount(e)) setError((e as Error).message);
     } finally {
+      setCheckingSlip(false);
       setWorking(false);
     }
   }
   async function review(reverse = false) {
+    if (data?.bill.itemPayersEnabled && !selected) return;
     setError("");
     setMessage("");
     if (reason.trim().length < 3) {
@@ -285,7 +288,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
       <ExpenseBreakdown details={data.expenseDetails} compact subjectName={data.readOnly ? data.participant.name : undefined} />
     </article>
   </div>;
-  if (data.bill.itemPayersEnabled && !selected) return (
+  if (data.bill.itemPayersEnabled && data.settlements.length === 0) return (
     <div id="content" className="payment-page">
       <Link href={sharedBillPath(id)} className="text-link muted"><Icon name="back" size={16} />{t("nav.backToFullBill")}</Link>
       <article className="share-receipt payment-receipt">
@@ -295,23 +298,25 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
       <p>{t("payment.noOutgoingHint")}</p>
       <LiveStatus status={liveStatus} />
       </div>
-      <ExpenseBreakdown details={data.expenseDetails} />
+      <ExpenseBreakdown details={data.expenseDetails} initiallyOpen />
       </article>
     </div>
   );
   const p = selected ?? data.participant;
+  const canSelectPayment = !data.bill.itemPayersEnabled || Boolean(selected);
+  const guidedRecipientId = data.settlements.find((settlement) => recipientPaymentStatus(settlement) === "UNPAID" || recipientPaymentStatus(settlement) === "PARTIAL")?.id;
   const bankPending = isPendingEvidence(p.evidenceStatus);
   const receiverName = selected?.name ?? data.bill.owner.name ?? t("bill.creator");
   const remaining = Decimal.max(
     new Decimal(p.totalPayable).minus(p.paidAmount),
     0,
   );
-  const testQr = process.env.NODE_ENV === "development" && remaining.gt(0);
+  const testQr = canSelectPayment && process.env.NODE_ENV === "development" && remaining.gt(0);
   const qrAmount = testQr ? new Decimal(2) : remaining;
   let qr = "";
   const receiver = selected?.promptPayId ?? (data.bill.itemPayersEnabled ? null : data.bill.owner.promptPayId);
   try {
-    if (receiver && /^(0\d{9}|\d{13})$/.test(receiver) && remaining.gt(0))
+    if (canSelectPayment && receiver && /^(0\d{9}|\d{13})$/.test(receiver) && remaining.gt(0))
       qr = generatePayload(receiver, { amount: qrAmount.toNumber() });
   } catch {}
   return (
@@ -323,28 +328,35 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
       <div className="pay-heading">
         <h1>{t("payment.personTitle", [data.participant.name])}</h1>
         <p>
-          {data.bill.name} {t("payment.transferToNote")} {receiverName}
+          {data.bill.name} {canSelectPayment && <>{t("payment.transferToNote")} {receiverName}</>}
         </p>
         <LiveStatus status={liveStatus} />
       </div>
       {claimPanel}
-      {data.bill.itemPayersEnabled && data.settlements.length > 1 && (
-        <div className="payment-recipients" role="group" aria-label={t("payment.chooseRecipient")}>
+      {data.bill.itemPayersEnabled && data.settlements.length > 0 && (
+        <div className="payment-recipients" role="group" aria-label={t("payment.chooseRecipient")} aria-describedby={!canSelectPayment && guidedRecipientId ? "recipient-selection-guide" : undefined}>
           <p>{t("payment.recipientCountHint", [data.settlements.length])}</p>
           <div className="recipient-options">
-            {data.settlements.map((s) => <button key={s.id} type="button" className="recipient-option"
-              style={{ padding: "14px 16px" }}
+            {data.settlements.map((s) => {
+              const due = Decimal.max(new Decimal(s.totalPayable).minus(s.paidAmount), 0);
+              const status = recipientPaymentStatus(s);
+              const paid = status === "PAID";
+              return <div key={s.id} className="recipient-option-wrap">
+              {!canSelectPayment && s.id === guidedRecipientId && <div id="recipient-selection-guide" className="recipient-selection-guide" role="note">
+                <strong>{t("payment.recipientGuideTitle")}</strong>
+                <span>{t("payment.selectRecipientFirst")}</span>
+              </div>}
+              <button type="button" className="recipient-option"
               aria-pressed={s.id === selected?.id} disabled={working || loading}
-              onClick={() => { setSelectedId(s.id); setReason(""); setError(""); setMessage(""); }}>
+              onClick={() => { setSelectedId(s.id); setPreview(""); setReason(""); setError(""); setMessage(""); }}>
               <span>{s.name}</span><b>฿ {baht(s.totalPayable)}</b>
-              <small>{s.isPaid ? t("common.fullyPaid") : isPendingEvidence(s.evidenceStatus) ? t("payment.bankPendingShort") : t("payment.remainingAmount", [baht(Decimal.max(new Decimal(s.totalPayable).minus(s.paidAmount), 0))])}</small>
-            </button>)}
+              <span className="recipient-option-meta"><span className={`status ${paid ? "status-published" : status === "UNPAID" ? "" : "status-draft"}`}>{t(recipientStatusLabels[status])}</span>
+                {!paid && new Decimal(s.paidAmount).gt(0) && <small>{t("payment.remainingAmount", [baht(due)])}</small>}</span>
+            </button></div>})}
           </div>
         </div>
       )}
-      {selected && <ExpenseBreakdown details={data.expenseDetails} />}
-      <ExpenseBreakdown details={data.expenseDetails} recipient={selected} />
-      {!bankPending && <section className="qr-panel">
+      {canSelectPayment && !bankPending && <section className="qr-panel">
         {p.isPaid ? (
           <>
             <span className="status status-published">
@@ -356,7 +368,6 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
           <>
             <p>{testQr ? t("payment.testPaymentTo") : t("payment.amountToPayTo")} {receiverName}</p>
             <strong>฿ {baht(qrAmount)}</strong>
-            {testQr && <p className="warning">{t("payment.testQR2BahtActualRemaining")} {baht(remaining)}</p>}
             <p> {t("payment.fullAmount")} {baht(p.totalPayable)} {t("payment.paid")} {baht(p.paidAmount)}
             </p>
             {qr ? (
@@ -375,7 +386,6 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
                   onClick={downloadQr}
                   disabled={readyQr !== qr}
                 > {t("payment.savePaymentQR")} </button>
-                <p className="field-hint"> {t("payment.bankAppCheckHint")} </p>
               </>
             ) : (
               <p className="warning"> {t("payment.noValidPromptPayNumberFor")} {receiverName} {t("payment.contactTheBillCreatorBeforePaying")} </p>
@@ -383,19 +393,28 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
           </>
         )}
       </section>}
-      <section className="payment-proof">
+      {canSelectPayment && <section className="payment-proof">
         <div className="panel-heading">
           <h2>{t("payment.paymentEvidence")}</h2>
-          <Icon name="upload" />
+          {p.evidenceTransactedAt && p.payslipUrl ? (
+            <time dateTime={p.evidenceTransactedAt} className="payment-proof-date">
+              {t("payment.transferredAt")} {" "}
+              {new Intl.DateTimeFormat(formatLocale, { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Asia/Bangkok" }).format(new Date(p.evidenceTransactedAt))}
+            </time>
+          ) : <Icon name="upload" />}
         </div>
-        {p.evidenceStatus && (
+        {error && (
+          <p className="error" role="alert">
+            {feedback(error)}
+          </p>
+        )}
+        {p.evidenceStatus && p.evidenceStatus !== "VERIFIED" && (
           <p
-            className={p.evidenceStatus === "VERIFIED" ? "success" : "warning"}
+            className={`warning${bankPending ? " payment-bank-pending" : ""}`}
             role="status"
           >
-            {p.evidenceStatus === "VERIFIED"
-              ? t("payment.paymentSlipVerified")
-              : bankPending ? t("payment.bankPendingNotice")
+            {bankPending && <span className="spinner" aria-hidden="true" />}
+            {bankPending ? t("payment.bankPendingNotice")
                 : p.evidenceStatus === "REJECTED" ? t("payment.bankVerificationFailed")
                   : t("payment.pendingReviewHint")}
           </p>
@@ -408,12 +427,12 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
           />
         )}
         {!p.isPaid && !bankPending && (
-          <label className={`file-label receipt-upload${working || loading ? " is-disabled" : ""}`}>
-            <Icon name="upload" size={26} />
-            <span>
-              {working ? t("payment.verifyingSlip") : t("payment.uploadYourSlipAfterPaying")}
+          <label className={`file-label receipt-upload${working || loading ? " is-disabled" : ""}${checkingSlip ? " is-checking" : ""}`}>
+            {checkingSlip ? <span className="spinner" aria-hidden="true" /> : <Icon name="upload" size={26} />}
+            <span role={checkingSlip ? "status" : undefined}>
+              {checkingSlip ? t("payment.verifyingSlip") : t("payment.uploadYourSlipAfterPaying")}
             </span>
-            <small>{t("payment.slipFileHint")}</small>
+            {!checkingSlip && <small>{t("payment.slipFileHint")}</small>}
             <input
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
@@ -428,24 +447,12 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
             {feedback(message)}
           </p>
         )}
-        {error && (
-          <p className="error" role="alert">
-            {feedback(error)}
-          </p>
-        )}
-        <button
-          className="text-link"
-          disabled={working || loading}
-          style={{
-            background: "none",
-            border: 0,
-            marginTop: 14,
-            minHeight: 35,
-          }}
-          onClick={load}
-        > {t("payment.refreshPaymentStatus")} </button>
-      </section>
-      {data.canManage && p.evidenceStatus && p.evidenceStatus !== "REJECTED" && (
+      </section>}
+      {data.expenseDetails && <div className="payment-expense-details">
+        {selected && <ExpenseBreakdown key={`overview-${selected.id}`} details={data.expenseDetails} />}
+        <ExpenseBreakdown details={data.expenseDetails} recipient={selected} initiallyOpen={!selected} />
+      </div>}
+      {canSelectPayment && data.canManage && p.evidenceStatus && p.evidenceStatus !== "REJECTED" && (
         <section className="review-panel payment-review">
           <h2>{t("payment.forTheBillCreator")}</h2>
           <p className="field-hint"> {t("payment.reviewHint")} </p>

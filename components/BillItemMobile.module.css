@@ -2,11 +2,13 @@
 .index { align-self: start; padding-top: 2px; color: var(--muted); font-size: var(--text-meta); }
 .details { display: grid; gap: 2px; min-width: 0; }
 .details strong { overflow-wrap: anywhere; }
-.details small { color: var(--muted); font-size: var(--text-meta); }
+.payerSuffix { color: var(--muted); font-size: var(--text-meta); font-weight: 400; }
 .item > b { font-size: var(--text-support); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .item > svg { color: var(--muted); }
-.summary { grid-column: 2 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; min-width: 0; color: var(--muted); font-size: var(--text-meta); line-height: 1.5; }
+.summary { grid-column: 2 / 4; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 12px; min-width: 0; color: var(--muted); font-size: var(--text-meta); line-height: 1.5; }
 .summary > span { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+.summaryRight { display: inline-flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 4px 8px; margin-inline-start: auto; text-align: end; }
+.summaryRight > span { min-width: 0; overflow-wrap: anywhere; }
 .charges { display: inline-flex; flex-wrap: wrap; gap: 4px; }
 .charges > span { padding: 1px 6px; border-radius: 8px; background: var(--green-soft); color: var(--green-dark); font-weight: 600; }
 .dialog { width: min(100%, 600px); max-width: none; max-height: min(90dvh, 900px); margin: auto auto 0; padding: 0; border: 1px solid var(--line); border-radius: var(--radius) var(--radius) 0 0; background: var(--paper); color: var(--ink); box-shadow: 0 20px 60px rgb(25 45 40 / 22%); overflow: hidden; }
@@ -33,5 +35,8 @@
 .optionGroup > span { color: var(--muted); font-size: var(--text-support); font-weight: 500; }
 .optionGroup :global(.item-tax-toggles) { display: flex; flex-wrap: wrap; }
 .optionGroup :global(.allocation-chip) { min-height: 44px; }
-.actions { display: flex; gap: 10px; padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); }
+.footer { border-top: 1px solid var(--line); }
+.validation { max-height: 30dvh; overflow-y: auto; padding: 12px 18px 0; color: var(--error, #b42318); font-size: var(--text-meta); }
+.validation ul { margin: 4px 0 0; padding-inline-start: 20px; }
+.actions { display: flex; gap: 10px; padding: 12px 18px calc(12px + env(safe-area-inset-bottom, 0px)); }
 .actions button { flex: 1; min-height: 44px; }

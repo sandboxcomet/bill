@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import { Icon } from "@/components/Icons";
 import InstagramBrowserNotice from "@/components/InstagramBrowserNotice";
 import PasskeyLogin from "@/components/PasskeyLogin";
+import { loginDestination } from "@/lib/login-destination";
 
 function ProviderLogo({ provider }: { provider: "google" | "line" }) {
   return (
@@ -54,12 +55,7 @@ export default async function Login({
   const locale = await requestLocale();
   const t = (key: TranslationKey, values?: readonly unknown[]) => translate(locale, key, values);
   const query = await searchParams;
-  const destination =
-    query.callbackUrl?.startsWith("/") &&
-    !query.callbackUrl.startsWith("//") &&
-    !query.callbackUrl.includes("\\")
-      ? localizedPath(query.callbackUrl, locale)
-      : localizedPath("/", locale);
+  const destination = localizedPath(loginDestination(query.callbackUrl), locale);
   if (stripLocale(destination.split(/[?#]/, 1)[0]) === "/demo") redirect(destination);
   if (await auth()) redirect(destination);
   const google = Boolean(

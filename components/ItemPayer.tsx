@@ -2,6 +2,7 @@
 import { useI18n } from "@/components/LanguageProvider";
 import { useEffect, useId, useRef, useState } from "react";
 import { isPromptPayId } from "@/lib/settlements";
+import { isValidPromptPayId, promptPayErrorKey } from "@/lib/promptpay";
 import { Icon } from "./Icons";
 import Link from "./LocalizedLink";
 import { useSession } from "next-auth/react";
@@ -42,7 +43,7 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
     }
   }, [editingPerson]);
   useEffect(() => {
-    if (!editingPerson || (value && !isPromptPayId(value)) || value === (editingPerson.promptPayId ?? "")) return;
+    if (!editingPerson || (value && !isValidPromptPayId(value)) || value === (editingPerson.promptPayId ?? "")) return;
     const timer = setTimeout(() => onPromptPay(editingPerson.id, value), 1000);
     return () => clearTimeout(timer);
   }, [editingPerson, value, onPromptPay]);
@@ -53,8 +54,8 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
     setEditingId(payer.id);
   }
   function closePromptPay() {
-    if (editingPerson && value && !isPromptPayId(value)) {
-      setError(t("errors.promptPayFormat"));
+    if (editingPerson && value && !isValidPromptPayId(value) && value !== (editingPerson.promptPayId ?? "")) {
+      setError(t(promptPayErrorKey(value)));
       inputRef.current?.focus();
       return;
     }
@@ -66,8 +67,8 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
   function savePromptPay(event: React.FormEvent) {
     event.preventDefault();
     if (!editingPerson) return;
-    if (value && !isPromptPayId(value)) {
-      setError(t("errors.promptPayFormat"));
+    if (value && !isValidPromptPayId(value)) {
+      setError(t(promptPayErrorKey(value)));
       inputRef.current?.focus();
       return;
     }

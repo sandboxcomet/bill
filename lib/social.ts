@@ -8,7 +8,7 @@ export type AccountPerson = { id: number; name: string; username: string; image:
 export type PersonResult = AccountPerson & { relationship: "NONE" | "FRIEND" | "PENDING_SENT" | "PENDING_RECEIVED" };
 export type SavedGroup = { id: string; name: string; members: AccountPerson[] };
 export function safeAccountReturn(value: unknown) {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || /[\\\p{Cc}]/u.test(value)) return "/bills";
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || /[\\\p{Cc}]/u.test(value)) return "/dashboard";
   const url = new URL(value, "https://clear-toh.invalid");
-  return url.pathname === "/onboarding" ? "/bills" : url.pathname + url.search + url.hash;
+  return url.pathname === "/onboarding" ? "/dashboard" : url.pathname + url.search + url.hash;
 }

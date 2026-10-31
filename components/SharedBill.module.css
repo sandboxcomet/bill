@@ -1,0 +1,22 @@
+.group { margin-top: 16px; }
+.groupWithHeading { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; }
+.groupHeading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; background: var(--green-soft); }
+.groupWithHeading .items { padding-inline: 14px; }
+.groupWithHeading .toggle { margin-inline: 14px; }
+.groupHeading h3 { color: var(--green-dark); font-size: var(--text-title); overflow-wrap: anywhere; }
+.groupHeading small { display: block; color: var(--muted); font-size: var(--text-meta); }
+.groupTotal { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; text-align: end; font-variant-numeric: tabular-nums; }
+.groupTotal b { color: var(--green-dark); white-space: nowrap; }
+.group .itemSlot :global(.receipt-item-row) { border-bottom: 1px solid var(--line); }
+.group .itemSlot:last-child :global(.receipt-item-row) { border-bottom: 0; }
+.toggle { min-height: 44px; padding: 4px 0; border: 0; background: transparent; color: var(--green); font: inherit; font-size: var(--text-support); font-weight: 600; cursor: pointer; }
+.toggle:hover { color: var(--green-dark); text-decoration: underline; }
+@media (max-width: 480px) {
+  .groupHeading { align-items: start; }
+  .groupTotal { max-width: 52%; }
+  .groupTotal small { overflow-wrap: anywhere; }
+}
+@media print {
+  .itemSlot[hidden] { display: block; }
+  .toggle { display: none; }
+}

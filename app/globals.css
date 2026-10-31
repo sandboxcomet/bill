@@ -934,6 +934,11 @@ small {
     max-width: 1440px;
     padding-inline: clamp(24px, 2.5vw, 40px);
   }
+  body:has(.bill-editor-heading) .site-footer {
+    width: calc(100% - clamp(24px, 2.5vw, 40px) - clamp(24px, 2.5vw, 40px));
+    max-width: calc(1440px - clamp(24px, 2.5vw, 40px) - clamp(24px, 2.5vw, 40px));
+    margin-inline: auto;
+  }
   .page-container:has(.bill-editor-heading) .editor-layout {
     grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 380px);
     gap: 24px;
@@ -2545,43 +2550,56 @@ small {
   font-size: var(--text-meta);
 }
 .payment-receipt .recipient-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px 12px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 185px), 1fr));
+  align-items: end;
+  gap: 10px;
+}
+.recipient-option-wrap { min-width: 0; }
+.payment-receipt .recipient-option-wrap .recipient-option { width: 100%; }
+.recipient-selection-guide { position: relative; display: grid; gap: 2px; width: fit-content; max-width: 100%; margin: 0 0 14px; padding: 10px 14px; border-radius: 8px; background: var(--green-dark); color: #fff; font-size: var(--text-meta); animation: recipient-guide-enter 220ms ease-out both; }
+.recipient-selection-guide strong { font-size: var(--text-support); }
+.recipient-selection-guide span { color: #e4f2ea; }
+.recipient-selection-guide::after { content: ""; position: absolute; left: 20px; top: 100%; border: 7px solid transparent; border-top-color: var(--green-dark); }
+@keyframes recipient-guide-enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) {
+  .recipient-selection-guide { animation: none; }
 }
 .payment-receipt .recipient-option {
-  flex: 1 1 170px;
   min-width: 0;
   grid-template-columns: minmax(0, 1fr) auto;
-  align-items: baseline;
-  gap: 4px 8px;
+  align-items: start;
+  gap: 8px 12px;
   min-height: 44px;
   padding: 14px 16px;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
-  background: transparent;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--paper);
   font-size: var(--text-support);
 }
 .payment-receipt .recipient-option > span {
   min-width: 0;
   overflow-wrap: anywhere;
 }
+.payment-receipt .recipient-option > span:first-child { font-weight: 600; }
 .payment-receipt .recipient-option > b {
   white-space: nowrap;
   overflow-wrap: normal;
   font-variant-numeric: tabular-nums;
 }
+.payment-receipt .recipient-option > .recipient-option-meta { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
 .payment-receipt .recipient-option small {
   grid-column: 1 / -1;
 }
 .payment-receipt .recipient-option[aria-pressed="true"] {
-  border-bottom-color: var(--green);
+  border-color: var(--green);
+  background: var(--green-soft);
   color: var(--green-dark);
 }
 .payment-receipt .recipient-option:hover:not(:disabled) {
   background: var(--green-soft);
 }
+.payment-expense-details { margin-top: 24px; }
 .payment-receipt .payment-expenses {
   background: transparent;
   border: 0;
@@ -2615,6 +2633,7 @@ small {
 .payment-review h2 {
   font-size: var(--text-body);
 }
+.payment-proof-date { color: var(--muted); font-size: var(--text-meta); text-align: right; }
 .payment-receipt .receipt-upload {
   position: relative;
   padding: 18px 12px;
@@ -2630,6 +2649,13 @@ small {
 .receipt-upload.is-disabled {
   opacity: 0.6;
   cursor: wait;
+}
+.receipt-upload.is-checking { opacity: 1; }
+.receipt-upload .spinner { width: 26px; height: 26px; }
+.payment-bank-pending { display: flex; align-items: center; gap: 10px; }
+.payment-bank-pending .spinner { flex-shrink: 0; }
+@media (prefers-reduced-motion: reduce) {
+  .receipt-upload .spinner, .payment-bank-pending .spinner { animation: none; }
 }
 .receipt-upload input[type="file"] {
   position: absolute;
@@ -2743,6 +2769,9 @@ small {
   font-size: var(--text-meta);
   overflow-wrap: anywhere;
 }
+.expense-item-meta { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 2px 12px; margin-top: 4px; color: var(--muted); font-size: var(--text-meta); }
+.expense-item-meta > span { min-width: 0; overflow-wrap: anywhere; }
+.expense-item-meta > span + span { margin-inline-start: auto; text-align: end; }
 .expense-totals {
   display: grid;
   gap: 8px;

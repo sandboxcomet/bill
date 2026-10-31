@@ -1,9 +1,10 @@
-import { createHash, createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { createHash, createCipheriv, createDecipheriv, randomBytes, randomUUID } from "node:crypto";
 import { Prisma, type PaymentEvidence } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { inspectSlip, PaymentError } from "@/lib/payment-contract";
 import { storeSlip } from "./payment-storage";
 import { serializable, lockTarget, applyVerifiedAmount, slipCreditAmount, type PaymentTarget } from "./payment-ledger";
+import { allowLocalSlipReuse } from "./local-slip-testing";
 
 const retries = [30, 60, 120, 240];
 
@@ -35,7 +36,9 @@ export async function recordPendingSlip(
   receiver: string | null,
   actorId: number | null,
 ) {
-  const payloadHash = createHash("sha256").update(slip.payload).digest("hex");
+  const originalHash = createHash("sha256").update(slip.payload).digest("hex");
+  const previous = allowLocalSlipReuse() ? await prisma.paymentEvidence.findUnique({ where: { payloadHash: originalHash } }) : null;
+  const payloadHash = previous ? createHash("sha256").update(slip.payload).update(randomBytes(32)).digest("hex") : originalHash;
   const encryptedSlip = encryptSlip(slip.payload, receiver);
   let evidence: PaymentEvidence;
   try {
@@ -71,7 +74,7 @@ export async function recordPendingSlip(
     });
   }
   if (evidence.status !== "PENDING_UPLOAD") return evidence;
-  const objectKey = await storeSlip(slip.image, evidence.id);
+  const objectKey = previous?.objectKey ?? await storeSlip(slip.image, evidence.id);
   await prisma.paymentEvidence.updateMany({ where: { id: evidence.id, status: "PENDING_UPLOAD" }, data: {
     objectKey, status: "PENDING", nextCheckAt: new Date(Date.now() + 30_000),
   } });
@@ -115,17 +118,17 @@ async function finishPending(job: PaymentEvidence, result: unknown, receiver: st
     const duplicate = await tx.paymentEvidence.findUnique({ where: {
       provider_reference: { provider: "easyslip", reference: verified.reference },
     } });
-    if (duplicate && duplicate.id !== current.id) {
+    if (!allowLocalSlipReuse() && duplicate && duplicate.id !== current.id) {
       return tx.paymentEvidence.update({ where: { id: current.id }, data: {
         status: duplicate.targetType === current.targetType && duplicate.targetId === current.targetId ? "SUPERSEDED" : "REJECTED",
         reviewReason: "DUPLICATE_REFERENCE", leaseUntil: null, nextCheckAt: null,
       } });
     }
-    const reviewReason = !verified.transactedAt || verified.transactedAt < payable.createdAt ? "DATE_REQUIRES_REVIEW"
+    const reviewReason = !allowLocalSlipReuse() && (!verified.transactedAt || verified.transactedAt < payable.createdAt) ? "DATE_REQUIRES_REVIEW"
         : slipCreditAmount(new Prisma.Decimal(verified.amount.toFixed(2)), payable.remaining).gt(payable.remaining) ? "EXCEEDS_REMAINING" : null;
     const status = reviewReason ? "NEEDS_REVIEW" : "VERIFIED";
     const updated = await tx.paymentEvidence.update({ where: { id: current.id }, data: {
-      reference: verified.reference, amount: verified.amount.toFixed(2), transactedAt: verified.transactedAt,
+      reference: allowLocalSlipReuse() && duplicate && duplicate.id !== current.id ? `local-test:${randomUUID()}` : verified.reference, amount: verified.amount.toFixed(2), transactedAt: verified.transactedAt,
       receiverMatch: verified.receiverMatch, status, reviewReason, leaseUntil: null, nextCheckAt: null,
     } });
     if (status === "VERIFIED") await applyVerifiedAmount(tx, target, new Prisma.Decimal(verified.amount.toFixed(2)));
@@ -168,7 +171,7 @@ export async function processPendingSlip(id: string) {
     }
     const callbackUrl = slipCallbackUrl();
     if (callbackUrl) {
-      const { response, result } = await providerRequest("/async", { payload, callbackUrl, remark: job.id, checkDuplicate: true });
+      const { response, result } = await providerRequest("/async", { payload, callbackUrl, remark: job.id, checkDuplicate: !allowLocalSlipReuse() });
       if (!response.ok || result?.success !== true || !/^[a-f0-9-]{36}$/i.test(result?.data?.jobId ?? "")) throw new Error("Provider did not enqueue slip");
       await reschedule(15, { providerJobId: result.data.jobId }); return;
     }

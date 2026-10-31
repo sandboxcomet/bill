@@ -7,6 +7,7 @@ import { stripLocale } from "@/lib/locale";
 import { Icon } from "./Icons";
 import UserMenu from "./UserMenu";
 import LanguageMenu from "./LanguageMenu";
+import Notifications from "./Notifications";
 export default function Shell({ children }: { children: React.ReactNode }) {
   const { t } = useI18n();
   const { data: session } = useSession();
@@ -24,12 +25,14 @@ export default function Shell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
           <nav className="desktop-nav" aria-label={t("nav.main")}>
+            {session?.user && <Link className={`nav-link${pathname === "/dashboard" ? " active" : ""}`} href="/dashboard" aria-current={pathname === "/dashboard" ? "page" : undefined}>{t("nav.dashboard")}</Link>}
             <Link className={`nav-link${isMyBills ? " active" : ""}`} href="/bills" aria-current={isMyBills ? "page" : undefined}>
               {t("nav.myBills")}
             </Link>
           </nav>
           <div className="header-account">
             <LanguageMenu />
+            {session?.user && <Notifications />}
             {session?.user ? (
               <UserMenu name={session.user.nickname || session.user.name || t("nav.myAccount")}
                 email={session.user.email} username={session.user.username} provider={session.user.loginProvider} />

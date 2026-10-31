@@ -107,6 +107,7 @@ export async function GET(request: NextRequest, { params }: Context) {
         promptPayId: outgoing.find(row => row.id === transfer.id)!.toParticipant.promptPayId,
         payslipUrl: proof?.objectKey ? evidenceUrl(proof.id, request) : null,
         evidenceStatus: proof?.status ?? null,
+        evidenceTransactedAt: proof?.transactedAt?.toISOString() ?? null,
       };
     }));
     return NextResponse.json(
@@ -124,6 +125,7 @@ export async function GET(request: NextRequest, { params }: Context) {
           ...participant,
           payslipUrl: evidence?.objectKey ? evidenceUrl(evidence.id, request) : null,
           evidenceStatus: evidence?.status ?? null,
+          evidenceTransactedAt: evidence?.transactedAt?.toISOString() ?? null,
         },
         settlements,
         expenseDetails,

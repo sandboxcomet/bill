@@ -10,6 +10,19 @@ import LiveStatus from "./LiveStatus";
 import { useSession } from "next-auth/react";
 import { Icon } from "./Icons";
 import { baht, request } from "@/lib/client";
+import BillsDashboard from "./BillsDashboard";
+
+type BillsResponse = { bills: BillListItem[]; payableBills: BillListItem[]; receivable: { amount: string; billCount: number }; spending: { share: string; shareBills: number; paid: string; paidBills: number } };
+
+async function loadBills(overviewOnly: boolean, signal?: AbortSignal): Promise<BillsResponse> {
+  const data = await request<BillsResponse>(overviewOnly ? "/api/dashboard" : "/api/bills", { signal });
+  if (!data || !Array.isArray(data.bills) || !Array.isArray(data.payableBills) || (overviewOnly && (
+    !data.receivable || typeof data.receivable.amount !== "string" || typeof data.receivable.billCount !== "number" ||
+    !data.spending || typeof data.spending.share !== "string" || typeof data.spending.paid !== "string" ||
+    typeof data.spending.shareBills !== "number" || typeof data.spending.paidBills !== "number"
+  ))) throw new Error("errors.dashboardDataUnavailable");
+  return data;
+}
 
 const labels: Record<string, TranslationKey> = {
   DRAFT: "bill.status.draft",
@@ -21,11 +34,13 @@ const paymentLabels: Record<BillPaymentStatus, TranslationKey> = {
   UNPAID: "myBills.paymentUnpaid", PARTIAL: "myBills.paymentPartial", REVIEW: "myBills.paymentReview",
   BANK_PENDING: "payment.bankPendingShort", PAID: "myBills.paymentPaid", NO_PAYMENT: "myBills.noPayment",
 };
-export default function MyBills() {
+export default function MyBills({ overviewOnly = false }: { overviewOnly?: boolean }) {
   const { t, formatLocale, feedback } = useI18n();
   const { status } = useSession();
   const [bills, setBills] = useState<BillListItem[]>([]);
   const [payableBills, setPayableBills] = useState<BillListItem[]>([]);
+  const [receivable, setReceivable] = useState<BillsResponse["receivable"] | null>(null);
+  const [spending, setSpending] = useState<BillsResponse["spending"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [filter, setFilter] = useState<"OWNED" | "TO_PAY">("OWNED");
@@ -37,14 +52,16 @@ export default function MyBills() {
       setLoading(false);
       setBills([]);
       setPayableBills([]);
+      setReceivable(null);
+      setSpending(null);
       return;
     }
     let active = true;
     setLoading(true);
     setError("");
-    request<{ bills: BillListItem[]; payableBills: BillListItem[] }>("/api/bills")
+    loadBills(overviewOnly)
       .then((d) => {
-        if (active) { setBills(d.bills); setPayableBills(d.payableBills); }
+        if (active) { setBills(d.bills); setPayableBills(d.payableBills); setReceivable(d.receivable); setSpending(d.spending); }
       })
       .catch((e) => {
         if (active) setError(e.message);
@@ -55,12 +72,13 @@ export default function MyBills() {
     return () => {
       active = false;
     };
-  }, [status, attempt]);
+  }, [status, attempt, overviewOnly]);
   const refresh = useCallback(async (signal: AbortSignal) => {
-    const data = await request<{ bills: BillListItem[]; payableBills: BillListItem[] }>("/api/bills", { signal });
-    if (!signal.aborted) { setBills(data.bills); setPayableBills(data.payableBills); }
-  }, []);
-  const liveStatus = useLiveRefresh(refresh, status === "authenticated" && !loading && !error);
+    const data = await loadBills(overviewOnly, signal);
+    if (!signal.aborted) { setBills(data.bills); setPayableBills(data.payableBills); setReceivable(data.receivable); setSpending(data.spending); }
+  }, [overviewOnly]);
+  const displayError = error || (overviewOnly && !loading && (!receivable || !spending) ? "errors.dashboardDataUnavailable" : "");
+  const liveStatus = useLiveRefresh(refresh, status === "authenticated" && !loading && !displayError);
   const toPay = filter === "TO_PAY";
   const visible = (toPay ? payableBills : bills).filter(
     (b) => b.name.toLowerCase().includes(search.toLowerCase()),
@@ -69,19 +87,24 @@ export default function MyBills() {
     <div id="content">
       <div className="page-heading my-bills-heading">
         <div>
-          <h1>{t("nav.myBills")}</h1>
+          <h1>{t(overviewOnly ? "nav.dashboard" : "nav.myBills")}</h1>
           <p>
             {loading
               ? t("myBills.loadingYourBills")
-              : toPay ? t("myBills.toPayHint", [payableBills.length]) : t("myBills.countHint", [bills.length])}
+              : overviewOnly ? t("dashboard.pageHint") : toPay ? t("myBills.toPayHint", [payableBills.length]) : t("myBills.countHint", [bills.length])}
           </p>
-          {!loading && !error && <LiveStatus status={liveStatus} />}
+          {!loading && !displayError && <LiveStatus status={liveStatus} />}
         </div>
         <Link className="button primary" href="/new">
           <Icon name="plus" size={18} /> {t("bill.create")} </Link>
       </div>
+      {overviewOnly && !loading && !displayError && receivable && spending && <>
+        <BillsDashboard bills={bills} payableBills={payableBills} receivable={receivable} spending={spending} />
+        <Link className="button secondary" href="/bills">{t("dashboard.viewBills")} <Icon name="arrow" size={17} /></Link>
+      </>}
+      {(!overviewOnly || loading || Boolean(displayError)) &&
       <section className="bills-section" aria-label={t("myBills.myBillList")}>
-        <div className="list-toolbar">
+        {!overviewOnly && <div className="list-toolbar">
           <div className="tabs" aria-label={t("myBills.filterBillStatus")}>
             {([
               ["OWNED", t("nav.myBills")],
@@ -106,14 +129,14 @@ export default function MyBills() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </label>
-        </div>
+        </div>}
         {loading ? (
           <div className="empty-state" role="status">
             <span className="spinner" /> {t("myBills.loadingYourBills")} </div>
-        ) : error ? (
+        ) : displayError ? (
           <div className="empty-state">
             <p className="error" role="alert">
-              {feedback(error)}
+              {feedback(displayError)}
             </p>
             <button
               className="button secondary"
@@ -183,6 +206,7 @@ export default function MyBills() {
           </div>
         )}
       </section>
+      }
     </div>
   );
 }

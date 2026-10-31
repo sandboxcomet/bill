@@ -46,6 +46,7 @@ export default function UserMenu({ name, email, username, provider }: {
         {email && <span>{email}</span>}
         {provider && <span className="user-menu-provider">{t("auth.signedInWith", [provider === "google" ? "Google" : provider === "passkey" ? "Passkey" : "LINE"])}</span>}
       </div>
+      <Link href="/dashboard" onClick={close}><Icon name="receipt" size={17} />{t("nav.dashboard")}</Link>
       <Link href="/bills" onClick={close}><Icon name="receipt" size={17} />{t("nav.myBills")}</Link>
       <Link href="/friends" onClick={close}><Icon name="users" size={17} />{t("social.pageTitle")}</Link>
       <Link href="/settings" onClick={close}><Icon name="settings" size={17} />{t("nav.accountSettings")}</Link>

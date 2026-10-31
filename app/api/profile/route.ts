@@ -5,6 +5,7 @@ import { isNickname } from "@/lib/profile";
 import { AccessError } from "@/lib/server/authorization";
 import { prisma } from "@/lib/prisma";
 import { requireUserId, accessErrorResponse } from "@/lib/server/authorization";
+import { isValidPromptPayId, promptPayErrorKey } from "@/lib/promptpay";
 
 const fields = {
   id: true,
@@ -43,10 +44,7 @@ export async function PATCH(req: NextRequest) {
       data.nickname = body.nickname.trim();
     }
     if (Object.hasOwn(body, "promptPayId")) {
-      if (
-        typeof body.promptPayId !== "string" ||
-        !/^(0\d{9}|\d{13})$/.test(body.promptPayId)
-      ) {
+      if (typeof body.promptPayId !== "string") {
         return NextResponse.json(
           {
             error:
@@ -65,7 +63,9 @@ export async function PATCH(req: NextRequest) {
     }
     const user = await prisma.$transaction(async tx => {
       await tx.$queryRaw`SELECT id FROM users WHERE id = ${userId} FOR UPDATE`;
-      const current = await tx.user.findUnique({ where: { id: userId }, select: { username: true, nickname: true } });
+      const current = await tx.user.findUnique({ where: { id: userId }, select: { username: true, nickname: true, promptPayId: true } });
+      if (data.promptPayId !== undefined && data.promptPayId !== current?.promptPayId && !isValidPromptPayId(data.promptPayId))
+        throw new AccessError(promptPayErrorKey(data.promptPayId), 409);
       if (current?.username && data.username && current.username !== data.username) throw new AccessError("account.usernameImmutable", 409);
       if (!(data.username ?? current?.username)) throw new AccessError("account.usernameRequired", 403);
       if (!isNickname(data.nickname ?? current?.nickname)) throw new AccessError("account.nicknameRequired", 403);

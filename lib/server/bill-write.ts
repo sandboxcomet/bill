@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { AccessError } from "./authorization";
 import { calculateBill } from "@/lib/billing";
 import { calculateSettlements, isPromptPayId } from "@/lib/settlements";
+import { isValidPromptPayId, promptPayErrorKey } from "@/lib/promptpay";
 import { writeSettlementTransfers } from "./settlement-ledger";
 import { autoFriend } from "./social";
 import { isBillPin } from "@/lib/pin";
@@ -141,6 +142,10 @@ export async function saveBill(id: string, userId: number, body: any) {
         const promptPayId = p.promptPayId == null || p.promptPayId === "" ? null : p.promptPayId;
         if (promptPayId !== null && (typeof promptPayId !== "string" || !isPromptPayId(promptPayId)))
           throw new AccessError("PromptPay ต้องเป็นเบอร์มือถือ 10 หลัก หรือเลขประจำตัว 13 หลัก", 409);
+        if (typeof promptPayId === "string" && !isValidPromptPayId(promptPayId) &&
+          !bill.participants.some(existing => existing.id === p.id && existing.promptPayId === promptPayId) &&
+          account?.promptPayId !== promptPayId)
+          throw new AccessError(promptPayErrorKey(promptPayId), 409);
         return {
           id: identity(p.id),
           name: account ? (account.nickname || account.name || account.username!) : label(p.name, "participant"),

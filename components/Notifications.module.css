@@ -1,0 +1,21 @@
+.menu { position: relative; }
+.trigger { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border-radius: 8px; cursor: pointer; list-style: none; color: var(--ink); }
+.trigger::-webkit-details-marker { display: none; }
+.trigger:hover, .menu[open] .trigger { background: var(--green-soft); }
+.trigger:focus-visible, .item:focus-visible, .retry:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; }
+.badge { position: absolute; top: 1px; right: 0; min-width: 20px; height: 20px; padding: 0 4px; display: grid; place-items: center; border-radius: 50%; background: var(--green); color: white; font-size: var(--text-meta); line-height: 1; font-weight: 700; }
+.panel { position: absolute; z-index: 40; right: 0; top: calc(100% + 8px); width: min(360px, calc(100vw - 32px)); max-height: min(480px, 70vh); overflow: auto; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: 0 10px 30px rgb(15 45 32 / 12%); }
+.heading { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 18px 18px 14px; border-bottom: 1px solid var(--line); }
+.heading strong { font-size: var(--text-body); }
+.heading span, .empty { color: var(--muted); font-size: var(--text-meta); }
+.empty { padding: 22px 18px; margin: 0; }
+.empty p { margin: 0; }
+.retry { color: var(--green); margin-top: 8px; padding: 4px 0; background: none; border: 0; cursor: pointer; font-weight: 600; }
+.item { display: flex; align-items: center; gap: 12px; min-height: 72px; padding: 14px 18px; border-bottom: 1px solid var(--line); color: var(--ink); }
+.item:last-child { border-bottom: 0; }
+.item:hover { background: var(--green-soft); }
+.itemIcon { display: grid; place-items: center; flex: 0 0 36px; width: 36px; height: 36px; border-radius: 8px; background: var(--green-soft); color: var(--green); }
+.content { display: grid; gap: 3px; min-width: 0; flex: 1; }
+.content strong { overflow-wrap: anywhere; }
+.content span { color: var(--muted); font-size: var(--text-meta); }
+@media (max-width: 480px) { .panel { position: fixed; top: 60px; left: 16px; right: 16px; width: auto; } }

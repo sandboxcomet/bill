@@ -15,6 +15,7 @@ import { Icon } from "./Icons";
 import SettlementSummary from "./SettlementSummary";
 import ItemPayer from "./ItemPayer";
 import { calculatePayerUpfront, calculateSettlements, isPromptPayId } from "@/lib/settlements";
+import { isValidPromptPayId, promptPayErrorKey } from "@/lib/promptpay";
 import PinInput from "./PinInput";
 import BillPeoplePicker from "./BillPeoplePicker";
 import BillItemDesktop from "./BillItemDesktop";
@@ -725,6 +726,10 @@ export default function BillEditor({
       setError(t("errors.promptPayInvalid"));
       return;
     }
+    if (!draft.itemPayersEnabled && promptPay && promptPay !== profilePromptPay?.value && !isValidPromptPayId(promptPay)) {
+      setError(t(promptPayErrorKey(promptPay)));
+      return;
+    }
     if (status !== "authenticated") {
       router.push(`/login?callbackUrl=${encodeURIComponent("/new")}`);
       return;
@@ -821,7 +826,7 @@ export default function BillEditor({
     (draft.isPublic || isBillPin(draft.passcode)) &&
     draft.items.every(i => /^\d+(\.\d{1,2})?$/.test(i.price || "0") && Number.isInteger(i.quantity) && i.quantity >= 1 && i.quantity <= 999 && dec(i.discountRate).lte(100)) &&
     draft.participants.every(p => !p.promptPayId || isPromptPayId(p.promptPayId)) &&
-    (draft.itemPayersEnabled || !promptPay || isPromptPayId(promptPay)) &&
+    (draft.itemPayersEnabled || !promptPay || (isPromptPayId(promptPay) && (promptPay === profilePromptPay?.value || isValidPromptPayId(promptPay)))) &&
     (billStatus !== "PUBLISHED" || locked || (draft.participants.length > 0 && draft.items.length > 0 && total.gt(0) && !hasUnassigned && !hasMissingPayer && draft.items.every(i => i.name.trim() && i.price)));
   useEffect(() => {
     if (!autoSaveReady) return;

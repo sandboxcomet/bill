@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "@/components/LanguageProvider";
+import { isValidPromptPayId, promptPayErrorKey } from "@/lib/promptpay";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
 import { request, jsonBody } from "@/lib/client";
@@ -63,12 +64,12 @@ export default function Settings() {
       !value || value.length > 40 || /\p{Cc}/u.test(value);
     const invalidPayment =
       (Boolean(promptPay) || Boolean(profile?.promptPayId)) &&
-      !/^(0\d{9}|\d{13})$/.test(promptPay);
+      (promptPay !== (profile?.promptPayId ?? "") ? !isValidPromptPayId(promptPay) : !promptPay);
     setNicknameError(
       invalidNickname ? t("errors.nicknameInvalid") : "",
     );
     setPaymentError(
-      invalidPayment ? t("errors.promptPayFormat") : "",
+      invalidPayment ? t(promptPayErrorKey(promptPay)) : "",
     );
     if (invalidNickname || invalidPayment) return;
 

@@ -7,6 +7,8 @@ import { storeSlip } from "./payment-storage";
 export type { PaymentTarget } from "./payment-ledger";
 import { type PaymentTarget, serializable, lockTarget, updateDebtor, applyVerifiedAmount, slipCreditAmount } from "./payment-ledger";
 import { recordPendingSlip } from "./pending-slips";
+import { randomUUID } from "node:crypto";
+import { allowLocalSlipReuse } from "./local-slip-testing";
 
 export async function submitPaymentEvidence(
   target: PaymentTarget,
@@ -22,10 +24,15 @@ export async function submitPaymentEvidence(
     if (error instanceof PendingSlip) return recordPendingSlip(target, error, receiver, actorId);
     throw error;
   }
-  const referenceKey = { provider: "easyslip", reference: verified.reference };
+  let referenceKey = { provider: "easyslip", reference: verified.reference };
   let evidence = await prisma.paymentEvidence.findUnique({
     where: { provider_reference: referenceKey },
   });
+  const previousObjectKey = allowLocalSlipReuse() && evidence?.objectKey ? evidence.objectKey : null;
+  if (allowLocalSlipReuse() && evidence && evidence.status !== "UPLOADING") {
+    referenceKey = { provider: "easyslip", reference: `local-test:${randomUUID()}` };
+    evidence = null;
+  }
   if (!evidence) {
     try {
       evidence = await serializable(async (tx) => {
@@ -62,7 +69,7 @@ export async function submitPaymentEvidence(
     throw new PaymentError("สลิปนี้ถูกย้อนรายการแล้ว กรุณาติดต่อเจ้าของ", 409);
   const recipientReview = evidence.status === "NEEDS_REVIEW" && evidence.reviewReason === "RECIPIENT_UNVERIFIED";
   if (evidence.status !== "UPLOADING" && !recipientReview) return evidence;
-  const objectKey = await storeSlip(verified.image, evidence.id);
+  const objectKey = previousObjectKey ?? await storeSlip(verified.image, evidence.id);
   const evidenceId = evidence.id;
   return serializable(async (tx) => {
     await lockTarget(tx, target);
@@ -74,7 +81,7 @@ export async function submitPaymentEvidence(
       version: current.targetVersion,
     });
     if (current.status !== "UPLOADING" && !(current.status === "NEEDS_REVIEW" && current.reviewReason === "RECIPIENT_UNVERIFIED")) return current;
-    const reviewReason = !current.transactedAt || current.transactedAt < payable.createdAt
+    const reviewReason = !allowLocalSlipReuse() && (!current.transactedAt || current.transactedAt < payable.createdAt)
         ? "DATE_REQUIRES_REVIEW"
         : slipCreditAmount(current.amount, payable.remaining).gt(payable.remaining)
           ? "EXCEEDS_REMAINING"
@@ -162,7 +169,7 @@ export async function latestEvidence(target: PaymentTarget) {
       status: { in: ["VERIFIED", "NEEDS_REVIEW", "PENDING", "PENDING_UPLOAD", "REJECTED"] },
     },
     orderBy: { createdAt: "desc" },
-    select: { id: true, status: true, amount: true, objectKey: true },
+    select: { id: true, status: true, amount: true, objectKey: true, transactedAt: true },
   });
 }
 

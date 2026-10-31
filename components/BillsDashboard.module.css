@@ -1,0 +1,25 @@
+.dashboard { margin: 24px 0 32px; padding: 22px 24px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+.heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; }
+.heading h2 { font-size: var(--text-title); }
+.heading > span { color: var(--muted); font-size: var(--text-meta); }
+.amounts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; padding: 20px 0 12px; }
+.amounts > div { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; gap: 2px; }
+.amounts > div + div { padding-inline-start: 20px; border-inline-start: 1px solid var(--line); }
+.amounts span, .stats span { color: var(--muted); font-size: var(--text-support); }
+.amounts strong { color: var(--green-dark); font-size: var(--text-title); line-height: 1.35; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.amounts small { color: var(--muted); font-size: var(--text-meta); }
+.amountNote { margin: 0 0 16px; color: var(--muted); font-size: var(--text-meta); }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 20px; padding-top: 16px; border-top: 1px solid var(--line); }
+.stats > div { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.stats > div + div { padding-inline-start: 20px; border-inline-start: 1px solid var(--line); }
+.stats strong { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stats small { color: var(--muted); font-size: var(--text-meta); }
+@media (max-width: 600px) {
+  .dashboard { margin: 20px 0 24px; padding: 18px; }
+  .amounts { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; padding: 16px 0 12px; }
+  .amounts > div + div { padding-inline-start: 12px; }
+  .amounts > div:nth-child(odd) { padding-inline-start: 0; border-inline-start: 0; }
+  .stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .stats > div + div { padding-inline-start: 12px; }
+  .stats > div:nth-child(odd) { padding-inline-start: 0; border-inline-start: 0; }
+}

@@ -2,7 +2,7 @@
 import { sharedBillPath, manageBillPath } from "@/lib/bill-paths";
 import { useI18n } from "@/components/LanguageProvider";
 import { notFound } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import Link from "@/components/LocalizedLink";
 import { useLocalizedRouter } from "@/components/LanguageProvider";
 import { useSession } from "next-auth/react";
@@ -20,6 +20,8 @@ import AmountExplanation from "./AmountExplanation";
 import { personBalance } from "@/lib/bill-view";
 import { useBillTitle } from "@/lib/use-bill-title";
 import InstagramBrowserNotice from "./InstagramBrowserNotice";
+import { groupReceiptItems } from "@/lib/receipt-groups";
+import styles from "./SharedBill.module.css";
 type Bill = {
   id: string;
   name: string;
@@ -76,6 +78,8 @@ export default function SharedBill({ id }: { id: string }) {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [sharing, setSharing] = useState(false);
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const groupsId = useId();
   const { data: session } = useSession();
   const router = useLocalizedRouter();
   const accessPin = useRef("");
@@ -122,6 +126,7 @@ export default function SharedBill({ id }: { id: string }) {
     [id],
   );
   useEffect(() => {
+    setExpandedGroups({});
     let cached = "";
     try {
       const raw = JSON.parse(sessionStorage.getItem(`pin:${id}`) || "null");
@@ -236,6 +241,8 @@ export default function SharedBill({ id }: { id: string }) {
       </div>
     );
   const owner = bill.canManage === true;
+  const receiptGroups = groupReceiptItems(bill.items, bill.restaurants);
+  const hasNamedGroups = receiptGroups.some(group => group.name !== null);
   const cancelled = bill.status === "CANCELLED";
   const progress = billProgress(bill);
   const itemPayers = new Set(bill.items.flatMap(item => item.payer ? [item.payer.id] : []));
@@ -305,7 +312,17 @@ export default function SharedBill({ id }: { id: string }) {
         {bill.status === "PUBLISHED" && bill.participants.length > 0 && <TableProgress progress={progress} />}
         <div className="share-items">
           <div className="receipt-items-heading"><h2>{t("bill.itemsHeading")} {bill.items.length}</h2><span>{t("common.baht")}</span></div>
-          {bill.items.map((i) => {
+          {receiptGroups.map((group, groupIndex) => {
+            const expanded = Boolean(expandedGroups[group.key]);
+            const groupId = `${groupsId}-${groupIndex}`;
+            const groupName = group.name ?? t("bill.otherItems");
+            const showGroupHeading = group.name !== null || hasNamedGroups;
+            const subtotal = group.items.reduce((sum, item) => sum.plus(new Decimal(item.price).mul(item.quantity)
+              .mul(new Decimal(1).minus(new Decimal(item.discountRate).div(100)))), new Decimal(0));
+            return <section className={`${styles.group}${showGroupHeading ? ` ${styles.groupWithHeading}` : ""}`} key={group.key}>
+              {showGroupHeading && <div className={styles.groupHeading}><div><h3>{groupName}</h3><small>{t("bill.groupItemCount", [group.items.length])}</small></div>
+                <div className={styles.groupTotal}><small>{t("bill.groupItemsTotal")}</small><b>฿ {baht(subtotal)}</b></div></div>}
+              <div id={groupId} className={styles.items}>{group.items.map((i, itemIndex) => {
             const customShares = i.consumerQuantities && Object.values(i.consumerQuantities).some(quantity => quantity > 0);
             const consumers = customShares
               ? bill.participants.filter(person => (i.consumerQuantities?.[person.id] ?? 0) > 0)
@@ -316,10 +333,9 @@ export default function SharedBill({ id }: { id: string }) {
                 : i.isShared && !customShares ? t("common.splitWithEveryone")
                   : t("bill.splitWith", [consumers.map(person => person.name).join(", ")]);
             return (
-            <div className="share-item-line receipt-item-row" key={i.id}>
+            <div className={styles.itemSlot} hidden={!expanded && itemIndex >= 4} key={i.id}><div className="share-item-line receipt-item-row">
               <div className="receipt-item-name">
                 {i.name} × {i.quantity}
-                {i.restaurantId && <small className="receipt-item-restaurant">{bill.restaurants?.find(restaurant => restaurant.id === i.restaurantId)?.name}</small>}
               </div>
               <div className="receipt-item-amount"><b>
                 {baht(
@@ -339,8 +355,15 @@ export default function SharedBill({ id }: { id: string }) {
               {showItemPayers && i.payer && <small className="receipt-item-payer" title={`${i.payer.name} ${t("bill.payerAction")}`}>
                 <span className="receipt-item-payer-name">{i.payer.name}</span><span> {t("bill.payerAction")}</span>
               </small>}
-            </div>
+            </div></div>
             );
+              })}</div>
+              {group.items.length > 4 && <button type="button" className={styles.toggle} aria-expanded={expanded} aria-controls={groupId}
+                aria-label={expanded ? t("bill.collapseItemsFor", [groupName]) : t("bill.showMoreItemsFor", [group.items.length - 4, groupName])}
+                onClick={() => setExpandedGroups(current => ({ ...current, [group.key]: !current[group.key] }))}>
+                {expanded ? t("bill.collapseItems") : t("bill.showMoreItems", [group.items.length - 4])}
+              </button>}
+            </section>;
           })}
           {!new Decimal(bill.serviceCharge).isZero() && <div className="share-item-line">
             <span>Service charge</span>
