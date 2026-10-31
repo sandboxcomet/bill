@@ -142,7 +142,7 @@ export const english = {
   "bill.splitWith": "Split between: {0}",
   "bill.onlyPerson": "For {0} only",
   "bill.noConsumers": "No participants selected",
-  "bill.payerAction": "paid upfront",
+  "bill.payerAction": "paid",
   "share.linkCopied": "Link copied. Send it to your friends.",
   "bill.name": "Bill name",
   "bill.openBill": "Open bill",

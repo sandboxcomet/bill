@@ -336,6 +336,7 @@ export default function SharedBill({ id }: { id: string }) {
             <div className={styles.itemSlot} hidden={!expanded && itemIndex >= 4} key={i.id}><div className="share-item-line receipt-item-row">
               <div className="receipt-item-name">
                 {i.name} × {i.quantity}
+                {showItemPayers && i.payer && <span className="receipt-item-payer"> ({i.payer.name.trimEnd()}{formatLocale === "th-TH" && /[\u0e00-\u0e7f]$/u.test(i.payer.name.trimEnd()) ? "" : " "}{t("bill.payerAction")})</span>}
               </div>
               <div className="receipt-item-amount"><b>
                 {baht(
@@ -352,9 +353,6 @@ export default function SharedBill({ id }: { id: string }) {
                 {allocationLabel}
                 {Number(i.discountRate) > 0 ? t("expenses.discountNote", [i.discountRate]) : ""}
               </small>
-              {showItemPayers && i.payer && <small className="receipt-item-payer" title={`${i.payer.name} ${t("bill.payerAction")}`}>
-                <span className="receipt-item-payer-name">{i.payer.name}</span><span> {t("bill.payerAction")}</span>
-              </small>}
             </div></div>
             );
               })}</div>
@@ -391,17 +389,19 @@ export default function SharedBill({ id }: { id: string }) {
           const incoming = received
             .reduce((sum, s) => sum.plus(s.amount), new Decimal(0));
           const { due: outgoingRemaining, receive: incomingRemaining } = personBalance(p, bill.settlements, bill.itemPayersEnabled);
+          const paidUpfront = new Decimal(p.paidUpfront);
+          const showExpense = paidUpfront.gt(0) || !outgoingRemaining.gt(0) || !new Decimal(p.shareAmount).equals(outgoingRemaining);
           const canOpen = !cancelled && bill.status === "PUBLISHED";
-          return <div className={`participant-row${canOpen ? " is-interactive" : ""}${session?.user && p.isYou ? " is-you" : ""}`} key={p.id}>
+          return <div className={`participant-row ${styles.personRow}${canOpen ? " is-interactive" : ""}${session?.user && p.isYou ? " is-you" : ""}`} key={p.id}>
             <div className="participant-info">
               <div className="participant-name-line">
                 <h3>{p.name}</h3>
                 {session?.user && p.isYou && <span className="participant-self-label">{t("bill.yourEntry")}</span>}
                 {p.isPaid && Number(p.totalPayable) > 0 && <span className="participant-paid-label"><Icon name="check" size={13} />{t("common.fullyPaid")}</span>}
               </div>
-              {bill.itemPayersEnabled ? <dl className="receipt-person-meta">
-                <div><dt>{t("bill.costs")}</dt><dd>{baht(p.shareAmount)}</dd></div>
-                {new Decimal(p.paidUpfront).gt(0) && <div><dt>{t("bill.paidUpfront")}</dt><dd>{baht(p.paidUpfront)}</dd></div>}
+              {bill.itemPayersEnabled ? (showExpense || paidUpfront.gt(0)) && <dl className="receipt-person-meta">
+                {showExpense && <div><dt>{t("bill.costs")}</dt><dd>{baht(p.shareAmount)}</dd></div>}
+                {paidUpfront.gt(0) && <div><dt>{t("bill.paidUpfront")}</dt><dd>{baht(p.paidUpfront)}</dd></div>}
               </dl> : <p>{p.isPaid ? t("payment.confirmed") : t("payment.awaitingPayment")}</p>}
               {p.slipStatus?.needsReview && <p className="participant-slip-status">{t("payment.uploadedAwaitingReview")}</p>}
               {p.slipStatus?.bankPending && <p className="participant-slip-status">{t("payment.uploadedAwaitingBank")}</p>}
@@ -411,14 +411,14 @@ export default function SharedBill({ id }: { id: string }) {
               {canOpen ? <AmountExplanation billId={id} participantId={p.id} name={p.name} token={p.paymentToken}>
 
               {bill.itemPayersEnabled ? <>
-                {Number(p.totalPayable) > 0 && <span className="participant-balance-line"><span>{outgoingRemaining.isZero() ? t("payment.confirmed") : t("payment.toPay")}</span><b>฿ {baht(outgoingRemaining.isZero() ? p.totalPayable : outgoingRemaining)}</b></span>}
+                {Number(p.totalPayable) > 0 && <span className={`participant-balance-line${outgoingRemaining.gt(0) ? ` ${styles.due}` : ""}`}><span className={outgoingRemaining.gt(0) ? "sr-only" : undefined}>{outgoingRemaining.isZero() ? t("payment.confirmed") : t("payment.toPay")}</span><b>฿ {baht(outgoingRemaining.isZero() ? p.totalPayable : outgoingRemaining)}</b></span>}
                 {incoming.gt(0) && <span className="participant-balance-line participant-credit"><span>{incomingRemaining.isZero() ? t("payment.received") : t("payment.toReceive")}</span><b>฿ {baht(incomingRemaining.isZero() ? incoming : incomingRemaining)}</b></span>}
                 {Number(p.totalPayable) === 0 && incoming.isZero() && t("payment.balanced")}
               </> : <b>฿ {baht(outgoingRemaining)}</b>}
               </AmountExplanation> : <>
 
               {bill.itemPayersEnabled ? <>
-                {Number(p.totalPayable) > 0 && <span className="participant-balance-line"><span>{outgoingRemaining.isZero() ? t("payment.confirmed") : t("payment.toPay")}</span><b>฿ {baht(outgoingRemaining.isZero() ? p.totalPayable : outgoingRemaining)}</b></span>}
+                {Number(p.totalPayable) > 0 && <span className={`participant-balance-line${outgoingRemaining.gt(0) ? ` ${styles.due}` : ""}`}><span className={outgoingRemaining.gt(0) ? "sr-only" : undefined}>{outgoingRemaining.isZero() ? t("payment.confirmed") : t("payment.toPay")}</span><b>฿ {baht(outgoingRemaining.isZero() ? p.totalPayable : outgoingRemaining)}</b></span>}
                 {incoming.gt(0) && <span className="participant-balance-line participant-credit"><span>{incomingRemaining.isZero() ? t("payment.received") : t("payment.toReceive")}</span><b>฿ {baht(incomingRemaining.isZero() ? incoming : incomingRemaining)}</b></span>}
                 {Number(p.totalPayable) === 0 && incoming.isZero() && t("payment.balanced")}
               </> : <b>฿ {baht(outgoingRemaining)}</b>}

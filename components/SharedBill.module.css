@@ -1,20 +1,33 @@
-.group { margin-top: 16px; }
-.groupWithHeading { overflow: hidden; border: 1px solid var(--line); border-radius: 8px; }
-.groupHeading { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 14px; background: var(--green-soft); }
-.groupWithHeading .items { padding-inline: 14px; }
-.groupWithHeading .toggle { margin-inline: 14px; }
-.groupHeading h3 { color: var(--green-dark); font-size: var(--text-title); overflow-wrap: anywhere; }
+.group { margin-top: 14px; }
+.groupWithHeading + .groupWithHeading { border-top: 1px dashed var(--line); padding-top: 16px; }
+.groupHeading { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 0 0 8px; }
+.groupWithHeading .items { padding-left: 12px; border-left: 1px solid var(--line); }
+.groupWithHeading .toggle { margin-left: 12px; }
+.groupHeading h3 { color: var(--ink); font-size: var(--text-body); font-weight: 700; overflow-wrap: anywhere; }
 .groupHeading small { display: block; color: var(--muted); font-size: var(--text-meta); }
 .groupTotal { display: flex; flex-direction: column; align-items: flex-end; flex-shrink: 0; text-align: end; font-variant-numeric: tabular-nums; }
-.groupTotal b { color: var(--green-dark); white-space: nowrap; }
-.group .itemSlot :global(.receipt-item-row) { border-bottom: 1px solid var(--line); }
-.group .itemSlot:last-child :global(.receipt-item-row) { border-bottom: 0; }
+.groupTotal b { color: var(--ink); white-space: nowrap; }
+.group .itemSlot :global(.receipt-item-row) { border-bottom: 0; padding: 7px 0; }
 .toggle { min-height: 44px; padding: 4px 0; border: 0; background: transparent; color: var(--green); font: inherit; font-size: var(--text-support); font-weight: 600; cursor: pointer; }
 .toggle:hover { color: var(--green-dark); text-decoration: underline; }
+.due:global(.participant-balance-line) { display: flex; justify-content: flex-end; }
 @media (max-width: 480px) {
   .groupHeading { align-items: start; }
   .groupTotal { max-width: 52%; }
   .groupTotal small { overflow-wrap: anywhere; }
+}
+@media (max-width: 760px) {
+  .personRow:global(.participant-row) { grid-template-columns: minmax(0, 1fr) auto; gap: 2px 12px; padding-block: 14px; }
+  .personRow :global(.participant-info), .personRow :global(.participant-payment) { display: contents; }
+  .personRow :global(.participant-name-line) { grid-column: 1; grid-row: 1; min-width: 0; align-self: center; }
+  .personRow :global(.participant-pay-button) { grid-column: 2; grid-row: 1; align-self: center; }
+  .personRow :global(.participant-info > dl), .personRow :global(.participant-info > p:not(.participant-slip-status)) { grid-column: 1; grid-row: 2; margin: 4px 0 0; }
+  .personRow :global(.participant-slip-status) { grid-column: 1 / -1; }
+  .personRow :global(.receipt-person-meta) { display: flex; flex-wrap: wrap; gap: 2px 12px; }
+  .personRow :global(.participant-amount) { grid-column: 2; grid-row: 2; min-width: 0; justify-self: end; margin-top: 4px; }
+  .personRow :global(.amount-details-trigger) { text-align: right; }
+  .personRow :global(.participant-balance-line) { gap: 8px; }
+  .personRow .due { justify-content: flex-end; }
 }
 @media print {
   .itemSlot[hidden] { display: block; }

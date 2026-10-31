@@ -2238,7 +2238,7 @@ small {
 }
 .participant-row.is-you h3 {
   color: var(--green-dark);
-  font-size: var(--text-title);
+  font-size: var(--text-body);
 }
 .participant-info {
   flex: 1;
@@ -2453,15 +2453,6 @@ small {
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
-@media (max-width: 480px) {
-  .share-receipt .participant-row {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 8px;
-  }
-  .share-receipt .participant-payment {
-    justify-self: end;
-  }
-}
 .share-receipt .participant-info small {
   color: var(--muted);
   font-size: var(--text-meta);
@@ -2504,12 +2495,9 @@ small {
 }
 .receipt-item-row:last-child { border-bottom: 0; }
 .receipt-item-name { grid-column: 1; grid-row: 1; font-size: var(--text-body); font-weight: 700; }
-.receipt-item-sharing, .receipt-item-payer { min-width: 0; }
+.receipt-item-sharing { min-width: 0; }
 .receipt-item-sharing { grid-column: 1; grid-row: 2; margin-top: 2px; overflow-wrap: anywhere; }
-.receipt-item-payer { grid-column: 1 / -1; grid-row: 3; }
-.share-item-line .receipt-item-payer { display: flex; align-items: baseline; gap: 4px; white-space: nowrap; }
-.receipt-item-payer-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.receipt-item-payer > span:last-child { flex-shrink: 0; }
+.receipt-item-payer { display: inline-block; max-width: 100%; color: var(--muted); font-size: var(--text-meta); font-weight: 400; overflow-wrap: anywhere; }
 .receipt-item-amount { grid-column: 2; grid-row: 1 / span 2; align-self: start; text-align: end; font-variant-numeric: tabular-nums; }
 .receipt-item-amount small { white-space: nowrap; }
 .share-item-line b {

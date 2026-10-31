@@ -140,7 +140,7 @@ export const thai = {
   "bill.splitWith": "หารกัน: {0}",
   "bill.onlyPerson": "ของ{0}คนเดียว",
   "bill.noConsumers": "ยังไม่ได้เลือกผู้ร่วมจ่าย",
-  "bill.payerAction": "ออกเงิน",
+  "bill.payerAction": "จ่าย",
   "share.linkCopied": "คัดลอกลิงก์แล้ว ส่งให้เพื่อนได้เลย",
   "bill.name": "ชื่อบิล",
   "bill.openBill": "เปิดดูบิล",
