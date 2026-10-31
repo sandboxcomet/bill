@@ -1,8 +1,25 @@
 .personAvatar { display: inline-flex; position: relative; flex-shrink: 0; }
 .personChip { position: relative; }
+.payerCandidates { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line); }
+.payerCandidates h3 { font-size: var(--text-body); }
+.payerCandidates > p { margin: 4px 0 10px; }
+.payerCandidateList { display: flex; flex-wrap: wrap; gap: 6px; }
+.payerCandidateList button { min-height: 44px; }
 .restaurantLegend { color: var(--muted); font-size: var(--text-support); font-weight: 600; margin-bottom: 8px; padding: 0; }
-.itemMeta { display: flex; align-items: flex-start; flex-wrap: wrap; gap: 8px 16px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
-.itemMeta :global(.item-payer) { flex: 1 1 300px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.itemContainer { container-type: inline-size; }
+.allocationRow, .itemMeta { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 14rem); align-items: start; gap: 8px 16px; }
+.allocationRow { margin-top: 12px; }
+.allocationRow :global(.item-allocation) { min-width: 0; margin-top: 0; align-items: start; }
+.allocationRow :global(.item-tax-toggles) { justify-content: flex-end; }
+.allocationRow :global(.allocation-all), .itemMeta :global(.payer-label) { min-height: 44px; display: flex; align-items: center; }
+.itemMeta { margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line); }
+.itemMeta :global(.item-payer) { min-width: 0; margin: 0; padding: 0; border: 0; }
+.itemMeta :global(.payer-choice) { align-items: start; }
+.restaurantSlot { grid-column: 2; justify-self: end; min-width: 0; max-width: 100%; }
+@container (max-width: 640px) {
+  .allocationRow, .itemMeta { grid-template-columns: minmax(0, 1fr); }
+  .allocationRow :global(.item-tax-toggles), .restaurantSlot { grid-column: 1; justify-self: end; }
+}
 .payerRecipients { margin: 20px 0; padding-top: 16px; border-top: 1px solid var(--line); }
 .payerRecipients h3 { font-size: var(--text-body); margin: 0 0 4px; }
 .payerRecipients > p { margin: 0; }
@@ -10,4 +27,13 @@
 .payerRecipients :global(.account-payer-note) { flex: 1 1 260px; margin: 0; }
 .restaurantTotal span { min-width: 0; overflow-wrap: anywhere; }
 .restaurantTotal b { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.summaryTotal:global(.summary-total) { position: relative; min-height: 128px; padding-inline-end: 76px; }
+.totalRow { min-width: 0; }
+.totalRow strong { min-width: 0; }
+.rounding { position: absolute; inset-block: 0; inset-inline-end: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.rounding button { min-width: 44px; min-height: 44px; padding: 8px; border-color: transparent; background: transparent; }
+.rounding button:hover:not(:disabled), .rounding button[aria-pressed="true"], .rounding button[aria-pressed="true"]:hover:not(:disabled) { border-color: transparent; background: transparent; color: var(--green-dark); }
+.rounding button span { display: flex; }
+.roundUp { transform: rotate(-90deg); }
+.roundDown { transform: rotate(90deg); }
 .restaurantSubtotal { border-top: 1px solid var(--line); padding-top: 10px; margin-top: 4px; }

@@ -9,6 +9,7 @@ import { autoFriend } from "./social";
 import { isBillPin } from "@/lib/pin";
 import { ownsAccount, primaryProfile, resolvedProfileFields } from "./account-identity";
 import { participantPromptPay } from "./participant-promptpay";
+import { roundBillTotal, type BillRounding } from "@/lib/bill-rounding";
 
 export function money(value: unknown, field: string): Decimal {
   if (typeof value !== "number" && typeof value !== "string")
@@ -219,6 +220,15 @@ export async function saveBill(id: string, userId: number, body: any) {
           consumerQuantities: cq as Record<string, number> | undefined,
         };
       });
+      const requestedPayers = body.payerCandidateIds ?? (Array.isArray(bill.payerCandidateIds)
+        ? bill.payerCandidateIds.filter(id => typeof id === "string" && ids.has(id)) : []);
+      if (requestedPayers !== null && requestedPayers !== undefined &&
+          (!Array.isArray(requestedPayers) || requestedPayers.some(id => typeof id !== "string" || !ids.has(id)) || new Set(requestedPayers).size !== requestedPayers.length))
+        throw new AccessError("Invalid bill payers", 409);
+      const payerCandidateIds = [...new Set<string>([
+        ...((requestedPayers ?? []) as string[]),
+        ...items.flatMap((item: (typeof items)[number]) => item.payerId ? [item.payerId] : []),
+      ])];
       const subtotal = items
         .reduce(
           (sum: Decimal, item: (typeof items)[number]) =>
@@ -232,7 +242,10 @@ export async function saveBill(id: string, userId: number, body: any) {
         .toDecimalPlaces(2);
       const sc = money(body.serviceCharge ?? 0, "service charge"),
         vat = money(body.vat ?? 0, "VAT");
-      const total = subtotal.plus(sc).plus(vat);
+      const roundingMode = body.roundingMode ?? bill.roundingMode;
+      if (!["none", "up", "down"].includes(roundingMode))
+        throw new AccessError("Invalid rounding mode", 409);
+      const total = roundBillTotal(subtotal.plus(sc).plus(vat), roundingMode as BillRounding);
       if (
         status === "PUBLISHED" &&
         (!participants.length || !items.length || total.lte(0))
@@ -309,9 +322,11 @@ export async function saveBill(id: string, userId: number, body: any) {
         where: { id },
         data: {
           itemPayersEnabled,
+          payerCandidateIds,
           restaurants: normalizedRestaurants,
           receiptSubtotal: subtotal.toFixed(2),
           grandTotal: total.toFixed(2),
+          roundingMode,
           totalDiscount: 0,
           serviceCharge: sc.toFixed(2),
           vat: vat.toFixed(2),

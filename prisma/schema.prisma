@@ -157,6 +157,7 @@ model Bill {
 
   name            String  @map("name")
   restaurants     Json?
+  payerCandidateIds Json? @map("payer_candidate_ids")
   receiptSubtotal Decimal @map("receipt_subtotal") @db.Decimal(18, 2)
   totalDiscount   Decimal @default(0) @map("total_discount") @db.Decimal(18, 2)
   serviceCharge   Decimal @default(0) @map("service_charge") @db.Decimal(18, 2)
@@ -167,6 +168,7 @@ model Bill {
   vatValue        Decimal? @default(0) @map("vat_value") @db.Decimal(18, 2)
   vatIncludesSc   Boolean? @default(false) @map("vat_includes_sc")
   grandTotal      Decimal @map("grand_total") @db.Decimal(18, 2)
+  roundingMode    String @default("none") @map("rounding_mode")
 
   isPublic Boolean @default(true) @map("is_public")
   passcode String? // plain PIN (4 digits)

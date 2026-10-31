@@ -1,0 +1,1 @@
+ALTER TABLE `bills` ADD COLUMN `rounding_mode` VARCHAR(191) NOT NULL DEFAULT 'none';

@@ -164,6 +164,20 @@ export function calculateBill(params: CalculateBillParams): CalculationResult {
     currentCalculatedTotal = currentCalculatedTotal.plus(p.totalPayable);
   }
 
+  const originalTotal = items.reduce((sum, item) => sum.plus(item.price.mul(item.quantity)
+    .mul(new Decimal(1).minus(item.discountRate.div(100)))), new Decimal(0))
+    .toDecimalPlaces(2).plus(serviceCharge).plus(vat);
+  if (!grandTotal.eq(originalTotal) && currentCalculatedTotal.gt(0)) {
+    const exact = updatedParticipants.map(p => p.totalPayable.mul(grandTotal).div(currentCalculatedTotal).mul(100));
+    const cents = exact.map(value => value.floor());
+    let remaining = grandTotal.mul(100).round().minus(Decimal.sum(0, ...cents)).toNumber();
+    const order = exact.map((value, i) => ({ i, fraction: value.minus(cents[i]) }))
+      .sort((a, b) => b.fraction.comparedTo(a.fraction) || participants[a.i].id.localeCompare(participants[b.i].id));
+    for (let i = 0; remaining > 0 && order.length; i++, remaining--) cents[order[i % order.length].i] = cents[order[i % order.length].i].plus(1);
+    updatedParticipants.forEach((p, i) => { p.totalPayable = cents[i].div(100); });
+    currentCalculatedTotal = Decimal.sum(0, ...updatedParticipants.map(p => p.totalPayable));
+  }
+
   // Rounding Fix — add/subtract residual to first participant
   const gtDecimal = new Decimal(grandTotal);
   const matchError = gtDecimal.minus(currentCalculatedTotal);

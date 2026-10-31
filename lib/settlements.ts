@@ -59,12 +59,16 @@ export function calculateSettlements(params: Params) {
     item.discountRate.toString(), item.includeSC, item.includeVat, item.isShared,
     [...item.consumers].sort(), Object.entries(item.consumerQuantities ?? {}).sort(),
   ]));
-  const itemTotals = roundAmounts(nets.map((net, i) =>
-    net.plus(scByItem[i]).plus(vatByItem[i])), grandTotal, itemKeys);
+  const rawItemTotals = nets.map((net, i) => net.plus(scByItem[i]).plus(vatByItem[i]));
+  const rawTotal = Decimal.sum(0, ...rawItemTotals);
+  const originalTotal = Decimal.sum(0, ...nets).toDecimalPlaces(2).plus(serviceCharge).plus(vat);
+  const adjustedItems = grandTotal.eq(originalTotal) || rawTotal.isZero()
+    ? rawItemTotals : distribute(grandTotal, rawItemTotals);
+  const itemTotals = roundAmounts(adjustedItems, grandTotal, itemKeys);
   // Attribution only: preserve the existing ledger totals and share rounding.
   // Independently conserve each bill component; show any per-person difference
   // explicitly as a satang adjustment instead of changing what anyone owes.
-  const bases = roundAmounts(nets, grandTotal.minus(serviceCharge).minus(vat), itemKeys);
+  const bases = roundAmounts(nets, originalTotal.minus(serviceCharge).minus(vat), itemKeys);
   const charges = roundAmounts(scByItem, serviceCharge, itemKeys);
   const taxes = roundAmounts(vatByItem, vat, itemKeys);
   const shares = participants.map(() => new Decimal(0));

@@ -6,13 +6,15 @@ import { jsonBody, request } from "@/lib/client";
 import { useI18n } from "./LanguageProvider";
 import Link from "./LocalizedLink";
 import { Icon } from "./Icons";
+import { participantNameKey } from "@/lib/participant-name";
 
 type Choice = { key: string; label: string; detail?: string; run: () => void };
-export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedAccountIds, allowAccounts = true, aliases = [] }: {
+export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedAccountIds, selectedNames, allowAccounts = true, aliases = [] }: {
   onAdd: (people: AccountPerson[]) => boolean;
   onAddName: (name: string) => boolean;
   disabled: boolean;
   selectedAccountIds: number[];
+  selectedNames: string[];
   allowAccounts?: boolean;
   aliases?: AccountPerson[];
 }) {
@@ -68,6 +70,7 @@ export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedA
     if (!disabled && onAdd(people)) reset();
   }
   const value = query.trim();
+  const duplicateName = Boolean(value) && selectedNames.some(name => participantNameKey(name) === participantNameKey(value));
   const filter = value.toLocaleLowerCase();
   const matches = (name: string) => name.toLocaleLowerCase().includes(filter);
   const canSearch = allowAccounts && (isUsername(normalizeUsername(value)) || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
@@ -111,7 +114,7 @@ export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedA
   ];
   if (person && !selectedAccountIds.includes(person.id) && !availableFriends.some(friend => friend.id === person.id))
     choices.push({ key: `account-${person.id}`, label: person.name, detail: `@${person.username}`, run: () => addAccounts([person]) });
-  if (value && value.length <= 191 && !accountQuery && !person && (!canSearch || searched))
+  if (value && value.length <= 191 && !accountQuery && !person && !duplicateName && (!canSearch || searched))
     choices.push({ key: "manual", label: t("social.addNameOnly", [value]), detail: t("social.nameOnlyHint"), run: () => { if (!disabled && onAddName(value)) reset(); } });
   const selected = active >= 0 && active < choices.length ? active : -1;
   const selectedKey = selected >= 0 ? choices[selected].key : null;
@@ -143,7 +146,7 @@ export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedA
             else if (value) {
               setOpen(true);
               if (person) { if (!selectedAccountIds.includes(person.id)) addAccounts([person]); }
-              else if ((!canSearch || searched) && !accountQuery && value.length <= 191 && onAddName(value)) reset();
+              else if ((!canSearch || searched) && !accountQuery && !duplicateName && value.length <= 191 && onAddName(value)) reset();
             }
             else setOpen(true);
           }
@@ -159,9 +162,10 @@ export default function BillPeoplePicker({ onAdd, onAddName, disabled, selectedA
           <span>{choice.label}</span>{choice.detail && <small>{choice.detail}</small>}
         </button>)}
       </div>
-      {searched && !person && <p className="field-hint" role="status">{t("social.personNotFound")}</p>}
+      {searched && !person && !duplicateName && <p className="field-hint" role="status">{t("social.personNotFound")}</p>}
       {value && accountQuery && !canSearch && allowAccounts && <p className="field-hint" role="status">{t("social.searchInvalid")}</p>}
       {person && selectedAccountIds.includes(person.id) && <p className="field-hint" role="status">{t("social.personAlreadyAdded")}</p>}
+      {duplicateName && !person && <p className="field-hint" role="status">{t("social.nameAlreadyAdded")}</p>}
       {!value && !friendsLoading && !groupsLoading && !choices.length && <p className="field-hint">{t("social.typeParticipant")}</p>}
       {searchError && <p className="error" role="alert">{feedback(searchError)} <button type="button" className="text-link" onClick={() => setSearchAttempt(n => n + 1)}>{t("common.retry")}</button></p>}
       {friendsError && <p className="error" role="alert">{t("social.friendsUnavailable")} <button type="button" className="text-link" onClick={() => setFriendAttempt(n => n + 1)}>{t("common.retry")}</button></p>}

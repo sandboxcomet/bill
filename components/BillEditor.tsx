@@ -1,12 +1,14 @@
 "use client";
 import { sharedBillPath, manageBillPath } from "@/lib/bill-paths";
 import { nameInitial } from "@/lib/name-initial";
+import { participantNameKey } from "@/lib/participant-name";
 import { useI18n, useLocalizedRouter } from "@/components/LanguageProvider";
 import Link from "@/components/LocalizedLink";
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import Decimal from "decimal.js";
 import { calculateBill } from "@/lib/billing";
+import { roundBillTotal, type BillRounding } from "@/lib/bill-rounding";
 import { createDraftBill } from "@/app/actions/bill";
 import { baht, jsonBody, request } from "@/lib/client";
 import { Icon } from "./Icons";
@@ -39,6 +41,7 @@ type Draft = {
   name: string;
   restaurants: { id: string; name: string }[];
   participants: Person[];
+  payerCandidateIds: string[];
   creatorInitialized?: boolean;
   creatorParticipantId?: string;
   itemPayersEnabled: boolean;
@@ -48,6 +51,7 @@ type Draft = {
   vatValue: string;
   vatType: "%" | "฿";
   vatIncludesSc: boolean;
+  roundingMode: BillRounding;
   isPublic: boolean;
   passcode: string;
 };
@@ -68,12 +72,14 @@ const initial: Draft = {
   restaurants: [],
   itemPayersEnabled: true,
   participants: [],
+  payerCandidateIds: [],
   items: [],
   serviceChargeValue: "",
   serviceChargeType: "%",
   vatValue: "",
   vatType: "%",
   vatIncludesSc: false,
+  roundingMode: "none",
   isPublic: true,
   passcode: "",
 };
@@ -97,6 +103,7 @@ function sample(): Draft {
     ...initial,
     name: "ทริปวันหยุด",
     participants,
+    payerCandidateIds: ["example-may", "example-boss"],
     items: [
       { ...emptyItem(), name: "ค่าเดินทาง", price: "480", payerId: "example-may" },
       { ...emptyItem(), name: "ค่าอุปกรณ์", price: "240", payerId: "example-boss" },
@@ -117,6 +124,7 @@ export default function BillEditor({
   const draftKey = session?.user?.id
     ? `wonglao-bill:new:v1:${session.user.id}${repeatGroup ? `:repeat:${repeatGroup.sourceId}` : ""}`
     : null;
+  const recoveryKey = billId && session?.user?.id ? `wonglao-bill:recovery:v1:${session.user.id}:${billId}` : null;
   const creatorName = (
     session?.user?.nickname?.trim() ||
     session?.user?.name?.trim() ||
@@ -127,6 +135,7 @@ export default function BillEditor({
   const latestDraft = useRef(draft);
   latestDraft.current = draft;
   const [restaurantName, setRestaurantName] = useState("");
+  const [payerChoiceError, setPayerChoiceError] = useState("");
   const [editingPerson, setEditingPerson] = useState<{ id: string; name: string } | null>(null);
   const [personEditDirty, setPersonEditDirty] = useState(false);
   const personEditRevision = useRef(0);
@@ -178,9 +187,11 @@ export default function BillEditor({
   const [billStatus, setBillStatus] = useState("DRAFT");
   const [locked, setLocked] = useState(false);
   const [savedDirty, setSavedDirty] = useState(false);
+  const [recoveryConflict, setRecoveryConflict] = useState(false);
   const version = useRef(0);
   const idRef = useRef(billId);
   const saveGuard = useRef(false);
+  const immediateSave = useRef(false);
   const dirty = useRef(false);
   const editRevision = useRef(0);
   const pendingPersonEdit = useRef(false);
@@ -214,13 +225,14 @@ export default function BillEditor({
       if (person) { person.accountUserId = Number(session?.user?.id); person.username = session?.user?.username ?? undefined; }
       if (!person && people.length < 100) { person = creator(); people.unshift(person); }
       return { ...initial, participants: people, creatorParticipantId: person?.id,
+        payerCandidateIds: person ? [person.id] : [],
         creatorInitialized: true, items: [{ ...emptyItem(), payerId: person?.id }] };
     };
     try {
       const stored = localStorage.getItem(draftKey);
       const parsed = stored ? JSON.parse(stored) : null;
-      if (parsed?.serverBillId && !parsed?.synced) {
-        idRef.current = parsed.serverBillId;
+      if (parsed && !parsed.synced && Array.isArray(parsed.items) && Array.isArray(parsed.participants)) {
+        if (parsed.serverBillId) idRef.current = parsed.serverBillId;
         version.current = parsed.serverVersion ?? 0;
         dirty.current = true;
         editRevision.current++;
@@ -232,6 +244,8 @@ export default function BillEditor({
         Array.isArray(parsed.participants)
           ? {
               ...parsed,
+              payerCandidateIds: Array.isArray(parsed.payerCandidateIds) ? parsed.payerCandidateIds : [...new Set<string>(parsed.items.map((item: Item) => item.payerId).filter((id: unknown): id is string => typeof id === "string"))],
+              roundingMode: parsed.roundingMode ?? "none",
               restaurants: Array.isArray(parsed.restaurants) ? parsed.restaurants : [],
               itemPayersEnabled: parsed.itemPayersEnabled === true,
               serviceChargeValue: optionalNumberInput(parsed.serviceChargeValue),
@@ -297,17 +311,16 @@ export default function BillEditor({
           router.replace(sharedBillPath(billId));
           return;
         }
-        setLocked(
-          bill.hasPaymentEvidence ||
-            bill.participants.some(
-              (p: any) => p.isPaid || Number(p.paidAmount) > 0,
-            ),
+        const isLocked = bill.hasPaymentEvidence || bill.participants.some(
+          (p: any) => p.isPaid || Number(p.paidAmount) > 0,
         );
-        setDraft({
+        setLocked(isLocked);
+        const serverDraft: Draft = {
           name: bill.name,
           restaurants: Array.isArray(bill.restaurants) ? bill.restaurants : [],
           itemPayersEnabled: bill.itemPayersEnabled,
           participants: bill.participants.map((p: Person) => ({ ...p, accountName: p.accountUserId ? p.name : undefined, name: p.ownerAlias || p.name })),
+          payerCandidateIds: Array.isArray(bill.payerCandidateIds) ? bill.payerCandidateIds : [...new Set<string>(bill.items.map((item: Item) => item.payerId).filter((id: unknown): id is string => typeof id === "string"))],
           items: bill.items.map((i: any) => ({
             ...i,
             id: i.id,
@@ -324,9 +337,27 @@ export default function BillEditor({
           vatValue: optionalNumberInput(bill.vatValue ?? bill.vat),
           vatType: bill.vatType ?? "฿",
           vatIncludesSc: bill.vatIncludesSc ?? false,
+          roundingMode: bill.roundingMode ?? "none",
           isPublic: bill.isPublic,
           passcode: bill.passcode ?? "",
-        });
+        };
+        let recovered: { draft: Draft; version: number; synced: boolean } | null = null;
+        try {
+          const stored = recoveryKey ? sessionStorage.getItem(recoveryKey) : null;
+          recovered = stored ? JSON.parse(stored) : null;
+        } catch { setNotice(t("errors.draftStorageUnavailable")); }
+        if (recovered && !recovered.synced && recovered.draft && Array.isArray(recovered.draft.items) && Array.isArray(recovered.draft.participants) && Number.isInteger(recovered.version)) {
+          const conflict = recovered.version !== bill.version || isLocked;
+          version.current = recovered.version;
+          dirty.current = true;
+          editRevision.current++;
+          setSavedDirty(true);
+          setRecoveryConflict(conflict);
+          setDraft({ ...recovered.draft, payerCandidateIds: Array.isArray(recovered.draft.payerCandidateIds) ? recovered.draft.payerCandidateIds : [...new Set(recovered.draft.items.flatMap(item => item.payerId ? [item.payerId] : []))] });
+        } else {
+          setRecoveryConflict(false);
+          setDraft(serverDraft);
+        }
         setLoaded(true);
       })
       .catch((e) => {
@@ -338,7 +369,7 @@ export default function BillEditor({
     return () => {
       active = false;
     };
-  }, [billId, status, router, attempt]);
+  }, [billId, status, router, attempt, recoveryKey]);
   useEffect(() => {
     if (status !== "authenticated" || !session?.user?.id) return;
     let active = true;
@@ -371,7 +402,7 @@ export default function BillEditor({
     )
       return;
     try {
-      localStorage.setItem(draftKey, JSON.stringify({ ...draft, serverBillId: idRef.current, serverVersion: version.current, synced: false }));
+      localStorage.setItem(draftKey, JSON.stringify({ ...draft, serverBillId: idRef.current, serverVersion: version.current, synced: !dirty.current }));
     } catch {
       setNotice(
         t("errors.draftStorageUnavailable"),
@@ -388,18 +419,28 @@ export default function BillEditor({
     window.addEventListener("beforeunload", warn);
     return () => window.removeEventListener("beforeunload", warn);
   }, []);
-  function update(data: Partial<Draft>) {
+  function persistRecovery(value: Draft, synced = false) {
+    try {
+      if (recoveryKey) sessionStorage.setItem(recoveryKey, JSON.stringify({ draft: value, version: version.current, synced }));
+      else if (!billId && draftKey && !demo) localStorage.setItem(draftKey, JSON.stringify({ ...value, serverBillId: idRef.current, serverVersion: version.current, synced }));
+    } catch { setNotice(t("errors.draftStorageUnavailable")); }
+  }
+  function update(data: Partial<Draft>, immediate = true) {
     dirty.current = true;
     editRevision.current++;
+    if (immediate) immediateSave.current = true;
     setSavedDirty(true);
     setAutoSaveError("");
     setNotice("");
-    setDraft((d) => ({ ...d, ...data }));
+    const next = { ...latestDraft.current, ...data };
+    latestDraft.current = next;
+    persistRecovery(next);
+    setDraft(next);
   }
-  function updateItem(id: string, changes: Partial<Item>) {
+  function updateItem(id: string, changes: Partial<Item>, immediate = true) {
     update({
       items: draft.items.map((i) => (i.id === id ? { ...i, ...changes } : i)),
-    });
+    }, immediate);
   }
   function allParticipantsSelected(item: Item) {
     return (
@@ -439,7 +480,7 @@ export default function BillEditor({
       consumers: Object.entries(quantities)
         .filter(([, parts]) => parts > 0)
         .map(([id]) => id),
-    });
+    }, false);
   }
   const calcItems = draft.items.map((i) => ({
     ...i,
@@ -488,7 +529,9 @@ export default function BillEditor({
       ? vatBase.mul(dec(draft.vatValue)).div(100)
       : dec(draft.vatValue)
   ).toDecimalPlaces(2);
-  const total = subtotal.plus(sc).plus(vat);
+  const unroundedTotal = subtotal.plus(sc).plus(vat);
+  const total = roundBillTotal(unroundedTotal, draft.roundingMode);
+  const roundingAdjustment = total.minus(unroundedTotal);
   const result = calculateBill({
     items: calcItems,
     participants: draft.participants.map((p) => ({
@@ -505,6 +548,7 @@ export default function BillEditor({
   }) : null;
   const hasMissingPayer = draft.itemPayersEnabled && draft.items.some((i) => !draft.participants.some((p) => p.id === i.payerId));
   const selectedPayers = draft.participants.filter(p => draft.items.some(item => item.payerId === p.id));
+  const payerCandidates = draft.participants.filter(p => draft.payerCandidateIds.includes(p.id));
   const hasUnassigned = draft.items.some(
     (i) =>
       !i.isShared &&
@@ -516,6 +560,10 @@ export default function BillEditor({
   const addPerson = (value: string) => {
     const name = value.trim();
     if (!name) return false;
+    if (latestDraft.current.participants.some(person => participantNameKey(person.name) === participantNameKey(name))) {
+      setError(t("social.nameAlreadyAdded"));
+      return false;
+    }
     if (draft.participants.length >= 100) {
       setError(t("errors.participantLimit"));
       return false;
@@ -554,6 +602,7 @@ export default function BillEditor({
   function removePerson(id: string) {
     update({
       participants: draft.participants.filter((p) => p.id !== id),
+      payerCandidateIds: draft.payerCandidateIds.filter(candidate => candidate !== id),
       items: draft.items.map((i) => ({
         ...i,
         payerId: i.payerId === id ? null : i.payerId,
@@ -565,6 +614,16 @@ export default function BillEditor({
           : undefined,
       })),
     });
+  }
+  function togglePayerCandidate(id: string) {
+    if (draft.payerCandidateIds.includes(id) && draft.items.some(item => item.payerId === id)) {
+      setPayerChoiceError(t("editor.payerInUse"));
+      return;
+    }
+    setPayerChoiceError("");
+    update({ payerCandidateIds: draft.payerCandidateIds.includes(id)
+      ? draft.payerCandidateIds.filter(candidate => candidate !== id)
+      : [...draft.payerCandidateIds, id] });
   }
   async function savePersonName(close = false) {
     if (!editingPerson || aliasSaving) return;
@@ -707,6 +766,7 @@ export default function BillEditor({
       const unchanged = editRevision.current === revision;
       dirty.current = !unchanged;
       setSavedDirty(!unchanged);
+      if (billId) persistRecovery(latestDraft.current, unchanged);
       if (!billId && draftKey)
         try {
           localStorage.setItem(
@@ -744,7 +804,7 @@ export default function BillEditor({
     } catch (error) { setSharingError((error as Error).message); }
     finally { setSaving(false); saveGuard.current = false; }
   }
-  const autoSaveReady = loaded && status === "authenticated" && !demo && savedDirty && !saving && !autoSaving && !autoSaveError && !personEditDirty && !aliasSaving &&
+  const autoSaveReady = loaded && status === "authenticated" && !demo && savedDirty && !saving && !autoSaving && !autoSaveError && !personEditDirty && !aliasSaving && !recoveryConflict &&
     (billStatus === "DRAFT" || Boolean(draft.name.trim())) &&
     (draft.isPublic || isBillPin(draft.passcode)) &&
     draft.items.every(i => /^\d+(\.\d{1,2})?$/.test(i.price || "0") && Number.isInteger(i.quantity) && i.quantity >= 1 && i.quantity <= 999 && dec(i.discountRate).lte(100)) &&
@@ -753,7 +813,7 @@ export default function BillEditor({
     (billStatus !== "PUBLISHED" || locked || (draft.participants.length > 0 && draft.items.length > 0 && total.gt(0) && !hasUnassigned && !hasMissingPayer && draft.items.every(i => i.name.trim() && i.price)));
   useEffect(() => {
     if (!autoSaveReady) return;
-    const timer = setTimeout(() => { void save(false, true); }, 1000);
+    const timer = setTimeout(() => { immediateSave.current = false; void save(false, true); }, immediateSave.current ? 0 : 1000);
     return () => clearTimeout(timer);
   }, [draft, promptPay, autoSaveReady]);
   useEffect(() => {
@@ -807,6 +867,7 @@ export default function BillEditor({
               : t("editor.autoSaved")}
         </span>
       </div>
+      {recoveryConflict && <p className="warning" role="alert">{t("editor.recoveryConflict")}</p>}
       <div className="page-heading bill-editor-heading">
         <div>
           <h1>
@@ -849,7 +910,7 @@ export default function BillEditor({
               <span>{t("bill.name")}</span>
               <input
                 value={draft.name}
-                onChange={(e) => update({ name: e.target.value })}
+                onChange={(e) => update({ name: e.target.value }, false)}
                 maxLength={191}
                 placeholder={t("editor.billNamePlaceholder")}
               />
@@ -927,6 +988,7 @@ export default function BillEditor({
                 <Icon name="plus" size={17} /> {t("editor.addMyself")}
               </button>}
               <BillPeoplePicker onAdd={addAccounts} onAddName={addPerson} disabled={locked || saving} allowAccounts={!demo} aliases={personalAliases}
+                selectedNames={draft.participants.map(person => person.name)}
                 selectedAccountIds={draft.participants.flatMap(person => {
                   const id = person.canonicalAccountUserId ?? person.accountUserId;
                   return id == null ? [] : [id];
@@ -934,6 +996,15 @@ export default function BillEditor({
               {!draft.participants.length && (
                 <p className="field-hint"> {t("editor.participantsEmpty")} </p>
               )}
+              {draft.itemPayersEnabled && <div className={styles.payerCandidates}>
+                <h3>{t("editor.whoCanPay")}</h3>
+                <p className="field-hint">{t("editor.whoCanPayHint")}</p>
+                <div className={styles.payerCandidateList} role="group" aria-label={t("editor.whoCanPay")}>
+                  {draft.participants.map(person => <button key={person.id} type="button" className="allocation-chip"
+                    aria-pressed={draft.payerCandidateIds.includes(person.id)} onClick={() => togglePayerCandidate(person.id)}>{person.name}</button>)}
+                </div>
+                {payerChoiceError && <p className="error" role="alert">{payerChoiceError}</p>}
+              </div>}
             </fieldset>
           </section>
           <section className="panel item-panel">
@@ -952,7 +1023,7 @@ export default function BillEditor({
               )}
               <div className="editor-items">
                 {draft.items.map((item, index) => (
-                  <div className="editor-item" key={item.id}>
+                  <div className={`editor-item ${styles.itemContainer}`} key={item.id}>
                     <div className="item-index">{index + 1}</div>
                     <div className="item-fields">
                       <label className="field item-name">
@@ -963,7 +1034,7 @@ export default function BillEditor({
                           placeholder={t("editor.itemNamePlaceholder")}
                           value={item.name}
                           onChange={(e) =>
-                            updateItem(item.id, { name: e.target.value })
+                            updateItem(item.id, { name: e.target.value }, false)
                           }
                         />
                       </label>
@@ -978,7 +1049,7 @@ export default function BillEditor({
                           placeholder="0.00"
                           aria-label={t("editor.itemPriceLabel", [index + 1])}
                           onChange={(e) =>
-                            updateItem(item.id, { price: e.target.value })
+                            updateItem(item.id, { price: e.target.value }, false)
                           }
                         />
                       </label>
@@ -994,7 +1065,7 @@ export default function BillEditor({
                           onChange={(e) =>
                             updateItem(item.id, {
                               quantity: Number(e.target.value),
-                            })
+                            }, false)
                           }
                         />
                       </label>
@@ -1014,6 +1085,7 @@ export default function BillEditor({
                         <Icon name="close" size={17} />
                       </button>
                     </div>
+                    <div className={styles.allocationRow}>
                     <div
                       className="item-allocation"
                       role="group"
@@ -1051,14 +1123,24 @@ export default function BillEditor({
                         )}
                       </div>
                     </div>
+                    <div className="item-tax-toggles" role="group" aria-label={t("editor.itemChargesLabel", [index + 1])}>
+                      <button type="button" className="allocation-chip" aria-pressed={item.includeSC}
+                        aria-label={t("editor.itemServiceChargeLabel", [index + 1])}
+                        onClick={() => updateItem(item.id, { includeSC: !item.includeSC })}>Service charge</button>
+                      <button type="button" className="allocation-chip" aria-pressed={item.includeVat}
+                        aria-label={t("editor.itemVatLabel", [index + 1])}
+                        onClick={() => updateItem(item.id, { includeVat: !item.includeVat })}>VAT</button>
+                    </div>
+                    </div>
                     {(draft.itemPayersEnabled || draft.restaurants.length > 0) && <div className={styles.itemMeta}>
                     {draft.itemPayersEnabled && (
-                      <ItemPayer people={draft.participants} payerId={item.payerId} index={index}
+                      <ItemPayer people={payerCandidates} payerId={item.payerId} index={index}
+                        emptyLabel={t("editor.selectBillPayers")}
                         onSelect={(payerId) => updateItem(item.id, { payerId })}
                         onPromptPay={(id, promptPayId) => update({ participants: draft.participants.map((p) => p.id === id ? { ...p, promptPayId } : p) })} />
                     )}
-                    {draft.restaurants.length > 0 && <RestaurantPicker restaurants={draft.restaurants} value={item.restaurantId}
-                      index={index} disabled={locked || saving} onChange={restaurantId => updateItem(item.id, { restaurantId })} />}
+                    {draft.restaurants.length > 0 && <div className={styles.restaurantSlot}><RestaurantPicker restaurants={draft.restaurants} value={item.restaurantId}
+                      index={index} disabled={locked || saving} onChange={restaurantId => updateItem(item.id, { restaurantId })} /></div>}
                     </div>}
                     <details className="item-details">
                       <summary>{t("editor.discountAndSplitOptions")}</summary>
@@ -1079,7 +1161,7 @@ export default function BillEditor({
                                   /^\d{0,3}(?:\.\d{0,2})?$/.test(value) &&
                                   (value === "." || Number(value) <= 100)
                                 ) {
-                                  updateItem(item.id, { discountRate: value });
+                                  updateItem(item.id, { discountRate: value }, false);
                                 }
                               }}
                             />
@@ -1088,37 +1170,6 @@ export default function BillEditor({
                             </span>
                           </span>
                         </label>
-                        <div className="field item-tax-controls">
-                          <span>{t("editor.serviceChargeAndVAT")}</span>
-                          <div
-                            className="item-tax-toggles"
-                            role="group"
-                            aria-label={t("editor.itemChargesLabel", [index + 1])}
-                          >
-                            <button
-                              type="button"
-                              className="allocation-chip"
-                              aria-pressed={item.includeSC}
-                              aria-label={t("editor.itemServiceChargeLabel", [index + 1])}
-                              onClick={() =>
-                                updateItem(item.id, { includeSC: !item.includeSC })
-                              }
-                            >
-                              Service charge
-                            </button>
-                            <button
-                              type="button"
-                              className="allocation-chip"
-                              aria-pressed={item.includeVat}
-                              aria-label={t("editor.itemVatLabel", [index + 1])}
-                              onClick={() =>
-                                updateItem(item.id, { includeVat: !item.includeVat })
-                              }
-                            >
-                              VAT
-                            </button>
-                          </div>
-                        </div>
                       </div>
                       {draft.participants.length > 0 && (
                         <div className="custom-quantities">
@@ -1164,7 +1215,7 @@ export default function BillEditor({
               <button
                 className="add-item-button"
                 disabled={draft.items.length >= 300}
-                onClick={() => update({ items: [...draft.items, { ...emptyItem(), payerId: draft.participants.some((p) => p.id === draft.creatorParticipantId) ? draft.creatorParticipantId : null }] })}
+                onClick={() => update({ items: [...draft.items, { ...emptyItem(), payerId: draft.creatorParticipantId && draft.payerCandidateIds.includes(draft.creatorParticipantId) ? draft.creatorParticipantId : payerCandidates.length === 1 ? payerCandidates[0].id : null }] })}
               >
                 <Icon name="plus" size={18} /> {t("common.addItem")} </button>
               {draft.itemPayersEnabled && selectedPayers.length > 0 && <div className={styles.payerRecipients}>
@@ -1201,7 +1252,7 @@ export default function BillEditor({
                         onChange={(e) => {
                           const value = e.target.value;
                           if (/^\d{0,12}(?:\.\d{0,2})?$/.test(value)) {
-                            update({ [`${key}Value`]: value });
+                            update({ [`${key}Value`]: value }, false);
                           }
                         }}
                       />
@@ -1242,11 +1293,22 @@ export default function BillEditor({
               <span className="summary-live">
                 <span className="live-dot" /> {t("editor.calculatedInstantly")} </span>
             </div>
-            <div className="summary-total">
+            <div className={`summary-total ${!unroundedTotal.isInteger() ? styles.summaryTotal : ""}`}>
               <span>{t("bill.total")}</span>
-              <strong>
-                <small>฿</small> {baht(total)}
-              </strong>
+              <div className={styles.totalRow}>
+                <strong><small>฿</small> {baht(total)}</strong>
+                {!unroundedTotal.isInteger() && <fieldset className={styles.rounding} disabled={locked || saving} aria-label={t("editor.rounding")}>
+                  {(["up", "down"] as const).map(mode => {
+                    const selected = draft.roundingMode === mode;
+                    const label = t(mode === "up" ? "editor.roundingUp" : "editor.roundingDown");
+                    return <button key={mode} type="button" className="allocation-chip" aria-pressed={selected}
+                      aria-label={`${label} — ${t("editor.roundingToggleHint")}`} title={`${label} — ${t("editor.roundingToggleHint")}`}
+                      onClick={() => update({ roundingMode: selected ? "none" : mode })}>
+                      <span className={mode === "up" ? styles.roundUp : styles.roundDown}><Icon name="arrow" size={20} /></span>
+                    </button>;
+                  })}
+                </fieldset>}
+              </div>
               <p>
                 {draft.items.length} {t("bill.itemsHeading")} {draft.participants.length} {t("common.people")} </p>
             </div>
@@ -1267,6 +1329,7 @@ export default function BillEditor({
                 <span>VAT</span>
                 <b>{baht(vat)}</b>
               </div>
+              {!roundingAdjustment.isZero() && <div><span>{t("editor.roundingAdjustment")}</span><b>{roundingAdjustment.gt(0) ? "+" : ""}{baht(roundingAdjustment)}</b></div>}
             </div>
             {draft.itemPayersEnabled ? (
               <SettlementSummary people={draft.participants} settlement={settlement}
@@ -1311,7 +1374,7 @@ export default function BillEditor({
               {!draft.isPublic && (
                 <PinInput
                   value={draft.passcode}
-                  onChange={(passcode) => update({ passcode })}
+                  onChange={(passcode) => update({ passcode }, false)}
                   disabled={saving}
                   invalid={error === t("editor.setAFourDigitPIN")}
                 />

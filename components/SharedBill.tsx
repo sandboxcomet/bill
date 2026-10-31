@@ -27,6 +27,7 @@ type Bill = {
   userId: number;
   canManage?: boolean;
   grandTotal: string;
+  receiptSubtotal: string;
   itemPayersEnabled: boolean;
   serviceCharge: string;
   vat: string;
@@ -349,6 +350,10 @@ export default function SharedBill({ id }: { id: string }) {
             <span>VAT</span>
             <b>{baht(bill.vat)}</b>
           </div>}
+          {(() => {
+            const adjustment = new Decimal(bill.grandTotal).minus(bill.receiptSubtotal).minus(bill.serviceCharge).minus(bill.vat);
+            return !adjustment.isZero() && <div className="share-item-line"><span>{t("editor.roundingAdjustment")}</span><b>{adjustment.gt(0) ? "+" : ""}{baht(adjustment)}</b></div>;
+          })()}
         </div>
         <div className="share-total">
           <span>{t("bill.total")}</span>
