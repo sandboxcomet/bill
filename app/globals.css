@@ -2539,7 +2539,7 @@ small {
 }
 .payment-receipt .recipient-options {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 185px), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   align-items: end;
   gap: 10px;
 }
@@ -2586,6 +2586,10 @@ small {
 }
 .payment-receipt .recipient-option:hover:not(:disabled) {
   background: var(--green-soft);
+}
+@media (max-width: 520px) {
+  .payment-receipt .recipient-option { grid-template-columns: minmax(0, 1fr); padding: 12px; }
+  .payment-receipt .recipient-option > b { white-space: normal; overflow-wrap: anywhere; }
 }
 .payment-expense-details { margin-top: 24px; }
 .payment-receipt .payment-expenses {
