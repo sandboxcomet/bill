@@ -14,7 +14,7 @@ import { baht, jsonBody, request } from "@/lib/client";
 import { Icon } from "./Icons";
 import SettlementSummary from "./SettlementSummary";
 import ItemPayer from "./ItemPayer";
-import { calculateSettlements, isPromptPayId } from "@/lib/settlements";
+import { calculatePayerUpfront, calculateSettlements, isPromptPayId } from "@/lib/settlements";
 import PartsHelp from "./PartsHelp";
 import PinInput from "./PinInput";
 import BillPeoplePicker from "./BillPeoplePicker";
@@ -145,6 +145,20 @@ export default function BillEditor({
   const [autoSaving, setAutoSaving] = useState(false);
   const [autoSaveError, setAutoSaveError] = useState("");
   const [loaded, setLoaded] = useState(false);
+  const [scrollPosition, setScrollPosition] = useState({ canGoUp: false, canGoDown: false });
+  useEffect(() => {
+    if (!loaded) return;
+    const refresh = () => {
+      const bottom = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+      setScrollPosition({ canGoUp: window.scrollY > 2, canGoDown: window.scrollY < bottom - 2 });
+    };
+    refresh();
+    window.addEventListener("scroll", refresh, { passive: true });
+    window.addEventListener("resize", refresh);
+    const observer = new ResizeObserver(refresh);
+    observer.observe(document.documentElement);
+    return () => { window.removeEventListener("scroll", refresh); window.removeEventListener("resize", refresh); observer.disconnect(); };
+  }, [loaded]);
   useEffect(() => {
     if (demo || status !== "authenticated") return;
     let active = true;
@@ -544,7 +558,12 @@ export default function BillEditor({
     items: calcItems, participants: draft.participants.map((p) => ({ ...p, totalPayable: new Decimal(0) })),
     serviceCharge: sc, vat, grandTotal: total,
   }) : null;
+  const upfrontTotals = calculatePayerUpfront({ items: calcItems,
+    participants: draft.participants.map(p => ({ ...p, totalPayable: new Decimal(0) })),
+    serviceCharge: sc, vat, grandTotal: total });
   const hasMissingPayer = draft.itemPayersEnabled && draft.items.some((i) => !draft.participants.some((p) => p.id === i.payerId));
+  const missingPayerCount = draft.itemPayersEnabled ? draft.items.filter(item => !draft.participants.some(person => person.id === item.payerId)).length : 0;
+  const unassignedUpfront = total.minus(upfrontTotals.reduce((sum, person) => sum.plus(person.paidUpfront), new Decimal(0)));
   const selectedPayers = draft.participants.filter(p => draft.items.some(item => item.payerId === p.id));
   const payerCandidates = draft.payerCandidateIds.length
     ? draft.participants.filter(p => draft.payerCandidateIds.includes(p.id))
@@ -1219,11 +1238,16 @@ export default function BillEditor({
                 onClick={() => update({ items: [...draft.items, { ...emptyItem(), payerId: draft.creatorParticipantId && payerCandidates.some(p => p.id === draft.creatorParticipantId) ? draft.creatorParticipantId : payerCandidates.length === 1 ? payerCandidates[0].id : null }] })}
               >
                 <Icon name="plus" size={18} /> {t("common.addItem")} </button>
-              {draft.itemPayersEnabled && selectedPayers.length > 0 && <div className={styles.payerRecipients}>
+              {draft.itemPayersEnabled && (selectedPayers.length > 0 || hasMissingPayer) && <div className={styles.payerRecipients}>
                 <h3>{t("payer.receiversHeading")}</h3>
                 <p className="field-hint">{t("payer.receiversHint")}</p>
                 {selectedPayers.map((payer, index) => <ItemPayer key={payer.id} mode="recipient" people={draft.participants} payerId={payer.id} index={index}
+                  paidUpfront={upfrontTotals.find(person => person.id === payer.id)?.paidUpfront.toFixed(2)}
                   onSelect={() => {}} onPromptPay={(id, promptPayId) => update({ participants: draft.participants.map(p => p.id === id ? { ...p, promptPayId } : p) })} />)}
+                {hasMissingPayer && <div className={styles.unassignedPayer}>
+                  <span>{t("payer.unassignedCount", [missingPayerCount])}</span>
+                  <b>฿ {baht(unassignedUpfront)}</b>
+                </div>}
               </div>}
             </fieldset>
             <div className="subtotal-line">
@@ -1287,7 +1311,7 @@ export default function BillEditor({
             </fieldset>
           </section>
         </div>
-        <aside className="summary-sidebar">
+        <aside className="summary-sidebar" aria-label={t("editor.billSummary")} tabIndex={0}>
           <section className="summary-panel" id="summary">
             <div className="panel-heading">
               <h2>{t("editor.billSummary")}</h2>
@@ -1421,6 +1445,16 @@ export default function BillEditor({
         <a className="button primary" href="#summary"> {t("editor.viewIndividualTotals")} <Icon name="arrow" size={16} />
         </a>
       </div>
+      {(scrollPosition.canGoUp || scrollPosition.canGoDown) && <nav className={styles.scrollControls} aria-label={t("editor.pageNavigation")}>
+        {(["up", "down"] as const).map(direction => <button key={direction} type="button"
+          aria-label={t(direction === "up" ? "editor.scrollToTop" : "editor.scrollToBottom")}
+          title={t(direction === "up" ? "editor.scrollToTop" : "editor.scrollToBottom")}
+          disabled={direction === "up" ? !scrollPosition.canGoUp : !scrollPosition.canGoDown}
+          onClick={() => window.scrollTo({ top: direction === "up" ? 0 : document.documentElement.scrollHeight,
+            behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth" })}>
+          <Icon name="arrow" size={20} style={{ transform: `rotate(${direction === "up" ? -90 : 90}deg)` }} />
+        </button>)}
+      </nav>}
     </div>
   );
 }

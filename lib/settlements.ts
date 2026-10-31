@@ -31,19 +31,7 @@ function distribute(total: Decimal, weights: Decimal[]) {
     : total.div(weights.length || 1));
 }
 
-/** Reimburse actual payers; offset reciprocal payments only within the same pair. */
-export function calculateSettlements(params: Params) {
-  const { participants, items, serviceCharge, vat, grandTotal } = params;
-  const incomplete = items.some((item) => {
-    const hasPayer = participants.some((p) => p.id === item.payerId);
-    const hasConsumers = item.isShared || (item.consumerQuantities
-      ? Object.values(item.consumerQuantities).some((q) => q > 0)
-      : item.consumers.length > 0);
-    return !hasPayer || !hasConsumers;
-  });
-  if (!participants.length || !items.length || incomplete) return null;
-
-  const ids = participants.map((p) => p.id);
+function itemAmounts({ items, serviceCharge, vat, grandTotal }: Params) {
   const nets = items.map((item) => item.price.mul(item.quantity)
     .mul(new Decimal(1).minus(item.discountRate.div(100))));
   const chargeWeights = (key: "includeSC" | "includeVat") => {
@@ -65,6 +53,31 @@ export function calculateSettlements(params: Params) {
   const adjustedItems = grandTotal.eq(originalTotal) || rawTotal.isZero()
     ? rawItemTotals : distribute(grandTotal, rawItemTotals);
   const itemTotals = roundAmounts(adjustedItems, grandTotal, itemKeys);
+  return { nets, scByItem, vatByItem, itemKeys, itemTotals, originalTotal };
+}
+
+/** Amounts advanced by assigned payers, even while other assignments are incomplete. */
+export function calculatePayerUpfront(params: Params) {
+  const { itemTotals } = itemAmounts(params);
+  return params.participants.map(person => ({ id: person.id, paidUpfront: params.items.reduce(
+    (sum, item, index) => item.payerId === person.id ? sum.plus(itemTotals[index]) : sum, new Decimal(0),
+  ) }));
+}
+
+/** Reimburse actual payers; offset reciprocal payments only within the same pair. */
+export function calculateSettlements(params: Params) {
+  const { participants, items, serviceCharge, vat } = params;
+  const incomplete = items.some((item) => {
+    const hasPayer = participants.some((p) => p.id === item.payerId);
+    const hasConsumers = item.isShared || (item.consumerQuantities
+      ? Object.values(item.consumerQuantities).some((q) => q > 0)
+      : item.consumers.length > 0);
+    return !hasPayer || !hasConsumers;
+  });
+  if (!participants.length || !items.length || incomplete) return null;
+
+  const ids = participants.map((p) => p.id);
+  const { nets, scByItem, vatByItem, itemKeys, itemTotals, originalTotal } = itemAmounts(params);
   // Attribution only: preserve the existing ledger totals and share rounding.
   // Independently conserve each bill component; show any per-person difference
   // explicitly as a satang adjustment instead of changing what anyone owes.

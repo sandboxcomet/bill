@@ -5,16 +5,18 @@ import { isPromptPayId } from "@/lib/settlements";
 import { Icon } from "./Icons";
 import Link from "./LocalizedLink";
 import { useSession } from "next-auth/react";
+import { baht } from "@/lib/client";
 
 type Person = { id: string; name: string; promptPayId?: string | null; accountUserId?: number | null; username?: string; hasPromptPay?: boolean };
 
-export default function ItemPayer({ people, payerId, index, onSelect, onPromptPay, mode = "choice" }: {
+export default function ItemPayer({ people, payerId, index, onSelect, onPromptPay, mode = "choice", paidUpfront }: {
   people: Person[];
   payerId?: string | null;
   index: number;
   onSelect: (id: string) => void;
   onPromptPay: (id: string, value: string) => void;
   mode?: "choice" | "recipient";
+  paidUpfront?: string;
 }) {
   const { t, feedback } = useI18n();
   const { data: session } = useSession();
@@ -86,8 +88,8 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
   if (!payer) return null;
   return (
     <div className="item-payer payer-recipient">
-      <strong>{payer.name}</strong>
-      {payer?.accountUserId && <div className="field-hint account-payer-note"><Icon name="shield" size={16} /><span>{t(payer.hasPromptPay ? "social.accountPromptPay" : "social.accountPromptPayMissing", [payer.name])}</span>{String(payer.accountUserId) === session?.user?.id && <Link href="/settings">{t("nav.accountSettings")}</Link>}</div>}
+      <div className="payer-recipient-name"><strong>{payer.name}</strong>{paidUpfront !== undefined && <span>{t("bill.paidUpfront")} <b>฿ {baht(paidUpfront)}</b></span>}</div>
+      {payer?.accountUserId && (payer.hasPromptPay || String(payer.accountUserId) === session?.user?.id) && <div className="field-hint account-payer-note">{payer.hasPromptPay && <><Icon name="shield" size={16} /><span>{t("social.accountPromptPay", [payer.name])}</span></>}{String(payer.accountUserId) === session?.user?.id && <Link href="/settings">{t("nav.accountSettings")}</Link>}</div>}
       {payer && !(payer.accountUserId && payer.hasPromptPay) ? (
         <button type="button" className="payer-promptpay-button"
           aria-haspopup="dialog" aria-label={t("payer.promptPayActionLabel", [payer.promptPayId ? t("common.edit") : t("common.add"), payer.name])}

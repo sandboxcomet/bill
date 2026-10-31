@@ -218,7 +218,7 @@ The white header separates Home (`/`), My Bills (`/bills`) and account settings 
 
 ### Running Receipt
 
-The receipt presents the total, arithmetic breakdown and per-person amounts in that order, using dashed separators and right-aligned values. On desktop it is sticky 24px from the top; below 760px it joins the content flow and gains the fixed bottom summary shortcut. Status messages distinguish drafts, published bills, pending payment evidence and verified payment through wording as well as color.
+The receipt presents the total, arithmetic breakdown and per-person amounts in that order, using dashed separators and right-aligned values. On desktop it is sticky 24px from the top and scrolls independently within the viewport when its contents are long; below 760px it joins the content flow and gains the fixed bottom summary shortcut. Status messages distinguish drafts, published bills, pending payment evidence and verified payment through wording as well as color.
 
 Transitions are brief (0.15s). The illustrative receipt settles once over 0.65s; loading uses a rotating outline. Reduced-motion preference disables animations and transitions. Printed shared bills hide application navigation and action controls and simplify the receipt border.
 
