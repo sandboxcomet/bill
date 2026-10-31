@@ -103,7 +103,6 @@ function sample(): Draft {
     ...initial,
     name: "ทริปวันหยุด",
     participants,
-    payerCandidateIds: ["example-may", "example-boss"],
     items: [
       { ...emptyItem(), name: "ค่าเดินทาง", price: "480", payerId: "example-may" },
       { ...emptyItem(), name: "ค่าอุปกรณ์", price: "240", payerId: "example-boss" },
@@ -225,7 +224,6 @@ export default function BillEditor({
       if (person) { person.accountUserId = Number(session?.user?.id); person.username = session?.user?.username ?? undefined; }
       if (!person && people.length < 100) { person = creator(); people.unshift(person); }
       return { ...initial, participants: people, creatorParticipantId: person?.id,
-        payerCandidateIds: person ? [person.id] : [],
         creatorInitialized: true, items: [{ ...emptyItem(), payerId: person?.id }] };
     };
     try {
@@ -244,7 +242,7 @@ export default function BillEditor({
         Array.isArray(parsed.participants)
           ? {
               ...parsed,
-              payerCandidateIds: Array.isArray(parsed.payerCandidateIds) ? parsed.payerCandidateIds : [...new Set<string>(parsed.items.map((item: Item) => item.payerId).filter((id: unknown): id is string => typeof id === "string"))],
+              payerCandidateIds: Array.isArray(parsed.payerCandidateIds) ? parsed.payerCandidateIds : [],
               roundingMode: parsed.roundingMode ?? "none",
               restaurants: Array.isArray(parsed.restaurants) ? parsed.restaurants : [],
               itemPayersEnabled: parsed.itemPayersEnabled === true,
@@ -320,7 +318,7 @@ export default function BillEditor({
           restaurants: Array.isArray(bill.restaurants) ? bill.restaurants : [],
           itemPayersEnabled: bill.itemPayersEnabled,
           participants: bill.participants.map((p: Person) => ({ ...p, accountName: p.accountUserId ? p.name : undefined, name: p.ownerAlias || p.name })),
-          payerCandidateIds: Array.isArray(bill.payerCandidateIds) ? bill.payerCandidateIds : [...new Set<string>(bill.items.map((item: Item) => item.payerId).filter((id: unknown): id is string => typeof id === "string"))],
+          payerCandidateIds: Array.isArray(bill.payerCandidateIds) ? bill.payerCandidateIds : [],
           items: bill.items.map((i: any) => ({
             ...i,
             id: i.id,
@@ -353,7 +351,7 @@ export default function BillEditor({
           editRevision.current++;
           setSavedDirty(true);
           setRecoveryConflict(conflict);
-          setDraft({ ...recovered.draft, payerCandidateIds: Array.isArray(recovered.draft.payerCandidateIds) ? recovered.draft.payerCandidateIds : [...new Set(recovered.draft.items.flatMap(item => item.payerId ? [item.payerId] : []))] });
+          setDraft({ ...recovered.draft, payerCandidateIds: Array.isArray(recovered.draft.payerCandidateIds) ? recovered.draft.payerCandidateIds : [] });
         } else {
           setRecoveryConflict(false);
           setDraft(serverDraft);
@@ -548,7 +546,9 @@ export default function BillEditor({
   }) : null;
   const hasMissingPayer = draft.itemPayersEnabled && draft.items.some((i) => !draft.participants.some((p) => p.id === i.payerId));
   const selectedPayers = draft.participants.filter(p => draft.items.some(item => item.payerId === p.id));
-  const payerCandidates = draft.participants.filter(p => draft.payerCandidateIds.includes(p.id));
+  const payerCandidates = draft.payerCandidateIds.length
+    ? draft.participants.filter(p => draft.payerCandidateIds.includes(p.id))
+    : draft.participants;
   const hasUnassigned = draft.items.some(
     (i) =>
       !i.isShared &&
@@ -616,14 +616,14 @@ export default function BillEditor({
     });
   }
   function togglePayerCandidate(id: string) {
-    if (draft.payerCandidateIds.includes(id) && draft.items.some(item => item.payerId === id)) {
+    if (draft.payerCandidateIds.length > 1 && draft.payerCandidateIds.includes(id) && draft.items.some(item => item.payerId === id)) {
       setPayerChoiceError(t("editor.payerInUse"));
       return;
     }
     setPayerChoiceError("");
     update({ payerCandidateIds: draft.payerCandidateIds.includes(id)
       ? draft.payerCandidateIds.filter(candidate => candidate !== id)
-      : [...draft.payerCandidateIds, id] });
+      : [...new Set([...draft.payerCandidateIds, ...draft.items.flatMap(item => item.payerId ? [item.payerId] : []), id])] });
   }
   async function savePersonName(close = false) {
     if (!editingPerson || aliasSaving) return;
@@ -1000,6 +1000,8 @@ export default function BillEditor({
                 <h3>{t("editor.whoCanPay")}</h3>
                 <p className="field-hint">{t("editor.whoCanPayHint")}</p>
                 <div className={styles.payerCandidateList} role="group" aria-label={t("editor.whoCanPay")}>
+                  <button type="button" className="allocation-chip" aria-pressed={draft.payerCandidateIds.length === 0}
+                    onClick={() => { setPayerChoiceError(""); update({ payerCandidateIds: [] }); }}>{t("editor.showAllPayers")}</button>
                   {draft.participants.map(person => <button key={person.id} type="button" className="allocation-chip"
                     aria-pressed={draft.payerCandidateIds.includes(person.id)} onClick={() => togglePayerCandidate(person.id)}>{person.name}</button>)}
                 </div>
@@ -1135,7 +1137,6 @@ export default function BillEditor({
                     {(draft.itemPayersEnabled || draft.restaurants.length > 0) && <div className={styles.itemMeta}>
                     {draft.itemPayersEnabled && (
                       <ItemPayer people={payerCandidates} payerId={item.payerId} index={index}
-                        emptyLabel={t("editor.selectBillPayers")}
                         onSelect={(payerId) => updateItem(item.id, { payerId })}
                         onPromptPay={(id, promptPayId) => update({ participants: draft.participants.map((p) => p.id === id ? { ...p, promptPayId } : p) })} />
                     )}
@@ -1215,7 +1216,7 @@ export default function BillEditor({
               <button
                 className="add-item-button"
                 disabled={draft.items.length >= 300}
-                onClick={() => update({ items: [...draft.items, { ...emptyItem(), payerId: draft.creatorParticipantId && draft.payerCandidateIds.includes(draft.creatorParticipantId) ? draft.creatorParticipantId : payerCandidates.length === 1 ? payerCandidates[0].id : null }] })}
+                onClick={() => update({ items: [...draft.items, { ...emptyItem(), payerId: draft.creatorParticipantId && payerCandidates.some(p => p.id === draft.creatorParticipantId) ? draft.creatorParticipantId : payerCandidates.length === 1 ? payerCandidates[0].id : null }] })}
               >
                 <Icon name="plus" size={18} /> {t("common.addItem")} </button>
               {draft.itemPayersEnabled && selectedPayers.length > 0 && <div className={styles.payerRecipients}>

@@ -225,7 +225,7 @@ export async function saveBill(id: string, userId: number, body: any) {
       if (requestedPayers !== null && requestedPayers !== undefined &&
           (!Array.isArray(requestedPayers) || requestedPayers.some(id => typeof id !== "string" || !ids.has(id)) || new Set(requestedPayers).size !== requestedPayers.length))
         throw new AccessError("Invalid bill payers", 409);
-      const payerCandidateIds = [...new Set<string>([
+      const payerCandidateIds = requestedPayers.length === 0 ? [] : [...new Set<string>([
         ...((requestedPayers ?? []) as string[]),
         ...items.flatMap((item: (typeof items)[number]) => item.payerId ? [item.payerId] : []),
       ])];

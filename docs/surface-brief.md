@@ -47,7 +47,7 @@ Participant picker: use one editable combobox for friends, saved groups, exact a
 
 Item detail controls: place Service charge and VAT to the right of participant allocation, wrapping below when space is limited. Keep the discount input in the expandable item details and retain 44px charge targets.
 
-Bill payers: select the people who may pay upfront below the participant picker. Show only those people as payer choices per item; keep existing item payers selected and require reassignment before removing one from the payer list. Existing bills start with their assigned payers, while new bills start with the creator. Keep the selection across saves and refreshes.
+Bill payers: select the people who may pay upfront below the participant picker. Show everyone when no filter is selected; otherwise show the selected people and retain existing item payers. Allow resetting the filter to everyone, and require reassignment before removing an assigned payer from an active filter. Keep the selection across saves and refreshes.
 
 
 Stopping sharing: the creator’s edit page offers Stop sharing beside the status even when payment evidence locks financial fields. Save only UNSHARED and a new version, preserve unsaved local fields and show a stopped-state notice; Share again remains in the existing summary action area. Shared receipt and participant URLs return 404 for everyone while stopped, and open receipts switch to the branded receipt-style 404 on refresh without revealing bill data. Keep the owner edit route available, route stopped created-list rows to it, and exclude stopped bills from To pay. Resume a payment-locked bill using only validated metadata, preserving its financial snapshot and PIN protections.

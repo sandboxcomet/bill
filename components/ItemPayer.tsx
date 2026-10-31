@@ -8,10 +8,9 @@ import { useSession } from "next-auth/react";
 
 type Person = { id: string; name: string; promptPayId?: string | null; accountUserId?: number | null; username?: string; hasPromptPay?: boolean };
 
-export default function ItemPayer({ people, payerId, index, onSelect, onPromptPay, mode = "choice", emptyLabel }: {
+export default function ItemPayer({ people, payerId, index, onSelect, onPromptPay, mode = "choice" }: {
   people: Person[];
   payerId?: string | null;
-  emptyLabel?: string;
   index: number;
   onSelect: (id: string) => void;
   onPromptPay: (id: string, value: string) => void;
@@ -78,7 +77,7 @@ export default function ItemPayer({ people, payerId, index, onSelect, onPromptPa
         <div className="allocation-chips">
           {people.map((p) => <button key={p.id} type="button" className="allocation-chip"
             aria-pressed={p.id === payerId} onClick={() => onSelect(p.id)}>{p.name}</button>)}
-          {!people.length && <span className="field-hint">{emptyLabel ?? t("payer.addParticipantsBeforeChoosingWhoPaid")}</span>}
+          {!people.length && <span className="field-hint">{t("payer.addParticipantsBeforeChoosingWhoPaid")}</span>}
         </div>
       </div>
       {!payer && people.length > 0 && <p className="field-hint">{t("payer.itemPayerHint")}</p>}
