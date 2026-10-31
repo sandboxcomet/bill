@@ -928,6 +928,17 @@ small {
   gap: 20px;
   min-width: 0;
 }
+@media (min-width: 1001px) {
+  .page-container:has(.bill-editor-heading),
+  body:has(.bill-editor-heading) .header-inner {
+    max-width: 1440px;
+    padding-inline: clamp(24px, 2.5vw, 40px);
+  }
+  .page-container:has(.bill-editor-heading) .editor-layout {
+    grid-template-columns: minmax(0, 1fr) clamp(320px, 26vw, 380px);
+    gap: 24px;
+  }
+}
 .panel {
   background: white;
   border: 1px solid var(--line);

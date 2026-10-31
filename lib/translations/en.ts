@@ -1,6 +1,7 @@
 import type { TranslationKey } from "./th";
 
 export const english = {
+  "editor.restaurantTotal": "{0}",
   "editor.restaurantShort": "Place",
   "editor.itemRestaurantLabel": "Place for item {0}: {1}",
   "common.done": "Done",

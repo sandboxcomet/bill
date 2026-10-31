@@ -1,4 +1,5 @@
 export const thai = {
+  "editor.restaurantTotal": "ร้าน {0}",
   "editor.restaurantShort": "ร้าน",
   "editor.itemRestaurantLabel": "ร้านของรายการ {0}: {1}",
   "common.done": "เสร็จ",

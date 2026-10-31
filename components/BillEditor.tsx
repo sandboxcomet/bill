@@ -453,6 +453,25 @@ export default function BillEditor({
   const subtotal = calcItems
     .reduce((s, i) => s.plus(net(i)), new Decimal(0))
     .toDecimalPlaces(2);
+  const restaurantTotals = (() => {
+    if (draft.restaurants.length < 2) return [];
+    const ids = new Set(draft.restaurants.map(restaurant => restaurant.id));
+    const groups = draft.restaurants.map(restaurant => ({
+      id: restaurant.id, name: restaurant.name,
+      amount: calcItems.filter(item => item.restaurantId === restaurant.id).reduce((sum, item) => sum.plus(net(item)), new Decimal(0)),
+    }));
+    const unassigned = calcItems.filter(item => !item.restaurantId || !ids.has(item.restaurantId));
+    if (unassigned.length) groups.push({ id: "", name: t("editor.noRestaurant"), amount: unassigned.reduce((sum, item) => sum.plus(net(item)), new Decimal(0)) });
+    let cumulative = new Decimal(0);
+    let rounded = new Decimal(0);
+    return groups.map(group => {
+      cumulative = cumulative.plus(group.amount);
+      const next = cumulative.toDecimalPlaces(2);
+      const amount = next.minus(rounded);
+      rounded = next;
+      return { ...group, amount };
+    });
+  })();
   const scBase = calcItems
     .filter((i) => i.includeSC)
     .reduce((s, i) => s.plus(net(i)), new Decimal(0));
@@ -1232,7 +1251,11 @@ export default function BillEditor({
                 {draft.items.length} {t("bill.itemsHeading")} {draft.participants.length} {t("common.people")} </p>
             </div>
             <div className="summary-breakdown">
-              <div>
+              {restaurantTotals.map(restaurant => <div className={styles.restaurantTotal} key={restaurant.id}>
+                <span>{restaurant.id ? t("editor.restaurantTotal", [restaurant.name]) : restaurant.name}</span>
+                <b>{baht(restaurant.amount)}</b>
+              </div>)}
+              <div className={restaurantTotals.length ? styles.restaurantSubtotal : undefined}>
                 <span>{t("editor.itemsSubtotal")}</span>
                 <b>{baht(subtotal)}</b>
               </div>
