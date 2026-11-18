@@ -37,6 +37,9 @@ export async function submitPaymentEvidence(
     try {
       evidence = await serializable(async (tx) => {
         await lockTarget(tx, target);
+        if (target.type === "refund" && await tx.paymentEvidence.count({ where: {
+          targetType: target.type, targetId: target.id, status: { in: ["UPLOADING", "PENDING_UPLOAD", "PENDING", "NEEDS_REVIEW"] },
+        } })) throw new PaymentError("มีสลิปคืนเงินรอตรวจสอบอยู่แล้ว", 409);
         return tx.paymentEvidence.create({
           data: {
             targetVersion: target.version ?? 0,
@@ -83,9 +86,9 @@ export async function submitPaymentEvidence(
     if (current.status !== "UPLOADING" && !(current.status === "NEEDS_REVIEW" && current.reviewReason === "RECIPIENT_UNVERIFIED")) return current;
     const reviewReason = !allowLocalSlipReuse() && (!current.transactedAt || current.transactedAt < payable.createdAt)
         ? "DATE_REQUIRES_REVIEW"
-        : slipCreditAmount(current.amount, payable.remaining).gt(payable.remaining)
+        : (target.type === "refund" ? current.amount : slipCreditAmount(current.amount, payable.remaining)).gt(payable.remaining)
           ? "EXCEEDS_REMAINING"
-          : null;
+          : target.type === "refund" ? "RECIPIENT_CONFIRMATION" : null;
     const status = reviewReason ? "NEEDS_REVIEW" : "VERIFIED";
     const updated = await tx.paymentEvidence.update({
       where: { id: current.id },
@@ -130,6 +133,12 @@ export async function reviewPayment(
         await applyVerifiedAmount(tx, target, evidence.amount);
       }
     } else {
+      if (target.type === "refund") throw new PaymentError("ไม่สามารถย้อนการคืนเงินด้วยคำสั่งนี้", 409);
+      const source = target.type === "settlement"
+        ? await tx.billSettlement.findUniqueOrThrow({ where: { id: target.id }, select: { billId: true } })
+        : await tx.participant.findUniqueOrThrow({ where: { id: target.id }, select: { billId: true } });
+      if (await tx.billRevision.count({ where: { billId: source.billId } }))
+        throw new PaymentError("ไม่สามารถย้อนรายการจ่ายหลังจากแก้ไขบิลแล้ว", 409);
       // Retain evidence and objects for audit; reversing is not deleting the slip.
       await tx.paymentEvidence.updateMany({
         where: {
@@ -170,6 +179,18 @@ export async function paymentEvidence(target: PaymentTarget) {
     },
     orderBy: [{ createdAt: "desc" }, { id: "desc" }],
     select: { id: true, status: true, amount: true, objectKey: true, transactedAt: true },
+  });
+}
+
+export async function rejectRefundEvidence(target: PaymentTarget, actorId: number, reason: string) {
+  if (target.type !== "refund" || typeof reason !== "string" || reason.trim().length < 3 || reason.length > 500)
+    throw new PaymentError("ระบุเหตุผลในการปฏิเสธสลิป", 400);
+  return serializable(async tx => {
+    await lockTarget(tx, target);
+    const result = await tx.paymentEvidence.updateMany({ where: { targetType: "refund", targetId: target.id, status: "NEEDS_REVIEW" },
+      data: { status: "REJECTED", reviewReason: "RECIPIENT_REJECTED", confirmedBy: actorId } });
+    if (result.count !== 1) throw new PaymentError("ไม่มีสลิปรอการยืนยัน", 409);
+    await tx.paymentAudit.create({ data: { targetType: "refund", targetId: target.id, actorId, action: "REJECT", reason: reason.trim() } });
   });
 }
 

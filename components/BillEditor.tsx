@@ -24,6 +24,12 @@ import type { BillEditorItem as Item, BillEditorPerson as Person, BillItemProps 
 import type { AccountPerson } from "@/lib/social";
 import { isBillPin } from "@/lib/pin";
 import styles from "./BillEditor.module.css";
+import { reconcileBillPayments } from "@/lib/reconcile-bill-payments";
+import RefundPanel from "./RefundPanel";
+import BillRevisionHistory from "./BillRevisionHistory";
+import BillRevisionDialog, { type RevisionReviewRow } from "./BillRevisionDialog";
+import LeaveBillDialog from "./LeaveBillDialog";
+import { sameSavedBillDraft } from "@/lib/bill-draft-equivalence";
 type Draft = {
   name: string;
   restaurants: { id: string; name: string }[];
@@ -196,6 +202,11 @@ export default function BillEditor({
   const [profilePromptPay, setProfilePromptPay] = useState<{ userId: string; value: string } | null>(null);
   const [billStatus, setBillStatus] = useState("DRAFT");
   const [locked, setLocked] = useState(false);
+  const [revisionEditing, setRevisionEditing] = useState(false);
+  const [hasOpenRefund, setHasOpenRefund] = useState(false);
+  const [revisionReview, setRevisionReview] = useState<{ rows: RevisionReviewRow[]; editRevision: number; publish: boolean } | null>(null);
+  const [showLeaveDialog, setShowLeaveDialog] = useState(false);
+  const [pastPayments, setPastPayments] = useState<{ from: string; to: string; amount: string }[]>([]);
   const [savedDirty, setSavedDirty] = useState(false);
   const [recoveryConflict, setRecoveryConflict] = useState(false);
   const version = useRef(0);
@@ -203,6 +214,7 @@ export default function BillEditor({
   const saveGuard = useRef(false);
   const immediateSave = useRef(false);
   const dirty = useRef(false);
+  const confirmedLeaving = useRef(false);
   const editRevision = useRef(0);
   const pendingPersonEdit = useRef(false);
   pendingPersonEdit.current = personEditDirty || aliasSaving;
@@ -325,6 +337,10 @@ export default function BillEditor({
           (p: any) => p.isPaid || Number(p.paidAmount) > 0,
         );
         setLocked(isLocked);
+        setHasOpenRefund(bill.hasOpenRefund === true);
+        setPastPayments(bill.itemPayersEnabled
+          ? bill.settlements.filter((s: any) => Number(s.paidAmount) > 0).map((s: any) => ({ from: s.fromParticipantId, to: s.toParticipantId, amount: s.paidAmount }))
+          : bill.participants.filter((p: any) => Number(p.paidAmount) > 0).map((p: any) => ({ from: p.id, to: "bill-owner", amount: p.paidAmount })));
         const serverDraft: Draft = {
           name: bill.name,
           restaurants: Array.isArray(bill.restaurants) ? bill.restaurants : [],
@@ -357,13 +373,23 @@ export default function BillEditor({
           recovered = stored ? JSON.parse(stored) : null;
         } catch { setNotice(t("errors.draftStorageUnavailable")); }
         if (recovered && !recovered.synced && recovered.draft && Array.isArray(recovered.draft.items) && Array.isArray(recovered.draft.participants) && Number.isInteger(recovered.version)) {
-          const conflict = recovered.version !== bill.version || isLocked;
-          version.current = recovered.version;
-          dirty.current = true;
-          editRevision.current++;
-          setSavedDirty(true);
-          setRecoveryConflict(conflict);
-          setDraft({ ...recovered.draft, payerCandidateIds: Array.isArray(recovered.draft.payerCandidateIds) ? recovered.draft.payerCandidateIds : [] });
+          const conflict = recovered.version !== bill.version || bill.hasOpenRefund === true;
+          if (conflict && recovered.version + 1 === bill.version && sameSavedBillDraft(recovered.draft, serverDraft)) {
+            // A successful revision was reloaded before its recovery marker was
+            // updated. Keep the stored copy intact and show the saved bill.
+            dirty.current = false;
+            setSavedDirty(false);
+            setRecoveryConflict(false);
+            setDraft(serverDraft);
+          } else {
+            version.current = recovered.version;
+            dirty.current = true;
+            editRevision.current++;
+            setSavedDirty(true);
+            setRecoveryConflict(conflict);
+            if (isLocked && !conflict) { setLocked(false); setRevisionEditing(true); }
+            setDraft({ ...recovered.draft, payerCandidateIds: Array.isArray(recovered.draft.payerCandidateIds) ? recovered.draft.payerCandidateIds : [] });
+          }
         } else {
           setRecoveryConflict(false);
           setDraft(serverDraft);
@@ -421,7 +447,7 @@ export default function BillEditor({
   }, [draft, loaded, billId, demo, draftKey, loadedDraftKey, status]);
   useEffect(() => {
     const warn = (e: BeforeUnloadEvent) => {
-      if (dirty.current || pendingPersonEdit.current) {
+      if (!confirmedLeaving.current && (dirty.current || pendingPersonEdit.current)) {
         e.preventDefault();
         e.returnValue = "";
       }
@@ -664,7 +690,7 @@ export default function BillEditor({
     } catch (e) { setAliasError((e as Error).message); }
     finally { setAliasSaving(false); }
   }
-  async function save(publish = false, automatic = false) {
+  async function save(publish = false, automatic = false, confirmed = false) {
     if (saveGuard.current || demo) return;
     setError("");
     setNotice("");
@@ -734,6 +760,20 @@ export default function BillEditor({
       router.push(`/login?callbackUrl=${encodeURIComponent("/new")}`);
       return;
     }
+    if (revisionEditing && !confirmed) {
+      const debts = draft.itemPayersEnabled
+        ? (settlement?.transfers ?? []).map(s => ({ from: s.fromParticipantId, to: s.toParticipantId, amount: s.amount }))
+        : result.participants.map(p => ({ from: p.id, to: "bill-owner", amount: p.totalPayable }));
+      const names = new Map(draft.participants.map(p => [p.id, p.name]));
+      names.set("bill-owner", t("bill.creator"));
+      const rows = reconcileBillPayments(debts, pastPayments, []).map(p => ({
+        from: names.get(p.from) ?? p.from, to: names.get(p.to) ?? p.to,
+        owed: p.owed.toFixed(2), paid: p.paid.toFixed(2),
+        remaining: p.remaining.toFixed(2), refundDue: p.refundDue.toFixed(2),
+      }));
+      setRevisionReview({ rows, editRevision: editRevision.current, publish });
+      return;
+    }
     saveGuard.current = true;
     const revision = editRevision.current;
     if (automatic) setAutoSaving(true); else setSaving(true);
@@ -743,13 +783,15 @@ export default function BillEditor({
       if (!billId && draftKey) {
         try { localStorage.setItem(draftKey, JSON.stringify({ ...latestDraft.current, serverBillId: id, serverVersion: version.current, synced: false })); } catch {}
       }
-      if (!draft.itemPayersEnabled && promptPay)
+      if (!draft.itemPayersEnabled && promptPay && !revisionEditing)
         await request("/api/profile", {
           method: "PATCH",
           ...jsonBody({ promptPayId: promptPay }),
         });
       const payload = {
         ...draft,
+        revisionConfirmed: revisionEditing,
+        revisionPaymentSnapshot: revisionEditing ? pastPayments : undefined,
         version: version.current,
         status: publish ? "PUBLISHED" : billStatus,
         isPublic: draft.isPublic,
@@ -779,6 +821,19 @@ export default function BillEditor({
         ),
       });
       version.current = saved.version;
+      if (revisionEditing) {
+        const unchanged = editRevision.current === revision;
+        dirty.current = !unchanged;
+        setSavedDirty(!unchanged);
+        persistRecovery(latestDraft.current, unchanged);
+        if (!unchanged) {
+          setRecoveryConflict(true);
+          setError(t("editor.revisionChanged"));
+          return;
+        }
+        window.location.reload();
+        return;
+      }
       setAccountPromptPays(saved.accountPromptPays);
       const unchanged = editRevision.current === revision;
       dirty.current = !unchanged;
@@ -821,7 +876,7 @@ export default function BillEditor({
     } catch (error) { setSharingError((error as Error).message); }
     finally { setSaving(false); saveGuard.current = false; }
   }
-  const autoSaveReady = loaded && status === "authenticated" && !demo && savedDirty && !saving && !autoSaving && !autoSaveError && !personEditDirty && !aliasSaving && !recoveryConflict &&
+  const autoSaveReady = !revisionEditing && loaded && status === "authenticated" && !demo && savedDirty && !saving && !autoSaving && !autoSaveError && !personEditDirty && !aliasSaving && !recoveryConflict &&
     (billStatus === "DRAFT" || Boolean(draft.name.trim())) &&
     (draft.isPublic || isBillPin(draft.passcode)) &&
     draft.items.every(i => /^\d+(\.\d{1,2})?$/.test(i.price || "0") && Number.isInteger(i.quantity) && i.quantity >= 1 && i.quantity <= 999 && dec(i.discountRate).lte(100)) &&
@@ -864,13 +919,10 @@ export default function BillEditor({
           className="text-link muted"
           href="/bills"
           onClick={(e) => {
-            if (
-              (dirty.current || pendingPersonEdit.current) &&
-              !window.confirm(
-                t("editor.leaveConfirmation"),
-              )
-            )
+            if (dirty.current || pendingPersonEdit.current) {
               e.preventDefault();
+              setShowLeaveDialog(true);
+            }
           }}
         >
           <Icon name="back" size={17} /> {t("nav.myBills")} </Link>
@@ -884,7 +936,7 @@ export default function BillEditor({
               : t("editor.autoSaved")}
         </span>
       </div>
-      {recoveryConflict && <p className="warning" role="alert">{t("editor.recoveryConflict")}</p>}
+      {recoveryConflict && <div className="warning" role="alert">{t("editor.recoveryConflict")}{" "}<Link href={manageBillPath(billId!)} target="_blank" rel="noopener noreferrer">{t("editor.openLatestBill")}</Link></div>}
       <div className="page-heading bill-editor-heading">
         <div>
           <h1>
@@ -914,8 +966,22 @@ export default function BillEditor({
         </div>
       )}
       {locked && (
-        <div className="notice"> {t("editor.paidBillLocked")} </div>
+        <div className="notice"> {t(hasOpenRefund ? "editor.refundBlocksRevision" : "editor.paidBillLocked")} <button type="button" className="text-link" disabled={saving || autoSaving || savedDirty || hasOpenRefund} onClick={() => { setRevisionEditing(true); setLocked(false); }}>{t("editor.revisePaidBill")}</button></div>
       )}
+      {revisionEditing && <div className="warning" role="status">{t("editor.revisionEditingHint")}</div>}
+      {billId && <RefundPanel billId={billId} />}
+      {billId && <BillRevisionHistory billId={billId} />}
+      {revisionReview && <BillRevisionDialog rows={revisionReview.rows} onCancel={() => setRevisionReview(null)} onConfirm={() => {
+        const review = revisionReview;
+        setRevisionReview(null);
+        if (editRevision.current !== review.editRevision) { setError(t("editor.revisionChanged")); return; }
+        void save(review.publish, false, true);
+      }} />}
+      {showLeaveDialog && <LeaveBillDialog onCancel={() => setShowLeaveDialog(false)} onConfirm={() => {
+        confirmedLeaving.current = true;
+        setShowLeaveDialog(false);
+        router.push("/bills");
+      }} />}
       <div className="editor-layout">
         <div className="editor-main">
           <section className="panel">
@@ -1211,7 +1277,7 @@ export default function BillEditor({
                   onChange={(e) =>
                     { setPromptPay(e.target.value.replace(/\D/g, "")); dirty.current = true; editRevision.current++; setSavedDirty(true); setAutoSaveError(""); }
                   }
-                  disabled={saving}
+                  disabled={saving || revisionEditing}
                 />
               </label>}
               <label className="check-label">
@@ -1250,13 +1316,13 @@ export default function BillEditor({
                 <button
                   className="button primary full-width"
                   onClick={() => save(true)}
-                  disabled={saving || autoSaving || savedDirty || personEditDirty || aliasSaving}
+                  disabled={saving || autoSaving || (!revisionEditing && savedDirty) || personEditDirty || aliasSaving}
                 >
                   {saving ? (
                     <span className="spinner" />
                   ) : (
                     <Icon name="link" size={18} />
-                  )} {t(billStatus === "UNSHARED" ? "editor.shareAgain" : "editor.saveAndCreateShareLink")} </button>
+                  )} {t(revisionEditing ? "editor.reviewRevision" : billStatus === "UNSHARED" ? "editor.shareAgain" : "editor.saveAndCreateShareLink")} </button>
               </>
             )}
             <p className="summary-footnote"> {t("editor.recalculationHint")} </p>

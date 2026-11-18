@@ -51,7 +51,7 @@ export async function GET(request: NextRequest, { params }: Context) {
         serviceCharge: true,
         vat: true,
         owner: { select: resolvedOwnerFields },
-        items: { include: { consumers: { select: { id: true, name: true } } }, orderBy: { id: "asc" } },
+        items: { where: { archived: false }, include: { consumers: { select: { id: true, name: true } } }, orderBy: { id: "asc" } },
         participants: {
           where: { archived: false },
           select: {

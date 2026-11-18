@@ -46,6 +46,9 @@ export async function recordPendingSlip(
       const payable = await lockTarget(tx, target);
       const existing = await tx.paymentEvidence.findUnique({ where: { payloadHash } });
       if (existing) return existing;
+      if (target.type === "refund" && await tx.paymentEvidence.count({ where: {
+        targetType: target.type, targetId: target.id, status: { in: ["UPLOADING", "PENDING_UPLOAD", "PENDING", "NEEDS_REVIEW"] },
+      } })) throw new PaymentError("มีสลิปคืนเงินรอตรวจสอบอยู่แล้ว", 409);
       return tx.paymentEvidence.create({ data: {
         provider: "easyslip", reference: `pending:${payloadHash}`, payloadHash, encryptedSlip,
         targetType: target.type, targetId: target.id, targetVersion: payable.version,
@@ -66,6 +69,9 @@ export async function recordPendingSlip(
       const payable = await lockTarget(tx, target);
       const current = await tx.paymentEvidence.findUniqueOrThrow({ where: { id: evidence.id } });
       if (current.status !== "REJECTED") return current;
+      if (target.type === "refund" && await tx.paymentEvidence.count({ where: {
+        targetType: target.type, targetId: target.id, id: { not: current.id }, status: { in: ["UPLOADING", "PENDING_UPLOAD", "PENDING", "NEEDS_REVIEW"] },
+      } })) throw new PaymentError("มีสลิปคืนเงินรอตรวจสอบอยู่แล้ว", 409);
       return tx.paymentEvidence.update({ where: { id: current.id }, data: {
         encryptedSlip, targetVersion: payable.version, status: "PENDING_UPLOAD",
         queuedAt: new Date(),
@@ -124,8 +130,10 @@ async function finishPending(job: PaymentEvidence, result: unknown, receiver: st
         reviewReason: "DUPLICATE_REFERENCE", leaseUntil: null, nextCheckAt: null,
       } });
     }
+    const amount = new Prisma.Decimal(verified.amount.toFixed(2));
     const reviewReason = !allowLocalSlipReuse() && (!verified.transactedAt || verified.transactedAt < payable.createdAt) ? "DATE_REQUIRES_REVIEW"
-        : slipCreditAmount(new Prisma.Decimal(verified.amount.toFixed(2)), payable.remaining).gt(payable.remaining) ? "EXCEEDS_REMAINING" : null;
+        : (target.type === "refund" ? amount : slipCreditAmount(amount, payable.remaining)).gt(payable.remaining) ? "EXCEEDS_REMAINING"
+        : target.type === "refund" ? "RECIPIENT_CONFIRMATION" : null;
     const status = reviewReason ? "NEEDS_REVIEW" : "VERIFIED";
     const updated = await tx.paymentEvidence.update({ where: { id: current.id }, data: {
       reference: allowLocalSlipReuse() && duplicate && duplicate.id !== current.id ? `local-test:${randomUUID()}` : verified.reference, amount: verified.amount.toFixed(2), transactedAt: verified.transactedAt,
@@ -191,10 +199,15 @@ export async function processPendingSlip(id: string) {
 
 export async function reconcilePendingSlips() {
   const now = new Date();
-  await prisma.paymentEvidence.updateMany({ where: { status: "PENDING_UPLOAD", nextCheckAt: { lte: now } },
+  const cutoffValue = process.env.LOCAL_PENDING_SINCE;
+  const cutoff = cutoffValue ? new Date(cutoffValue) : null;
+  if (cutoffValue && (!allowLocalSlipReuse() || !cutoff || Number.isNaN(cutoff.getTime())))
+    throw new Error("Invalid local worker cutoff");
+  const localJobs = cutoff ? { queuedAt: { gte: cutoff } } : {};
+  await prisma.paymentEvidence.updateMany({ where: { ...localJobs, status: "PENDING_UPLOAD", nextCheckAt: { lte: now } },
     data: { status: "REJECTED", reviewReason: "INCOMPLETE_UPLOAD", nextCheckAt: null } });
   const jobs = await prisma.paymentEvidence.findMany({ where: {
-    status: "PENDING", nextCheckAt: { lte: now }, OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }],
+    ...localJobs, status: "PENDING", nextCheckAt: { lte: now }, OR: [{ leaseUntil: null }, { leaseUntil: { lte: now } }],
   }, select: { id: true }, orderBy: { nextCheckAt: "asc" }, take: 5 });
   // Sequential requests bound provider pressure; leases coordinate multiple instances.
   for (const job of jobs) await processPendingSlip(job.id);

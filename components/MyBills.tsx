@@ -32,7 +32,7 @@ const labels: Record<string, TranslationKey> = {
 };
 const paymentLabels: Record<BillPaymentStatus, TranslationKey> = {
   UNPAID: "myBills.paymentUnpaid", PARTIAL: "myBills.paymentPartial", REVIEW: "myBills.paymentReview",
-  BANK_PENDING: "payment.bankPendingShort", PAID: "myBills.paymentPaid", NO_PAYMENT: "myBills.noPayment",
+  BANK_PENDING: "payment.bankPendingShort", PAID: "myBills.paymentPaid", NO_PAYMENT: "myBills.noPayment", REFUND_PENDING: "refund.listPending",
 };
 export default function MyBills({ overviewOnly = false }: { overviewOnly?: boolean }) {
   const { t, formatLocale, feedback } = useI18n();
@@ -172,7 +172,7 @@ export default function MyBills({ overviewOnly = false }: { overviewOnly?: boole
                     <span className={`status status-${b.status.toLowerCase()}`}>
                       {labels[b.status] ? t(labels[b.status]) : b.status}
                     </span>
-                    {b.payment && <span className={`status ${["PAID", "NO_PAYMENT"].includes(b.payment.status) ? "status-published" : ["REVIEW", "BANK_PENDING", "PARTIAL"].includes(b.payment.status) ? "status-draft" : ""}`}>
+                    {b.payment && <span className={`status ${["PAID", "NO_PAYMENT"].includes(b.payment.status) ? "status-published" : ["REVIEW", "BANK_PENDING", "PARTIAL", "REFUND_PENDING"].includes(b.payment.status) ? "status-draft" : ""}`}>
                       {t(paymentLabels[b.payment.status])}
                     </span>}
                   </div>

@@ -32,6 +32,8 @@ type Bill = {
   grandTotal: string;
   receiptSubtotal: string;
   itemPayersEnabled: boolean;
+  refundPending?: boolean;
+  pendingRefunds?: { fromParticipantId: string | null; toParticipantId: string; remaining: string }[];
   serviceCharge: string;
   vat: string;
   status: string;
@@ -245,7 +247,7 @@ export default function SharedBill({ id }: { id: string }) {
   const receiptGroups = groupReceiptItems(bill.items, bill.restaurants);
   const hasNamedGroups = receiptGroups.some(group => group.name !== null);
   const cancelled = bill.status === "CANCELLED";
-  const progress = billProgress(bill);
+  const progress = { ...billProgress(bill), complete: billProgress(bill).complete && !bill.refundPending };
   const itemPayers = new Set(bill.items.flatMap(item => item.payer ? [item.payer.id] : []));
   const onePayerForWholeBill = itemPayers.size === 1 && bill.items.every(item => item.payer);
   const showItemPayers = bill.itemPayersEnabled && !onePayerForWholeBill;
@@ -312,6 +314,7 @@ export default function SharedBill({ id }: { id: string }) {
           {bill.status === "PUBLISHED" && <LiveStatus status={liveStatus} />}
         </div>
         {bill.status === "PUBLISHED" && bill.participants.length > 0 && <TableProgress progress={progress} />}
+        {bill.refundPending && <p className="warning" role="status">{t("refund.billPending")}</p>}
         <div className="share-items">
           <div className="receipt-items-heading"><h2>{t("bill.itemsHeading")} {bill.items.length}</h2><span>{t("common.baht")}</span></div>
           {receiptGroups.map((group, groupIndex) => {
@@ -387,6 +390,10 @@ export default function SharedBill({ id }: { id: string }) {
           <Icon name="users" size={19} />
         </div>
         {orderedPeople.map((p) => {
+          const incomingRefunds = (bill.pendingRefunds ?? []).filter(refund => refund.toParticipantId === p.id);
+          const outgoingRefunds = (bill.pendingRefunds ?? []).filter(refund => refund.fromParticipantId === p.id);
+          const hasRefund = incomingRefunds.length > 0 || outgoingRefunds.length > 0;
+          const personName = (personId: string | null) => personId === null ? t("bill.creator") : bill.participants.find(person => person.id === personId)?.name ?? t("bill.creator");
           const received = bill.settlements.filter((s) => s.toParticipantId === p.id);
           const incoming = received
             .reduce((sum, s) => sum.plus(s.amount), new Decimal(0));
@@ -399,7 +406,9 @@ export default function SharedBill({ id }: { id: string }) {
               <div className="participant-name-line">
                 <h3>{p.name}</h3>
                 {session?.user && p.isYou && <span className="participant-self-label">{t("bill.yourEntry")}</span>}
-                {p.isPaid && Number(p.totalPayable) > 0 && <span className="participant-paid-label"><Icon name="check" size={13} />{t("common.fullyPaid")}</span>}
+                {incomingRefunds.length > 0 && <span className={`participant-paid-label ${styles.refundIncoming}`}>{t("refund.awaitingReturn")}</span>}
+                {outgoingRefunds.length > 0 && <span className={`participant-paid-label ${styles.refundOutgoing}`}>{t("refund.returnDue")}</span>}
+                {!hasRefund && p.isPaid && Number(p.totalPayable) > 0 && <span className="participant-paid-label"><Icon name="check" size={13} />{t("common.fullyPaid")}</span>}
               </div>
               {bill.itemPayersEnabled ? (showExpense || paidUpfront.gt(0)) && <dl className="receipt-person-meta">
                 {showExpense && <div><dt>{t("bill.costs")}</dt><dd>{baht(p.shareAmount)}</dd></div>}
@@ -407,6 +416,10 @@ export default function SharedBill({ id }: { id: string }) {
               </dl> : <p>{p.isPaid ? t("payment.confirmed") : t("payment.awaitingPayment")}</p>}
               {p.slipStatus?.needsReview && <p className="participant-slip-status">{t("payment.uploadedAwaitingReview")}</p>}
               {p.slipStatus?.bankPending && <p className="participant-slip-status">{t("payment.uploadedAwaitingBank")}</p>}
+              {hasRefund && <div className={styles.refundDetails}>
+                {incomingRefunds.map((refund, index) => <div className={styles.refundIncomingDetail} key={`in-${index}`}><span>{t("refund.awaitingFrom", [personName(refund.fromParticipantId)])}</span>{" "}<strong>฿ {baht(refund.remaining)}</strong></div>)}
+                {outgoingRefunds.map((refund, index) => <div className={styles.refundOutgoingDetail} key={`out-${index}`}><span>{t("refund.owedTo", [personName(refund.toParticipantId)])}</span>{" "}<strong>฿ {baht(refund.remaining)}</strong></div>)}
+              </div>}
             </div>
             <div className="participant-payment">
             <div className="participant-amount">
@@ -432,12 +445,14 @@ export default function SharedBill({ id }: { id: string }) {
                 aria-label={t("payment.viewPerson", [p.name])}
                 onClick={() => pay(p)}
               >
-                {p.isPaid ? (
+                {hasRefund ? (
+                  <Icon name="arrow" size={15} />
+                ) : p.isPaid ? (
                   <Icon name="check" size={15} />
                 ) : (
                   <Icon name={Number(p.totalPayable) > 0 ? "wallet" : "arrow"} size={15} />
                 )}{" "}
-                {p.isPaid || Number(p.totalPayable) === 0 ? t("payment.view") : t("payment.viewAndPay")}
+                {hasRefund && (p.isPaid || Number(p.totalPayable) === 0) ? t("refund.viewDetails") : p.isPaid || Number(p.totalPayable) === 0 ? t("payment.view") : t("payment.viewAndPay")}
               </button>
             )}
             </div>

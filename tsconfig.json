@@ -39,7 +39,15 @@
     ".next-dev-aliases-20261031/types/**/*.ts",
     ".next-dev-aliases-20261031/dev/types/**/*.ts",
     ".next-dev-restaurants-20261031/types/**/*.ts",
-    ".next-dev-restaurants-20261031/dev/types/**/*.ts"
+    ".next-dev-restaurants-20261031/dev/types/**/*.ts",
+    ".next-prod-copy-20261118_222107/types/**/*.ts",
+    ".next-prod-copy-20261118_222107/dev/types/**/*.ts",
+    ".next-security-verify-20261118/types/**/*.ts",
+    ".next-security-verify-20261118/dev/types/**/*.ts",
+    ".next-security-verify-20261118b/types/**/*.ts",
+    ".next-security-verify-20261118b/dev/types/**/*.ts",
+    ".next-prod-copy-next1646-20261118/types/**/*.ts",
+    ".next-prod-copy-next1646-20261118/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

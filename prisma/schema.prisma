@@ -179,6 +179,8 @@ model Bill {
   items        BillItem[]
   participants Participant[]
   settlements BillSettlement[]
+  revisions BillRevision[]
+  refunds BillRefund[]
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -191,6 +193,7 @@ model BillItem {
   id     String @id @default(cuid())
   billId String @map("bill_id")
   bill   Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
+  archived Boolean @default(false)
 
   name         String
   restaurantId String? @map("restaurant_id")
@@ -207,6 +210,35 @@ model BillItem {
   payer Participant? @relation("ItemPayer", fields: [payerId], references: [id], onDelete: Restrict)
 
   @@map("bill_items")
+}
+
+model BillRevision {
+  id String @id @default(cuid())
+  billId String @map("bill_id")
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Restrict)
+  version Int
+  actorId Int @map("actor_id")
+  snapshot Json
+  createdAt DateTime @default(now()) @map("created_at")
+  @@unique([billId, version])
+  @@map("bill_revisions")
+}
+
+model BillRefund {
+  id String @id @default(cuid())
+  billId String @map("bill_id")
+  bill Bill @relation(fields: [billId], references: [id], onDelete: Restrict)
+  version Int
+  targetType String @map("target_type")
+  targetId String @map("target_id")
+  fromParticipantId String? @map("from_participant_id")
+  toParticipantId String @map("to_participant_id")
+  amount Decimal @db.Decimal(18, 2)
+  refundedAmount Decimal @default(0) @map("refunded_amount") @db.Decimal(18, 2)
+  createdAt DateTime @default(now()) @map("created_at")
+  @@index([billId, version])
+  @@index([targetType, targetId])
+  @@map("bill_refunds")
 }
 
 model Participant {

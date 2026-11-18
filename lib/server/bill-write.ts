@@ -56,13 +56,22 @@ export async function saveBill(id: string, userId: number, body: any) {
     await tx.$queryRaw`SELECT id FROM bills WHERE id = ${id} FOR UPDATE`;
     const bill = await tx.bill.findUnique({
       where: { id },
-      include: { participants: true, settlements: true },
+      include: { participants: true, settlements: true, items: { where: { archived: false }, include: { consumers: { select: { id: true } } } } },
     });
     if (!bill || !await ownsAccount(userId, bill.userId, tx))
       throw new AccessError("Not found", 404);
     if (body.version !== bill.version)
       throw new AccessError("บิลถูกแก้ไขจากหน้าต่างอื่น กรุณาโหลดใหม่", 409);
+    const refundIds = await tx.billRefund.findMany({ where: { billId: id }, select: { id: true } });
+    if (refundIds.length && await tx.paymentEvidence.count({ where: {
+      targetType: "refund", targetId: { in: refundIds.map(r => r.id) },
+      status: { in: ["UPLOADING", "PENDING_UPLOAD", "PENDING", "NEEDS_REVIEW"] },
+    } })) throw new AccessError("กรุณารอให้ตรวจสอบสลิปคืนเงินที่ค้างอยู่เสร็จก่อนแก้บิล", 409);
     const status = body.status ?? bill.status;
+    const openRefunds = await tx.billRefund.findMany({ where: { billId: id }, select: { amount: true, refundedAmount: true } });
+    const hasOpenRefund = openRefunds.some(r => r.refundedAmount.lt(r.amount));
+    if (hasOpenRefund && bill.status === "PUBLISHED" && status !== "PUBLISHED")
+      throw new AccessError("กรุณาคืนเงินที่ค้างอยู่ให้ครบก่อนหยุดแชร์หรือยกเลิกบิล", 409);
     if (
       !["DRAFT", "PUBLISHED", "UNSHARED", "CANCELLED"].includes(status) ||
       bill.status === "CANCELLED" ||
@@ -83,23 +92,41 @@ export async function saveBill(id: string, userId: number, body: any) {
     if (!editing && itemPayersEnabled !== bill.itemPayersEnabled)
       throw new AccessError("Select payers with complete bill data", 409);
     if (editing) {
-      const evidenceCount = await tx.paymentEvidence.count({
+      const evidence = await tx.paymentEvidence.findMany({
         where: {
           status: { notIn: ["REJECTED", "SUPERSEDED"] },
           OR: [
             { targetType: "participant", targetId: { in: bill.participants.map((p) => p.id) } },
             { targetType: "settlement", targetId: { in: bill.settlements.map((s) => s.id) } },
           ],
-        },
+        }, select: { status: true },
       });
-      if (
-        evidenceCount ||
-        bill.participants.some((p) => p.paidAmount.gt(0) || p.isPaid)
-      )
-        throw new AccessError(
-          "บิลมีหลักฐานการจ่ายแล้ว ไม่สามารถเปลี่ยนยอดหรือผู้ร่วมบิลได้",
-          409,
-        );
+      const hasPayments = evidence.length > 0 || bill.participants.some(p => p.paidAmount.gt(0) || p.isPaid);
+      if (!itemPayersEnabled && bill.participants.some(p => p.isPaid && p.paidAmount.isZero()))
+        throw new AccessError("บิลมีสถานะจ่ายแล้วที่ไม่ระบุยอด กรุณาตรวจสอบรายการเดิมก่อนแก้ไข", 409);
+      if (hasPayments && body.revisionConfirmed !== true)
+        throw new AccessError("กรุณาตรวจสอบและยืนยันผลการแก้บิลก่อนบันทึก", 409);
+      if (hasPayments && status !== "PUBLISHED")
+        throw new AccessError("ต้องแชร์บิลเพื่อให้ผู้เกี่ยวข้องดำเนินการคืนเงินได้", 409);
+      if (hasPayments) {
+        const actual = bill.itemPayersEnabled
+          ? bill.settlements.filter(s => s.paidAmount.gt(0)).map(s => [s.fromParticipantId, s.toParticipantId, s.paidAmount.toFixed(2)])
+          : bill.participants.filter(p => p.paidAmount.gt(0)).map(p => [p.id, "bill-owner", p.paidAmount.toFixed(2)]);
+        if (!Array.isArray(body.revisionPaymentSnapshot)) throw new AccessError("กรุณาโหลดบิลใหม่เพื่อตรวจสอบยอดชำระ", 409);
+        const submitted = body.revisionPaymentSnapshot.map((p: any) => {
+          if (typeof p?.from !== "string" || typeof p?.to !== "string") throw new AccessError("Invalid payment snapshot", 409);
+          return [p.from, p.to, money(p.amount, "paid amount").toFixed(2)];
+        });
+        const normalize = (rows: string[][]) => rows.map(row => JSON.stringify(row)).sort();
+        if (JSON.stringify(normalize(actual)) !== JSON.stringify(normalize(submitted)))
+          throw new AccessError("มียอดชำระเปลี่ยนระหว่างแก้บิล กรุณาโหลดใหม่และตรวจสอบอีกครั้ง", 409);
+      }
+      if (hasPayments && evidence.some(e => ["UPLOADING", "PENDING_UPLOAD", "PENDING", "NEEDS_REVIEW"].includes(e.status)))
+        throw new AccessError("กรุณารอให้ตรวจสอบสลิปที่ค้างอยู่เสร็จก่อนแก้บิล", 409);
+      if (hasOpenRefund)
+        throw new AccessError("กรุณาคืนเงินที่ค้างอยู่ให้ครบก่อนแก้บิลอีกครั้ง", 409);
+      if (hasPayments && itemPayersEnabled !== bill.itemPayersEnabled)
+        throw new AccessError("ไม่สามารถเปลี่ยนรูปแบบผู้รับเงินหลังมีการจ่าย", 409);
       if (
         !Array.isArray(body.items) ||
         body.items.length > 300 ||
@@ -159,6 +186,18 @@ export async function saveBill(id: string, userId: number, body: any) {
       const ids = new Set<string>(participants.map((p: any) => p.id));
       if (ids.size !== participants.length)
         throw new AccessError("Duplicate participant ID", 409);
+      if (hasPayments) {
+        const historicalIds = new Set(bill.participants.filter(p => p.paidAmount.gt(0)).map(p => p.id));
+        for (const s of bill.settlements.filter(s => s.paidAmount.gt(0))) {
+          historicalIds.add(s.fromParticipantId); historicalIds.add(s.toParticipantId);
+        }
+        if ([...historicalIds].some(personId => !ids.has(personId)))
+          throw new AccessError("ต้องเก็บผู้ที่เกี่ยวข้องกับรายการชำระไว้ในบิล", 409);
+        if (bill.participants.some(old => historicalIds.has(old.id) && participants.find((p: { id: string }) => p.id === old.id)?.accountUserId !== old.accountUserId))
+          throw new AccessError("ไม่สามารถเปลี่ยนบัญชีของผู้ที่มีประวัติการชำระ", 409);
+        if (bill.participants.some(old => historicalIds.has(old.id) && !old.accountUserId && participants.find((p: { id: string }) => p.id === old.id)?.promptPayId !== old.promptPayId))
+          throw new AccessError("ผู้ที่มีประวัติการชำระต้องยืนยันบัญชีและตั้งค่า PromptPay ของตนเอง", 409);
+      }
       const foreign = await tx.participant.count({
         where: { id: { in: [...ids] }, billId: { not: id } },
       });
@@ -227,6 +266,11 @@ export async function saveBill(id: string, userId: number, body: any) {
           consumerQuantities: cq as Record<string, number> | undefined,
         };
       });
+      const requestedItemIds = items.map((item: { id: string }) => item.id).filter(Boolean);
+      if (new Set(requestedItemIds).size !== requestedItemIds.length || requestedItemIds.some((itemId: string) => !/^[a-zA-Z0-9_-]{6,100}$/.test(itemId)))
+        throw new AccessError("Invalid item IDs", 409);
+      if (requestedItemIds.length && await tx.billItem.count({ where: { id: { in: requestedItemIds }, billId: { not: id } } }))
+        throw new AccessError("Item belongs to another bill", 409);
       const requestedPayers = body.payerCandidateIds ?? (Array.isArray(bill.payerCandidateIds)
         ? bill.payerCandidateIds.filter(id => typeof id === "string" && ids.has(id)) : []);
       if (requestedPayers !== null && requestedPayers !== undefined &&
@@ -277,6 +321,12 @@ export async function saveBill(id: string, userId: number, body: any) {
           }
         }
       }
+      if (hasPayments) {
+        await tx.billRevision.create({ data: {
+          billId: id, version: bill.version, actorId: userId,
+          snapshot: JSON.parse(JSON.stringify(bill)),
+        } });
+      }
       await autoFriend(tx, userId, linkedIds, "BILL");
       await tx.participant.updateMany({
         where: { billId: id },
@@ -293,7 +343,7 @@ export async function saveBill(id: string, userId: number, body: any) {
           totalPayable: itemPayersEnabled ? (balance ? balance.amountToPay.toFixed(2) : "0.00") : gross.toFixed(2),
           shareAmount: (balance?.shareAmount ?? gross).toFixed(2),
           paidUpfront: balance?.paidUpfront.toFixed(2) ?? "0.00",
-          paidAmount: "0.00",
+          paidAmount: !itemPayersEnabled && hasPayments ? (bill.participants.find(old => old.id === p.id)?.paidAmount.toFixed(2) ?? "0.00") : "0.00",
           isPaid: false,
           archived: false,
         };
@@ -301,11 +351,29 @@ export async function saveBill(id: string, userId: number, body: any) {
           where: { id: p.id }, create: { id: p.id, billId: id, ...data }, update: data,
         });
       }
-      await writeSettlementTransfers(tx, id, settlement);
-      await tx.billItem.deleteMany({ where: { billId: id } });
-      for (const item of items)
-        await tx.billItem.create({
-          data: {
+      await writeSettlementTransfers(tx, id, settlement, hasPayments ? bill.version + 1 : undefined);
+      if (hasPayments && !itemPayersEnabled) {
+        for (const old of bill.participants) {
+          const updated = result.participants.find(r => r.id === old.id);
+          const due = updated?.totalPayable ?? new Decimal(0);
+          const excess = new Decimal(old.paidAmount.toString()).minus(due);
+          if (excess.gt(0)) await tx.billRefund.create({ data: {
+            billId: id, version: bill.version + 1, targetType: "participant", targetId: old.id,
+            toParticipantId: old.id, amount: excess.toFixed(2),
+          } });
+          if (updated && old.paidAmount.gt(0)) await tx.participant.update({ where: { id: old.id }, data: { isPaid: old.paidAmount.gte(due.toFixed(2)) } });
+        }
+      }
+      if (itemPayersEnabled) {
+        for (const p of participants) {
+          const outgoing = await tx.billSettlement.findMany({ where: { billId: id, fromParticipantId: p.id, archived: false } });
+          const paid = outgoing.reduce((sum, s) => sum.plus(s.paidAmount), new Prisma.Decimal(0));
+          await tx.participant.update({ where: { id: p.id }, data: { paidAmount: paid, isPaid: outgoing.length > 0 && outgoing.every(s => s.isPaid) } });
+        }
+      }
+      await tx.billItem.updateMany({ where: { billId: id, archived: false, id: { notIn: requestedItemIds } }, data: { archived: true } });
+      for (const item of items) {
+        const data = {
             billId: id,
             restaurantId: item.restaurantId,
             payerId: item.payerId,
@@ -320,8 +388,13 @@ export async function saveBill(id: string, userId: number, body: any) {
             consumers: {
               connect: item.consumers.map((cid: string) => ({ id: cid })),
             },
-          },
-        });
+          };
+        const existing = item.id ? await tx.billItem.findFirst({ where: { id: item.id, billId: id } }) : null;
+        if (existing) {
+          const { billId: _billId, consumers: _consumers, ...fields } = data;
+          await tx.billItem.update({ where: { id: item.id }, data: { ...fields, archived: false, consumers: { set: item.consumers.map((cid: string) => ({ id: cid })) } } });
+        } else await tx.billItem.create({ data: { ...data, ...(item.id ? { id: item.id } : {}) } });
+      }
       await tx.bill.update({
         where: { id },
         data: {

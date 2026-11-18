@@ -11,6 +11,14 @@
 .toggle { min-height: 44px; padding: 4px 0; border: 0; background: transparent; color: var(--green); font: inherit; font-size: var(--text-support); font-weight: 600; cursor: pointer; }
 .toggle:hover { color: var(--green-dark); text-decoration: underline; }
 .due:global(.participant-balance-line) { display: flex; justify-content: flex-end; }
+.refundIncoming:global(.participant-paid-label) { background: #23567e; color: #fff; }
+.refundOutgoing:global(.participant-paid-label) { background: #8a3d1c; color: #fff; }
+.refundDetails { display: grid; gap: 6px; max-width: 380px; margin-top: 10px; font-size: var(--text-meta); }
+.refundDetails > div { display: flex; align-items: baseline; justify-content: space-between; gap: 8px 16px; padding: 7px 11px; border: 1px solid; border-inline-start-width: 4px; border-radius: 8px; }
+.refundDetails .refundIncomingDetail { border-color: #8db8d4; border-inline-start-color: #23567e; background: #e7f2fa; color: #164465; }
+.refundDetails .refundOutgoingDetail { border-color: #e0aa90; border-inline-start-color: #8a3d1c; background: #fcebe2; color: #713216; }
+.refundDetails span { min-width: 0; overflow-wrap: anywhere; }
+.refundDetails strong { flex: none; font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (max-width: 480px) {
   .groupHeading { align-items: start; }
   .groupTotal { max-width: 52%; }
@@ -23,6 +31,7 @@
   .personRow :global(.participant-pay-button) { grid-column: 2; grid-row: 1; align-self: center; }
   .personRow :global(.participant-info > dl), .personRow :global(.participant-info > p:not(.participant-slip-status)) { grid-column: 1; grid-row: 2; margin: 4px 0 0; }
   .personRow :global(.participant-slip-status) { grid-column: 1 / -1; }
+  .personRow .refundDetails { grid-column: 1 / -1; max-width: none; }
   .personRow :global(.receipt-person-meta) { display: flex; flex-wrap: wrap; gap: 2px 12px; }
   .personRow :global(.participant-amount) { grid-column: 2; grid-row: 2; min-width: 0; justify-self: end; margin-top: 4px; }
   .personRow :global(.amount-details-trigger) { text-align: right; }

@@ -9,9 +9,10 @@ import { receivableSummary, spendingSummary } from "../bill-dashboard";
 
 const select = {
   id: true, name: true, userId: true, grandTotal: true, status: true, version: true, isPublic: true, createdAt: true, itemPayersEnabled: true,
-  _count: { select: { participants: { where: { archived: false } }, items: true } },
+  _count: { select: { participants: { where: { archived: false } }, items: { where: { archived: false } } } },
   participants: { where: { archived: false }, select: { id: true, accountUserId: true, totalPayable: true, paidAmount: true, shareAmount: true, paidUpfront: true } },
   settlements: { where: { archived: false }, select: { id: true, fromParticipantId: true, toParticipantId: true, amount: true, paidAmount: true } },
+  refunds: { select: { fromParticipantId: true, toParticipantId: true, amount: true, refundedAmount: true } },
 } as const satisfies Prisma.BillSelect;
 type Bill = Prisma.BillGetPayload<{ select: typeof select }>;
 type Person = Bill["participants"][number];
@@ -33,7 +34,10 @@ function summarize(bill: Bill, people: Person[], latest: Map<string, string>): B
   });
   const fullAmount = targets.reduce((sum, target) => sum.plus(Decimal.max(target.amount, 0)), new Decimal(0));
   const outstanding = targets.filter(target => remaining(target.amount, target.paid).gt(0));
-  const status: BillPaymentStatus = fullAmount.isZero() && progress.remaining.isZero() ? "NO_PAYMENT"
+  const personIds = new Set(people.map(p => p.id));
+  const refundPending = bill.refunds.some(r => r.refundedAmount.lt(r.amount) &&
+    (people.length === bill.participants.length || personIds.has(r.toParticipantId) || (r.fromParticipantId !== null && personIds.has(r.fromParticipantId))));
+  const status: BillPaymentStatus = refundPending ? "REFUND_PENDING" : fullAmount.isZero() && progress.remaining.isZero() ? "NO_PAYMENT"
     : progress.remaining.isZero() ? "PAID"
     : outstanding.some(target => latest.get(`${target.type}:${target.id}`) === "NEEDS_REVIEW") ? "REVIEW"
     : outstanding.some(target => isPendingEvidence(latest.get(`${target.type}:${target.id}`))) ? "BANK_PENDING"
@@ -68,6 +72,6 @@ export async function listAccountBills(userId: number) {
     spending: spendingSummary(bills, ids),
     bills: bills.filter(bill => ownIds.has(bill.userId)).map(bill => row(bill, bill.participants, latest)),
     payableBills: bills.filter(bill => bill.status === "PUBLISHED" && mine(bill).length).map(bill => row(bill, mine(bill), latest))
-      .filter(bill => bill.payment && new Decimal(bill.payment.remaining).gt(0)),
+      .filter(bill => bill.payment && (new Decimal(bill.payment.remaining).gt(0) || bill.payment.status === "REFUND_PENDING")),
   };
 }

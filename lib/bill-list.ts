@@ -1,4 +1,4 @@
-export type BillPaymentStatus = "UNPAID" | "PARTIAL" | "REVIEW" | "BANK_PENDING" | "PAID" | "NO_PAYMENT";
+export type BillPaymentStatus = "UNPAID" | "PARTIAL" | "REVIEW" | "BANK_PENDING" | "PAID" | "NO_PAYMENT" | "REFUND_PENDING";
 export type BillListItem = {
   id: string;
   name: string;

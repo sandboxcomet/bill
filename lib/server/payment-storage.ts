@@ -4,6 +4,19 @@ import {
   GetObjectCommand,
 } from "@aws-sdk/client-s3";
 import { PaymentError } from "./slip-verification";
+import { allowLocalSlipReuse } from "./local-slip-testing";
+import { mkdir, open, readFile } from "node:fs/promises";
+import path from "node:path";
+
+// Local copies of production data may read old evidence from R2, but new test
+// slips must never be written into the production bucket.
+function localSlipPath(key: string) {
+  const directory = process.env.LOCAL_SLIP_STORAGE_DIR;
+  if (!directory) return null;
+  if (!allowLocalSlipReuse() || !path.isAbsolute(directory) || !/^evidence\/[a-zA-Z0-9_-]+\.png$/.test(key))
+    throw new PaymentError("Local slip storage is not configured safely", 503);
+  return path.join(directory, key.slice("evidence/".length));
+}
 
 function storage() {
   // Must be a private bucket without a public R2/custom domain.
@@ -26,8 +39,19 @@ function storage() {
 }
 
 export async function storeSlip(image: Buffer, evidenceId: string) {
-  const { bucket, client } = storage();
   const key = `evidence/${evidenceId}.png`;
+  const local = localSlipPath(key);
+  if (local) {
+    await mkdir(path.dirname(local), { recursive: true, mode: 0o700 });
+    try {
+      const file = await open(/* turbopackIgnore: true */ local, "wx", 0o600);
+      try { await file.writeFile(image); } finally { await file.close(); }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "EEXIST") throw error;
+    }
+    return key;
+  }
+  const { bucket, client } = storage();
   try {
     await client.send(
       new PutObjectCommand({
@@ -50,6 +74,11 @@ export async function storeSlip(image: Buffer, evidenceId: string) {
 }
 
 export async function readSlip(key: string) {
+  const local = localSlipPath(key);
+  if (local) {
+    try { return new Blob([new Uint8Array(await readFile(/* turbopackIgnore: true */ local))], { type: "image/png" }).stream(); }
+    catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error; }
+  }
   const { bucket, client } = storage();
   const result = await client.send(
     new GetObjectCommand({ Bucket: bucket, Key: key }),

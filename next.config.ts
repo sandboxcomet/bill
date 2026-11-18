@@ -4,6 +4,9 @@ const config: NextConfig = {
   distDir: process.env.NEXT_BUILD_DIR || ".next",
   turbopack: { root: process.cwd() },
   outputFileTracingRoot: process.cwd(),
+  experimental: {
+    agentUpgrade: "security",
+  },
   async headers() {
     return [
       {

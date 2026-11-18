@@ -1,0 +1,25 @@
+.receiptSection { margin-top: 24px; padding-top: 20px; border-top: 1px dashed var(--line); }
+.editorSection { margin-bottom: 20px; }
+.heading h2 { margin: 0; font-size: var(--text-body); }
+.entry { margin-top: 14px; }
+.entry + .entry { padding-top: 18px; border-top: 1px dashed var(--line); }
+.summary { padding: 14px 16px; border: 1px solid var(--refund-border); border-inline-start: 4px solid var(--refund-accent); border-radius: 8px; background: var(--refund-background); color: var(--refund-ink); }
+.incoming { --refund-border: #8db8d4; --refund-accent: #23567e; --refund-background: #e7f2fa; --refund-ink: #164465; }
+.outgoing { --refund-border: #e0aa90; --refund-accent: #8a3d1c; --refund-background: #fcebe2; --refund-ink: #713216; }
+.neutral { --refund-border: #cad5ce; --refund-accent: #62726b; --refund-background: #f5f7f6; --refund-ink: #192d28; }
+.complete { --refund-border: #b8d4c1; --refund-accent: #176246; --refund-background: #e8f1eb; --refund-ink: #104b35; }
+.summaryTop { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.summaryTop h3 { min-width: 0; margin: 0; font-size: var(--text-body); overflow-wrap: anywhere; }
+.status { display: inline-flex; align-items: center; padding: 3px 9px; border-radius: 6px; background: var(--refund-accent); color: #fff; font-size: var(--text-meta); font-weight: 700; line-height: 1.5; }
+.neutral .status { background: #52625a; }
+.amount { display: flex; align-items: baseline; justify-content: space-between; gap: 8px 16px; margin-top: 12px; }
+.amount span { font-size: var(--text-support); }
+.amount strong { font-size: 1.5rem; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.stateMessage { margin: 10px 0 0; color: var(--muted); font-size: var(--text-meta); }
+.original { margin-top: 14px; font-size: var(--text-support); }
+.original summary { width: fit-content; min-height: 44px; padding: 8px 0; color: var(--green-dark); font-weight: 600; cursor: pointer; }
+.entry :global(.receipt-upload) { margin-top: 14px; }
+@media (max-width: 520px) {
+  .summary { padding: 12px; }
+  .amount strong { font-size: 1.375rem; }
+}

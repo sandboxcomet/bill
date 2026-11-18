@@ -22,8 +22,10 @@ export async function GET(
   const bill = await prisma.bill.findUnique({
     where: { id },
     include: {
-      settlements: { select: { id: true } },
+      settlements: { select: { id: true, fromParticipantId: true, toParticipantId: true, paidAmount: true, amount: true, archived: true } },
+      refunds: { select: { amount: true, refundedAmount: true } },
       items: {
+        where: { archived: false },
         include: { consumers: { select: { id: true, name: true } } },
         orderBy: { id: "asc" },
       },
@@ -57,7 +59,7 @@ export async function GET(
     },
   });
   return NextResponse.json(
-    { bill: { ...bill, participants: bill.participants.map(person => {
+    { bill: { ...bill, hasOpenRefund: bill.refunds.some(refund => refund.refundedAmount.lt(refund.amount)), participants: bill.participants.map(person => {
       const p = participantDisplay(person);
       const account = person.accountUser ? primaryProfile(person.accountUser) : null;
       // Owner editor uses the account's current image, including merged profiles.

@@ -15,6 +15,7 @@ import ExpenseBreakdown, { type ExpenseDetails } from "./ExpenseBreakdown";
 import { useLiveRefresh } from "@/lib/use-live-refresh";
 import LiveStatus from "./LiveStatus";
 import { useBillTitle } from "@/lib/use-bill-title";
+import RefundPanel from "./RefundPanel";
 type SlipEvidence = { id: string; url: string; amount: string; status: string; transactedAt: string | null };
 type Payable = {
   name: string;
@@ -313,6 +314,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
       <p>{t("payment.noOutgoingHint")}</p>
       <LiveStatus status={liveStatus} />
       </div>
+      <RefundPanel billId={id} participantId={pid} />
       <ExpenseBreakdown details={data.expenseDetails} initiallyOpen />
       </article>
     </div>
@@ -348,6 +350,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
         <LiveStatus status={liveStatus} />
       </div>
       {claimPanel}
+      <RefundPanel billId={id} participantId={pid} />
       {data.bill.itemPayersEnabled && data.settlements.length > 1 && (
         <div className="payment-recipients" role="group" aria-label={t("payment.chooseRecipient")} aria-describedby={!canSelectPayment && guidedRecipientId ? "recipient-selection-guide" : undefined}>
           <p>{t("payment.recipientCountHint", [data.settlements.length])}</p>
@@ -376,6 +379,7 @@ export default function Payment({ id, pid }: { id: string; pid: string }) {
           <>
             <span className="status status-published">
               <Icon name="check" size={16} /> {t("payment.paymentConfirmedInFull")} </span>
+            <p>{t("payment.recordedPaidAmount")}</p>
             <strong>฿ {baht(p.paidAmount)}</strong>
             <p>{t("payment.thankYouForPayingYourShare")}</p>
           </>

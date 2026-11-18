@@ -45,7 +45,9 @@ export async function GET(req: NextRequest) {
           id: true, fromParticipantId: true, toParticipantId: true,
           amount: true, paidAmount: true, isPaid: true,
         } },
+        refunds: { select: { fromParticipantId: true, toParticipantId: true, amount: true, refundedAmount: true } },
         items: {
+          where: { archived: false },
           include: { consumers: { select: { id: true, name: true } }, payer: { select: { id: true, name: true } } },
         },
       },
@@ -105,7 +107,12 @@ export async function GET(req: NextRequest) {
       slipStatuses.set(target.participantId, summary);
     }
 
-    const { passcode: _passcode, ...safeBill } = bill;
+    const { passcode: _passcode, refunds, ...safeBill } = bill;
+    const refundPending = refunds.some(refund => refund.refundedAmount.lt(refund.amount));
+    const pendingRefunds = refunds.filter(refund => refund.refundedAmount.lt(refund.amount)).map(refund => ({
+      fromParticipantId: refund.fromParticipantId, toParticipantId: refund.toParticipantId,
+      remaining: refund.amount.minus(refund.refundedAmount).toFixed(2),
+    }));
     const shareCode = bill.owner.username && bill.status === "PUBLISHED"
       ? await ensureBillShareCode(bill.id, bill.shareCode) : null;
     const owner = primaryProfile(bill.owner);
@@ -117,6 +124,8 @@ export async function GET(req: NextRequest) {
       {
         bill: {
           ...safeBill,
+          refundPending,
+          pendingRefunds,
           sharePath: bill.owner.username && shareCode ? shortBillPath(bill.owner.username, shareCode) : null,
           canManage: isOwner,
           owner: {

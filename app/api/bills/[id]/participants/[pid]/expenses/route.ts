@@ -11,7 +11,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     const storedBill = await prisma.bill.findUniqueOrThrow({ where: { id }, select: {
       itemPayersEnabled: true, serviceCharge: true, vat: true, grandTotal: true,
       participants: { where: { archived: false }, select: { id: true, name: true, totalPayable: true, paidAmount: true, accountUser: { select: participantDisplayFields } } },
-      items: { include: { consumers: { select: { id: true } } }, orderBy: { id: "asc" } },
+      items: { where: { archived: false }, include: { consumers: { select: { id: true } } }, orderBy: { id: "asc" } },
     } });
     const bill = { ...storedBill, participants: storedBill.participants.map(participantDisplay) };
     if (!bill.participants.some(participant => participant.id === pid)) throw new AccessError("Not found", 404);
