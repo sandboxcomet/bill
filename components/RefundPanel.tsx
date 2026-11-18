@@ -5,6 +5,7 @@ import generatePayload from "promptpay-qr";
 import { useI18n } from "@/components/LanguageProvider";
 import { baht, jsonBody, request } from "@/lib/client";
 import BrandedQr from "./BrandedQr";
+import { isValidPromptPayId, promptPayErrorKey } from "@/lib/promptpay";
 import styles from "./RefundPanel.module.css";
 
 type Refund = {
@@ -12,6 +13,7 @@ type Refund = {
   fromParticipantId: string | null; toParticipantId: string; promptPayId: string | null;
   canPay: boolean; canReview: boolean; evidenceStatus: string | null; evidenceAmount: string | null; evidenceUrl: string | null;
   originalEvidence: { url: string; amount: string }[];
+  ownerCanSetPromptPay?: boolean;
 };
 const ignoreReady = () => {};
 
@@ -21,6 +23,8 @@ export default function RefundPanel({ billId, participantId }: { billId: string;
   const [busy, setBusy] = useState("");
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [editingRefund, setEditingRefund] = useState("");
+  const [promptPay, setPromptPay] = useState("");
   const [proofs, setProofs] = useState<Record<string, string>>({});
   const qrContainers = useRef<Record<string, HTMLDivElement | null>>({});
   const headers = useCallback(() => {
@@ -62,6 +66,16 @@ export default function RefundPanel({ billId, participantId }: { billId: string;
       const form = new FormData(); form.append("file", file);
       await request(`/api/bills/${billId}/refunds/${refund.id}`, { method: "POST", headers: headers(), body: form });
       await load(); setMessage(t("refund.recorded"));
+    } catch (error) { setError((error as Error).message); }
+    finally { setBusy(""); }
+  }
+  async function saveRecipient(refund: Refund, event: React.FormEvent) {
+    event.preventDefault();
+    if (!isValidPromptPayId(promptPay)) { setError(t(promptPayErrorKey(promptPay))); return; }
+    setBusy(refund.id); setError("");
+    try {
+      await request(`/api/bills/${billId}/refunds`, { method: "PATCH", ...jsonBody({ refundId: refund.id, promptPayId: promptPay }) });
+      setEditingRefund(""); setPromptPay(""); await load(); setMessage(t("refund.promptPaySaved"));
     } catch (error) { setError((error as Error).message); }
     finally { setBusy(""); }
   }
@@ -108,6 +122,15 @@ export default function RefundPanel({ billId, participantId }: { billId: string;
           <div className={styles.summaryTop}><h3>{t("refund.transfer", [refund.fromName, refund.toName])}</h3><span className={styles.status}>{status}</span></div>
           <div className={styles.amount}><span>{t("refund.remaining")}</span><strong>฿ {baht(remaining)}</strong></div>
         </div>
+        {!participantId && refund.ownerCanSetPromptPay && (editingRefund === refund.id ?
+          <form onSubmit={event => void saveRecipient(refund, event)}>
+            <label className="field"><span>{t("refund.promptPayFor", [refund.toName])}</span>
+              <input type="text" inputMode="numeric" autoComplete="off" maxLength={13} value={promptPay} onChange={event => setPromptPay(event.target.value.replace(/\D/g, ""))} required /></label>
+            <p className="field-hint">{t("refund.verifyRecipient")}</p>
+            <div className="editor-share-actions"><button type="submit" className="button primary" disabled={Boolean(busy)}>{t("common.save")}</button>
+              <button type="button" className="button secondary" onClick={() => { setEditingRefund(""); setPromptPay(""); setError(""); }}>{t("common.cancel")}</button></div>
+          </form> : <div><p className="warning">{t("refund.ownerMissingPromptPay", [refund.toName])}</p>
+            <button type="button" className="button secondary" onClick={() => { setEditingRefund(refund.id); setPromptPay(""); setError(""); }}>{t("payer.addPromptPay")}</button></div>)}
         {!remaining.isZero() && (pending ? <p className={styles.stateMessage} role="status">{t("refund.pending")}</p> : review ? <p className={styles.stateMessage}>{t("refund.review")}</p> : refund.canPay ? <>
           {qr ? <>{process.env.NODE_ENV === "development" && <p className="warning">{t("refund.testQr", [baht(qrAmount)])}</p>}
             <div className="qr-box" ref={node => { qrContainers.current[refund.id] = node; }}><BrandedQr value={qr} title={t("payment.qrAccessibleLabel", [qrAmount.toFixed(2)])} onReady={ignoreReady} /></div>

@@ -31,6 +31,8 @@
 .refundAmount dd { color: var(--warning); }
 .outstandingAmount dd { color: var(--green-dark); }
 .refundDirection { margin: 10px 0 0; color: var(--warning); font-size: var(--text-meta); }
+.promptPay { margin-top: 12px; }
+.promptPay :global(.field-hint) { margin-bottom: 0; }
 .notice { display: flex; align-items: start; gap: 8px; margin: 18px 0 0; color: var(--muted); font-size: var(--text-meta); }
 .notice svg { flex: none; margin-top: 3px; }
 .footer { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 24px; border-top: 1px solid var(--line); background: var(--paper); }

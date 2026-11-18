@@ -690,7 +690,7 @@ export default function BillEditor({
     } catch (e) { setAliasError((e as Error).message); }
     finally { setAliasSaving(false); }
   }
-  async function save(publish = false, automatic = false, confirmed = false) {
+  async function save(publish = false, automatic = false, confirmed = false, refundNumbers: Record<string, string> = {}) {
     if (saveGuard.current || demo) return;
     setError("");
     setNotice("");
@@ -767,7 +767,8 @@ export default function BillEditor({
       const names = new Map(draft.participants.map(p => [p.id, p.name]));
       names.set("bill-owner", t("bill.creator"));
       const rows = reconcileBillPayments(debts, pastPayments, []).map(p => ({
-        from: names.get(p.from) ?? p.from, to: names.get(p.to) ?? p.to,
+        from: names.get(p.from) ?? p.from, fromId: p.from, to: names.get(p.to) ?? p.to,
+        recipientPromptPay: accountPromptPays.find(a => a.id === p.from)?.value || draft.participants.find(person => person.id === p.from)?.promptPayId || null,
         owed: p.owed.toFixed(2), paid: p.paid.toFixed(2),
         remaining: p.remaining.toFixed(2), refundDue: p.refundDue.toFixed(2),
       }));
@@ -790,6 +791,7 @@ export default function BillEditor({
         });
       const payload = {
         ...draft,
+        participants: draft.participants.map(person => refundNumbers[person.id] ? { ...person, promptPayId: refundNumbers[person.id] } : person),
         revisionConfirmed: revisionEditing,
         revisionPaymentSnapshot: revisionEditing ? pastPayments : undefined,
         version: version.current,
@@ -971,11 +973,11 @@ export default function BillEditor({
       {revisionEditing && <div className="warning" role="status">{t("editor.revisionEditingHint")}</div>}
       {billId && <RefundPanel billId={billId} />}
       {billId && <BillRevisionHistory billId={billId} />}
-      {revisionReview && <BillRevisionDialog rows={revisionReview.rows} onCancel={() => setRevisionReview(null)} onConfirm={() => {
+      {revisionReview && <BillRevisionDialog rows={revisionReview.rows} onCancel={() => setRevisionReview(null)} onConfirm={(numbers) => {
         const review = revisionReview;
         setRevisionReview(null);
         if (editRevision.current !== review.editRevision) { setError(t("editor.revisionChanged")); return; }
-        void save(review.publish, false, true);
+        void save(review.publish, false, true, numbers);
       }} />}
       {showLeaveDialog && <LeaveBillDialog onCancel={() => setShowLeaveDialog(false)} onConfirm={() => {
         confirmedLeaving.current = true;

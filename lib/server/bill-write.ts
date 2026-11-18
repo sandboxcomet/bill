@@ -10,6 +10,7 @@ import { autoFriend } from "./social";
 import { isBillPin } from "@/lib/pin";
 import { ownsAccount, primaryProfile, resolvedProfileFields } from "./account-identity";
 import { participantPromptPay, participantPromptPayFields } from "./participant-promptpay";
+import { reconcileBillPayments } from "@/lib/reconcile-bill-payments";
 
 const editorPayers = { participants: { where: { archived: false }, select: { id: true, accountUserId: true, ...participantPromptPayFields } } } as const;
 import { roundBillTotal, type BillRounding } from "@/lib/bill-rounding";
@@ -195,7 +196,7 @@ export async function saveBill(id: string, userId: number, body: any) {
           throw new AccessError("ต้องเก็บผู้ที่เกี่ยวข้องกับรายการชำระไว้ในบิล", 409);
         if (bill.participants.some(old => historicalIds.has(old.id) && participants.find((p: { id: string }) => p.id === old.id)?.accountUserId !== old.accountUserId))
           throw new AccessError("ไม่สามารถเปลี่ยนบัญชีของผู้ที่มีประวัติการชำระ", 409);
-        if (bill.participants.some(old => historicalIds.has(old.id) && !old.accountUserId && participants.find((p: { id: string }) => p.id === old.id)?.promptPayId !== old.promptPayId))
+        if (bill.participants.some(old => historicalIds.has(old.id) && !old.accountUserId && old.promptPayId && participants.find((p: { id: string }) => p.id === old.id)?.promptPayId !== old.promptPayId))
           throw new AccessError("ผู้ที่มีประวัติการชำระต้องยืนยันบัญชีและตั้งค่า PromptPay ของตนเอง", 409);
       }
       const foreign = await tx.participant.count({
@@ -319,6 +320,16 @@ export async function saveBill(id: string, userId: number, body: any) {
             if (person?.accountUserId) throw new AccessError("social.accountPromptPayRequired", 409);
             throw new AccessError(`ใส่ PromptPay ของ ${p.name} เพื่อรับเงินคืน`, 409);
           }
+        }
+      }
+      if (hasPayments) {
+        const debts = itemPayersEnabled ? (settlement?.transfers ?? []).map(row => ({ from: row.fromParticipantId, to: row.toParticipantId, amount: row.amount }))
+          : result.participants.map(row => ({ from: row.id, to: "bill-owner", amount: row.totalPayable }));
+        const payments = itemPayersEnabled ? bill.settlements.filter(row => row.paidAmount.gt(0)).map(row => ({ from: row.fromParticipantId, to: row.toParticipantId, amount: row.paidAmount.toString() }))
+          : bill.participants.filter(row => row.paidAmount.gt(0)).map(row => ({ from: row.id, to: "bill-owner", amount: row.paidAmount.toString() }));
+        for (const row of reconcileBillPayments(debts, payments, []).filter(row => row.refundDue.gt(0))) {
+          const recipient = participants.find((person: typeof participants[number]) => person.id === row.from);
+          if (!recipient?.accountPromptPayId && !recipient?.promptPayId) throw new AccessError(`ใส่ PromptPay ของ ${recipient?.name ?? "ผู้รับเงินคืน"} เพื่อรับเงินคืน`, 409);
         }
       }
       if (hasPayments) {

@@ -1,22 +1,25 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Decimal from "decimal.js";
+import { isValidPromptPayId } from "@/lib/promptpay";
 import { useI18n } from "@/components/LanguageProvider";
 import { baht } from "@/lib/client";
 import { Icon } from "./Icons";
 import styles from "./BillRevisionDialog.module.css";
 
 export type RevisionReviewRow = {
-  from: string; to: string; owed: string; paid: string; remaining: string; refundDue: string;
+  from: string; fromId: string; to: string; owed: string; paid: string; remaining: string; refundDue: string; recipientPromptPay: string | null;
 };
 
 export default function BillRevisionDialog({ rows, onCancel, onConfirm }: {
-  rows: RevisionReviewRow[]; onCancel: () => void; onConfirm: () => void;
+  rows: RevisionReviewRow[]; onCancel: () => void; onConfirm: (numbers: Record<string, string>) => void;
 }) {
   const { t } = useI18n();
   const dialog = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const [numbers, setNumbers] = useState<Record<string, string>>({});
+  const [showErrors, setShowErrors] = useState(false);
   useEffect(() => { if (dialog.current && !dialog.current.open) dialog.current.showModal(); }, []);
   const refundTotal = rows.reduce((sum, row) => sum.plus(row.refundDue), new Decimal(0));
   const remainingTotal = rows.reduce((sum, row) => sum.plus(row.remaining), new Decimal(0));
@@ -55,6 +58,14 @@ export default function BillRevisionDialog({ rows, onCancel, onConfirm }: {
               </div>}
             </dl>
             {refund && <p className={styles.refundDirection}>{t("editor.revisionRefundDirection", [row.to, row.from])}</p>}
+            {refund && !row.recipientPromptPay && <div className={styles.promptPay}>
+              <label className="field"><span>{t("refund.promptPayFor", [row.from])}</span>
+                <input inputMode="numeric" autoComplete="off" maxLength={13} value={numbers[row.fromId] ?? ""}
+                  aria-invalid={showErrors && !isValidPromptPayId(numbers[row.fromId] ?? "")}
+                  onChange={event => setNumbers(previous => ({ ...previous, [row.fromId]: event.target.value.replace(/\D/g, "") }))} /></label>
+              {showErrors && !isValidPromptPayId(numbers[row.fromId] ?? "") && <p className="error" role="alert">{t("errors.personPromptPayInvalid", [row.from])}</p>}
+              <p className="field-hint">{t("refund.verifyRecipient")}</p>
+            </div>}
           </section>;
         })}
       </div>
@@ -62,7 +73,10 @@ export default function BillRevisionDialog({ rows, onCancel, onConfirm }: {
     </div>
     <div className={styles.footer}>
       <button type="button" className="button secondary" autoFocus onClick={() => dialog.current?.close()}>{t("common.cancel")}</button>
-      <button type="button" className="button primary" onClick={() => { dialog.current?.close(); onConfirm(); }}>{t("editor.revisionConfirmSave")}</button>
+      <button type="button" className="button primary" onClick={() => {
+        if (rows.some(row => new Decimal(row.refundDue).gt(0) && !row.recipientPromptPay && !isValidPromptPayId(numbers[row.fromId] ?? ""))) { setShowErrors(true); return; }
+        dialog.current?.close(); onConfirm(numbers);
+      }}>{t("editor.revisionConfirmSave")}</button>
     </div>
   </dialog>;
 }
