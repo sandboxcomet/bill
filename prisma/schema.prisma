@@ -194,6 +194,7 @@ model BillItem {
   billId String @map("bill_id")
   bill   Bill   @relation(fields: [billId], references: [id], onDelete: Cascade)
   archived Boolean @default(false)
+  sortOrder Int @default(0) @map("sort_order")
 
   name         String
   restaurantId String? @map("restaurant_id")

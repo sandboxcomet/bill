@@ -1,6 +1,27 @@
 import type { TranslationKey } from "./th";
 
 export const english = {
+  "order.dragColumn": "Drag to reorder",
+  "order.dragItem": "Drag {0} to reorder",
+  "order.title": "Order items",
+  "order.hint": "Drag the handle or use the move buttons. Changes save automatically and appear within each place.",
+  "order.item": "Item",
+  "order.place": "Place",
+  "order.position": "Position",
+  "order.move": "Move",
+  "order.up": "Move {0} up",
+  "order.down": "Move {0} down",
+  "order.save": "Save order",
+  "order.pending": "Waiting to save…",
+  "order.leaveWarning": "The order has not been saved yet. Leave this page?",
+  "order.saving": "Saving…",
+  "order.saved": "Order saved",
+  "order.empty": "There are no items in this bill yet.",
+  "order.error": "Could not load or save the order. Please try again.",
+  "order.conflict": "Items or their order changed in another window. Reload this page.",
+  "order.back": "Back to bill",
+  "order.unnamed": "Untitled item",
+
   "notifications.title": "Notifications",
   "notifications.count": "Notifications, {0} items need attention",
   "notifications.hint": "Items needing attention",

@@ -383,6 +383,7 @@ export async function saveBill(id: string, userId: number, body: any) {
         }
       }
       await tx.billItem.updateMany({ where: { billId: id, archived: false, id: { notIn: requestedItemIds } }, data: { archived: true } });
+      let nextItemOrder = bill.items.reduce((max, item) => Math.max(max, item.sortOrder), 0) + 1;
       for (const item of items) {
         const data = {
             billId: id,
@@ -404,7 +405,7 @@ export async function saveBill(id: string, userId: number, body: any) {
         if (existing) {
           const { billId: _billId, consumers: _consumers, ...fields } = data;
           await tx.billItem.update({ where: { id: item.id }, data: { ...fields, archived: false, consumers: { set: item.consumers.map((cid: string) => ({ id: cid })) } } });
-        } else await tx.billItem.create({ data: { ...data, ...(item.id ? { id: item.id } : {}) } });
+        } else await tx.billItem.create({ data: { ...data, sortOrder: nextItemOrder++, ...(item.id ? { id: item.id } : {}) } });
       }
       await tx.bill.update({
         where: { id },

@@ -27,7 +27,7 @@ export async function GET(
       items: {
         where: { archived: false },
         include: { consumers: { select: { id: true, name: true } } },
-        orderBy: { id: "asc" },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
       },
       participants: {
         where: { archived: false },

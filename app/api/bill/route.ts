@@ -48,6 +48,7 @@ export async function GET(req: NextRequest) {
         refunds: { select: { fromParticipantId: true, toParticipantId: true, amount: true, refundedAmount: true } },
         items: {
           where: { archived: false },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
           include: { consumers: { select: { id: true, name: true } }, payer: { select: { id: true, name: true } } },
         },
       },

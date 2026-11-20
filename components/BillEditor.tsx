@@ -954,6 +954,7 @@ export default function BillEditor({
           <span className={`status status-${billStatus.toLowerCase()}`}>
             {t(billStatus === "PUBLISHED" ? "bill.status.published" : billStatus === "UNSHARED" ? "bill.status.unshared" : "bill.status.draft")}
           </span>
+          {!demo && billId && <Link className={`button secondary${saving || autoSaving || savedDirty || personEditDirty || aliasSaving || recoveryConflict ? " disabled" : ""}`} href={`${manageBillPath(billId)}/order`} aria-disabled={saving || autoSaving || savedDirty || personEditDirty || aliasSaving || Boolean(recoveryConflict)} onClick={e => { if (saving || autoSaving || savedDirty || personEditDirty || aliasSaving || recoveryConflict || dirty.current || pendingPersonEdit.current) e.preventDefault(); }}>{t("order.title")}</Link>}
           {!demo && billId && billStatus === "PUBLISHED" && <button type="button" className="button secondary" disabled={saving || autoSaving || savedDirty || personEditDirty || aliasSaving} onClick={stopSharing}>
             {t("editor.stopSharing")}
           </button>}
